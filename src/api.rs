@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use axum::body::Bytes;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Default)]
 pub struct VisionDetectionRequest {
