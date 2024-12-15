@@ -1,0 +1,76 @@
+[package]
+name = "blue-onyx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_System_Threading"] }
+ab_glyph = "0"
+anyhow = "1"
+axum = { version = "0", features = ["multipart"] }
+bytes = "1"
+chrono = "0"
+fast_image_resize = "5"
+futures = "0"
+hf-hub = { version = "0", features = ["tokio"] }
+image = "0"
+imageproc = "0"
+indicatif = "0"
+jpeg-encoder = "0"
+ndarray = "*"
+num_cpus = "1"
+nvml-wrapper = "0"
+ort = {version = "2.0.0-rc.9", default-features = false, features = ["ndarray", "load-dynamic", "directml"]}
+raw-cpuid = "11"
+reqwest = { version = "0", features = ["stream", "multipart", "json"] }
+rusttype = "0"
+serde = "1"
+serde_yaml = "*"
+smallvec = {version = "1", features = ["union"]}
+tracing = {version = "0"}
+tracing-appender = "0"
+tracing-subscriber = {version = "0"}
+uuid = { version = "1", features = ["v4"] }
+zune-core = "0"
+zune-jpeg = "0"
+
+clap = {version = "4", default-features = false, features = [
+    "derive", 
+    "color",
+    "error-context",
+    "help",
+    "std",
+    "suggestions",
+    "usage"
+    ]}
+
+tokio = { version = "1", features = [
+    "fs",
+    "io-util",
+    "macros",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+] }
+tokio-util = { version = "0", features = ["codec"] }
+
+[target.'cfg(windows)'.dependencies]
+ansi_term = "0"
+windows = { version = "0", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D12",
+] }
+
+[build-dependencies]
+ureq = "2"
+zip = "*"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+codegen-units = 1

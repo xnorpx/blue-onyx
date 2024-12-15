@@ -1,0 +1,89 @@
+use tracing::info;
+
+pub fn system_info() -> anyhow::Result<()> {
+    info!("System Information:");
+    cpu_info()?;
+    gpu_info(true)?;
+    Ok(())
+}
+
+pub fn cpu_model() -> String {
+    use raw_cpuid::CpuId;
+    let cpuid = CpuId::new();
+    match cpuid.get_processor_brand_string() {
+        Some(cpu_brand) => cpu_brand.as_str().to_owned(),
+        None => "Unknown".to_owned(),
+    }
+}
+
+pub fn gpu_model(index: usize) -> String {
+    let gpu_names = gpu_info(false).unwrap_or_default();
+    gpu_names.get(index).cloned().unwrap_or_else(|| "Unknown".to_owned())
+}
+
+pub fn cpu_info() -> anyhow::Result<()> {
+    use raw_cpuid::CpuId;
+    let cpuid = CpuId::new();
+
+    let cpu_vendor_info = match cpuid.get_vendor_info() {
+        Some(vendor_info) => vendor_info.as_str().to_owned(),
+        None => "Unknown".to_owned(),
+    };
+
+    let cpu_brand = match cpuid.get_processor_brand_string() {
+        Some(cpu_brand) => cpu_brand.as_str().to_owned(),
+        None => "Unknown".to_owned(),
+    };
+
+    info!(
+        "CPU | {} | {} | {} Cores | {} Logical Cores",
+        cpu_vendor_info,
+        cpu_brand,
+        num_cpus::get_physical(),
+        num_cpus::get()
+    );
+    Ok(())
+}
+
+pub fn gpu_info(log_info: bool) -> windows::core::Result<Vec<String>> {
+    use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, DXGI_ADAPTER_DESC1};
+    let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
+    let mut adapter_index = 0;
+    let mut gpu_names = Vec::new();
+
+    while let Ok(adapter) = unsafe { factory.EnumAdapters1(adapter_index) } {
+        let desc: DXGI_ADAPTER_DESC1 = unsafe { adapter.GetDesc1()? };
+        let device_name = String::from_utf16_lossy(&desc.Description);
+        if !device_name.contains("Microsoft") {
+            let device_name = String::from_utf16_lossy(&desc.Description);
+            gpu_names.push(device_name.clone());
+            if log_info {
+                info!(
+                    "GPU {} | {} | Vendor: {:X}, Device: {:X}, Dedicated VRAM: {:.2} MB",
+                    adapter_index,
+                    device_name,
+                    desc.VendorId,
+                    desc.DeviceId,
+                    desc.DedicatedVideoMemory as f64 / (1024.0 * 1024.0) // Convert bytes to MB
+                );
+            }
+        }
+        adapter_index += 1;
+    }
+
+    Ok(gpu_names)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn print_cuda_gpu_info() {
+        gpu_info(true).unwrap();
+    }
+
+    #[test]
+    fn print_cpu_info() {
+        cpu_info().unwrap()
+    }
+}
