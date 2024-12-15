@@ -1,20 +1,18 @@
+use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;
-use std::path::PathBuf;
 
-const RT_DETR2_MODELS: &[(&str, &[&str])] = &[
-    (
-        // TODO: Update the model repository name to rt-detrv2-onnx
-        "xnorpx/rt-detr2-onnx",
-        &[
-            "rt-detrv2-s.onnx",
-            "rt-detrv2-ms.onnx",
-            "rt-detrv2-m.onnx",
-            "rt-detrv2-l.onnx",
-            "rt-detrv2-x.onnx",
-        ],
-    ),
-];
+const RT_DETR2_MODELS: &[(&str, &[&str])] = &[(
+    // TODO: Update the model repository name to rt-detrv2-onnx
+    "xnorpx/rt-detr2-onnx",
+    &[
+        "rt-detrv2-s.onnx",
+        "rt-detrv2-ms.onnx",
+        "rt-detrv2-m.onnx",
+        "rt-detrv2-l.onnx",
+        "rt-detrv2-x.onnx",
+    ],
+)];
 
 pub fn download_models(model_path: PathBuf) -> anyhow::Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -32,7 +30,11 @@ pub fn download_models(model_path: PathBuf) -> anyhow::Result<()> {
             for filename in models.iter() {
                 let cached_file_path = api.get(filename).await?;
                 tokio::fs::copy(cached_file_path, model_path.join(filename)).await?;
-                info!("Copied {} to {}", filename, model_path.join(filename).display());
+                info!(
+                    "Copied {} to {}",
+                    filename,
+                    model_path.join(filename).display()
+                );
                 downloaded_models.push(filename);
             }
         }

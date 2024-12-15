@@ -1,16 +1,9 @@
 use blue_onyx::{
-    detector::DetectorConfig,
-    init_logging,
-    server::run_server,
-    system_info::system_info,
-    worker::DetectorWorker,
-    LogLevel,
+    detector::DetectorConfig, init_logging, server::run_server, system_info::system_info,
+    worker::DetectorWorker, LogLevel,
 };
 use clap::Parser;
-use std::{
-    path::PathBuf,
-    sync::mpsc::channel,
-};
+use std::{path::PathBuf, sync::mpsc::channel};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use windows::Win32::System::Threading::{
