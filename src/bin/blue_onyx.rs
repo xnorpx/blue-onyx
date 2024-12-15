@@ -115,7 +115,7 @@ fn main() -> anyhow::Result<()> {
             let previous_mask = SetThreadAffinityMask(thread_handle, core_mask);
             if previous_mask == 0 {
                 error!("Failed to set thread affinity.");
-            } 
+            }
         }
         detector_worker.run();
     });

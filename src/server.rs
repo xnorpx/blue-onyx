@@ -1,7 +1,7 @@
 use crate::api::{
-        StatusUpdateResponse, VersionInfo, VisionCustomListResponse, VisionDetectionRequest,
-        VisionDetectionResponse,
-    };
+    StatusUpdateResponse, VersionInfo, VisionCustomListResponse, VisionDetectionRequest,
+    VisionDetectionResponse,
+};
 use axum::{
     body::{self, Body},
     extract::{DefaultBodyLimit, Multipart, State},
@@ -17,9 +17,9 @@ use std::{
     time::Instant,
 };
 use tokio::sync::oneshot;
+use tokio::time::{timeout, Duration};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
-use tokio::time::{timeout, Duration};
 
 const MEGABYTE: usize = 1024 * 1024; // 1 MB = 1024 * 1024 bytes
 const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
@@ -27,16 +27,21 @@ const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
 struct Metrics {}
 
 struct ServerState {
-    sender: Sender<(VisionDetectionRequest, oneshot::Sender<VisionDetectionResponse>)>,
+    sender: Sender<(
+        VisionDetectionRequest,
+        oneshot::Sender<VisionDetectionResponse>,
+    )>,
     _metrics: Metrics, // TODO: Implement metrics
 }
 
 pub async fn run_server(
     port: u16,
     cancellation_token: CancellationToken,
-    sender: Sender<(VisionDetectionRequest, oneshot::Sender<VisionDetectionResponse>)>
+    sender: Sender<(
+        VisionDetectionRequest,
+        oneshot::Sender<VisionDetectionResponse>,
+    )>,
 ) -> anyhow::Result<()> {
-
     let server_state = Arc::new(ServerState {
         sender,
         _metrics: Metrics {}, // TODO: Implement metrics

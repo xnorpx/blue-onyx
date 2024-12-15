@@ -18,86 +18,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
-# Compute capability: https://developer.nvidia.com/cuda-gpus
 jobs:
-  build-cuda:
-    name: build-cuda
-    env:
-      RUST_BACKTRACE: 1
-      RUSTFLAGS: -C target-cpu=native
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 61
-          cuda: '12.5.0'
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 61
-          cuda: '12.5.0'
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 75
-          cuda: '12.5.0'
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 75
-          cuda: '12.5.0'
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 86
-          cuda: '12.5.0'
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 86
-          cuda: '12.5.0'
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 89
-          cuda: '12.5.0'
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 89
-          cuda: '12.5.0'
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-
-    - name: Configure build for amd64
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: amd64
-
-    - uses: Jimver/cuda-toolkit@v0.2.16
-      id: cuda-toolkit
-      with:
-        cuda: ${{ matrix.cuda }}
-        method: 'network'
-        sub-packages: '[]'
-        non-cuda-sub-packages: '["libcublas"]'
-
-    - name: Build release blue-candle
-      run: cargo build --release --features cuda
-      env:
-        CUDA_COMPUTE_CAP: ${{ matrix.computecap }}
-
   build-test-cpu:
     name: build-test-cpu
     env:
@@ -108,15 +29,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - build: beta
-          os: ubuntu-latest
+        - build: win beta
+          os: windows-latest
           rust: beta
-        - build: nightly
-          os: ubuntu-latest
+        - build: win nightly
+          os: windows-latest
           rust: nightly
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
         - build: win
           os: windows-latest
           rust: stable
@@ -130,11 +48,8 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
 
-    - name: Build debug blue-candle
-      run: cargo build
-
-    - name: Run test with release
-      run: cargo run --release --bin blue_candle -- --test
+    - name: Build release blue-onyx
+      run: cargo build --release
 
   rustfmt:
     runs-on: ubuntu-latest

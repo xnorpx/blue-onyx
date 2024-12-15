@@ -90,25 +90,23 @@ impl Detector {
                 num_intra_threads, num_inter_threads
             );
             (num_intra_threads, num_inter_threads)
+        } else if direct_ml_available() {
+            providers.push(
+                DirectMLExecutionProvider::default()
+                    .with_device_id(detector_config.gpu_index)
+                    .build(),
+            );
+            device_type = DeviceType::GPU;
+            (1, 1) // For GPU we just hardcode to 1 thread
         } else {
-            if direct_ml_available() {
-                providers.push(
-                    DirectMLExecutionProvider::default()
-                        .with_device_id(detector_config.gpu_index)
-                        .build(),
-                );
-                device_type = DeviceType::GPU;
-                (1, 1) // For GPU we just hardcode to 1 thread
-            } else {
-                let num_intra_threads = detector_config
-                    .intra_threads
-                    .min(num_cpus::get_physical() - 1);
-                let num_inter_threads = detector_config
-                    .inter_threads
-                    .min(num_cpus::get_physical() - 1);
-                warn!("DirectML not available, falling back to CPU for inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
-                (detector_config.intra_threads, detector_config.inter_threads)
-            }
+            let num_intra_threads = detector_config
+                .intra_threads
+                .min(num_cpus::get_physical() - 1);
+            let num_inter_threads = detector_config
+                .inter_threads
+                .min(num_cpus::get_physical() - 1);
+            warn!("DirectML not available, falling back to CPU for inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
+            (detector_config.intra_threads, detector_config.inter_threads)
         };
 
         let mut object_filter = None;

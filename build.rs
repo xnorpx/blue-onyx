@@ -1,6 +1,5 @@
 use std::env;
 use std::{fs::File, io::Write, path::Path, process::Command};
-use ureq;
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
@@ -21,7 +20,7 @@ const ONNX_BUILD_COMMANDS: [&str; 11] = [
     "--enable_lto",
     "--disable_contrib_ops",
     "--cmake_extra_defines",
-    "onnxruntime_BUILD_UNIT_TESTS=OFF"
+    "onnxruntime_BUILD_UNIT_TESTS=OFF",
 ];
 
 fn get_build_config() -> &'static str {
@@ -114,7 +113,7 @@ fn check_and_download_directml(target_dir: &str) {
 
     let output_dir = Path::new(target_dir).ancestors().nth(3).unwrap();
     if !output_dir.exists() {
-        std::fs::create_dir_all(&output_dir).unwrap();
+        std::fs::create_dir_all(output_dir).unwrap();
     }
     std::fs::copy(&directml_dll, output_dir.join("DirectML.dll")).unwrap();
     let directml_library_lib_dir = std::path::Path::new(&directml_library_dir).join("lib");
@@ -143,12 +142,13 @@ fn build_onnx(target_dir: &str) {
     let build_script = onnx_dir.join("build.bat");
     let directml_dir = std::path::Path::new(target_dir).join("directml");
 
-    let mut build_commands = Vec::new();
-    build_commands.push("--config".to_string());
-    build_commands.push(get_build_config().to_string());
-    build_commands.push("--use_dml".to_string());
-    build_commands.push("--dml_path".to_string());
-    build_commands.push(directml_dir.to_str().unwrap().to_string());
+    let mut build_commands = vec![
+        "--config".to_string(),
+        get_build_config().to_string(),
+        "--use_dml".to_string(),
+        "--dml_path".to_string(),
+        directml_dir.to_str().unwrap().to_string(),
+    ];
     build_commands.extend(ONNX_BUILD_COMMANDS.iter().map(|&s| s.to_string()));
 
     let status = Command::new(build_script)
@@ -173,7 +173,7 @@ fn build_onnx(target_dir: &str) {
 
     let output_dir = Path::new(target_dir).ancestors().nth(3).unwrap();
     if !output_dir.exists() {
-        std::fs::create_dir_all(&output_dir).unwrap();
+        std::fs::create_dir_all(output_dir).unwrap();
     }
     std::fs::copy(&onnx_runtime_dll, output_dir.join("onnxruntime.dll")).unwrap();
 }

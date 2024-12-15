@@ -18,7 +18,10 @@ pub fn cpu_model() -> String {
 
 pub fn gpu_model(index: usize) -> String {
     let gpu_names = gpu_info(false).unwrap_or_default();
-    gpu_names.get(index).cloned().unwrap_or_else(|| "Unknown".to_owned())
+    gpu_names
+        .get(index)
+        .cloned()
+        .unwrap_or_else(|| "Unknown".to_owned())
 }
 
 pub fn cpu_info() -> anyhow::Result<()> {

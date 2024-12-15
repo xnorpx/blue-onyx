@@ -1,11 +1,11 @@
-use tokio::sync::oneshot;
-use tracing::error;
 use crate::{
     api::{VisionDetectionRequest, VisionDetectionResponse},
     detector::{Detector, DetectorConfig, DeviceType},
     image::create_random_jpeg_name,
 };
 use std::sync::mpsc::Receiver;
+use tokio::sync::oneshot;
+use tracing::error;
 
 pub struct DetectorWorker {
     receiver: Receiver<(
@@ -44,7 +44,9 @@ impl DetectorWorker {
                 Some(image_name)
             };
 
-            let detect_result = self.detector.detect(image_data, image_name, Some(min_confidence));
+            let detect_result = self
+                .detector
+                .detect(image_data, image_name, Some(min_confidence));
 
             let detect_response = match detect_result {
                 Ok(detect_result) => VisionDetectionResponse {
@@ -78,7 +80,7 @@ impl DetectorWorker {
             };
 
             if let Err(err) = response_sender.send(detect_response) {
-                error!(?err, "Failed to send response from worker"); 
+                error!(?err, "Failed to send response from worker");
             }
         }
     }

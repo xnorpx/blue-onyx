@@ -85,8 +85,8 @@ pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
 
     let encoder = Encoder::new_file(jpeg_file, 100)?;
     encoder.encode(
-        &image.as_rgb8().unwrap(),
-        image.width()as u16,
+        image.as_rgb8().unwrap(),
+        image.width() as u16,
         image.height() as u16,
         ColorType::Rgb,
     )?;

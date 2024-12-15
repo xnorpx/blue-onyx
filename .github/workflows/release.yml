@@ -41,144 +41,8 @@ jobs:
     outputs:
       version: ${{ env.VERSION }}
 
-  build-cuda:
-    name: build-cuda
-    needs: ['create-release']
-    env:
-      RUST_BACKTRACE: 1
-      ASSET:
-      ASSET_SUM:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 61
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 61
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 75
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 75
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 86
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 86
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-          computecap: 89
-          cuda: '12.5.0'
-          cudaver: 12
-        - build: win
-          os: windows-latest
-          rust: stable
-          computecap: 89
-          cuda: '12.5.0'
-          cudaver: 12
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-
-    - name: Configure build for amd64
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: amd64
-
-    - uses: Jimver/cuda-toolkit@v0.2.16
-      id: cuda-toolkit
-      with:
-        cuda: ${{ matrix.cuda }}
-        method: 'network'
-        sub-packages: '[]'
-        non-cuda-sub-packages: '["libcublas"]'
-
-    - name: Build release blue-candle
-      run: cargo build --release --features cuda
-      env:
-        CUDA_COMPUTE_CAP: ${{ matrix.computecap }}
-
-    - name: Determine release binary
-      shell: bash
-      run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          bin="target/release/blue_candle.exe"
-        else
-          bin="target/release/blue_candle"
-        fi
-        echo "BIN=$bin" >> $GITHUB_ENV
-
-    - name: Determine archive name
-      shell: bash
-      run: |
-        version="${{ needs.create-release.outputs.version }}"
-        echo "ARCHIVE=blue_candle-$version-${{ matrix.build }}-cuda-${{matrix.cudaver}}-CC-${{matrix.computecap}}" >> $GITHUB_ENV
-
-    - name: Creating directory for archive
-      shell: bash
-      run: |
-        mkdir -p "$ARCHIVE"/
-        cp "$BIN" "$ARCHIVE"/
-
-    - name: Build archive (Windows)
-      shell: bash
-      if: matrix.os == 'windows-latest'
-      run: |
-        7z a "$ARCHIVE.zip" "$ARCHIVE"
-        certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
-        echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
-        echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
-
-    - name: Build archive (Unix)
-      shell: bash
-      if: matrix.os != 'windows-latest'
-      run: |
-        tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
-        shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
-        echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
-        echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
-
-    - name: Upload release archive
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      shell: bash
-      run: |
-        version="${{ needs.create-release.outputs.version }}"
-        gh release upload "$version" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
-
-  build-cpu:
-    name: build-cpu
+  build:
+    name: build
     needs: ['create-release']
     env:
       RUST_BACKTRACE: 1
@@ -189,9 +53,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
         - build: win
           os: windows-latest
           rust: stable
@@ -212,9 +73,9 @@ jobs:
       shell: bash
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          bin="target/release/blue_candle.exe"
+          bin="target/release/blue_onyx.exe"
         else
-          bin="target/release/blue_candle"
+          bin="target/release/blue_onyx"
         fi
         echo "BIN=$bin" >> $GITHUB_ENV
 
@@ -222,7 +83,7 @@ jobs:
       shell: bash
       run: |
         version="${{ needs.create-release.outputs.version }}"
-        echo "ARCHIVE=blue_candle-$version-${{ matrix.build }}" >> $GITHUB_ENV
+        echo "ARCHIVE=blue_onyx-$version-${{ matrix.build }}" >> $GITHUB_ENV
 
     - name: Creating directory for archive
       shell: bash

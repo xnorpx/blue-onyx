@@ -4,25 +4,25 @@
 //! different device configurations. It records statistics such as total inference time,
 //! average, minimum, and maximum inference durations, as well as images processed per second.
 //! The results is logged and can be saved to a file.
-//! 
+//!
 //! The default model is the small rt-detrv2 model, and the default object classes are the 80
 //! standard COCO classes. The application can also filter the results to include only the specified
 //! labels. The confidence threshold for object detection can be set, and the application can be
 //! forced to use the CPU for inference. The application can also be configured to save the processed
 //! image and the reference image, repeat the image processing.
-//! 
+//!
 //! The application can be run with the following command:
-//! 
-//! Downloaded binary: 
-//! ```sh 
+//!
+//! Downloaded binary:
+//! ```sh
 //! blue_onyx_benchmark --help
 //! ```
-//! 
+//!
 //! From repository:
-//! ```sh 
+//! ```sh
 //! cargo run --bin blue_onyx_benchmark -- --help
 //! ```
-//! 
+//!
 use anyhow::bail;
 use blue_onyx::{
     detector::{Detector, DetectorConfig, DeviceType, EndpointProvider},
@@ -122,14 +122,18 @@ fn main() -> anyhow::Result<()> {
     let (image_bytes, image_name) = if let Some(image) = args.image {
         (load_image(&image)?, image.to_string_lossy().to_string())
     } else {
-        (Bytes::from(blue_onyx::DOG_BIKE_CAR_BYTES), "dog_bike_car.jpg".to_string())
+        (
+            Bytes::from(blue_onyx::DOG_BIKE_CAR_BYTES),
+            "dog_bike_car.jpg".to_string(),
+        )
     };
-
-
 
     let mut inference_times: Vec<Duration> = Vec::with_capacity(args.repeat as usize);
 
-    info!("Starting inference benchmark with {} repetitions", args.repeat);
+    info!(
+        "Starting inference benchmark with {} repetitions",
+        args.repeat
+    );
     let start_time = std::time::Instant::now();
     let mut predictions = detector.detect(image_bytes.clone(), Some(image_name.clone()), None)?;
     if predictions.predictions.is_empty() {
@@ -264,7 +268,8 @@ impl InferenceStats {
         let total_inference_secs = format!("{:.1}", self.total_inference.as_secs_f64());
         let min_inference_ms = format!("{:.1}", self.min_inference.as_micros() as f64 / 1000.0);
         let max_inference_ms = format!("{:.1}", self.max_inference.as_micros() as f64 / 1000.0);
-        let average_inference_ms = format!("{:.1}", self.average_inference.as_micros() as f64 / 1000.0);
+        let average_inference_ms =
+            format!("{:.1}", self.average_inference.as_micros() as f64 / 1000.0);
         let images_per_second = format!("{:.1}", self.images_per_second);
 
         format!(
