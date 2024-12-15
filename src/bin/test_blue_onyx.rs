@@ -96,11 +96,38 @@ async fn main() -> anyhow::Result<()> {
         let max_duration = request_times.iter().max().unwrap();
         let avg_duration = request_times.iter().sum::<Duration>() / request_times.len() as u32;
 
-        println!("Minimum request time: {:?}", min_duration);
-        println!("Maximum request time: {:?}", max_duration);
-        println!("Average request time: {:?}", avg_duration);
+        println!(
+            "Request times -- min: {:?}, avg: {:?}, max: {:?}",
+            min_duration, avg_duration, max_duration
+        );
     } else {
         println!("No request times to summarize");
+    }
+
+    if !inference_times.is_empty() {
+        let min_inference = inference_times.iter().min().unwrap();
+        let max_inference = inference_times.iter().max().unwrap();
+        let avg_inference = inference_times.iter().sum::<i32>() / inference_times.len() as i32;
+
+        println!(
+            "Inference times -- min: {}, avg: {}, max: {}",
+            min_inference, avg_inference, max_inference
+        );
+    } else {
+        println!("No inference times to summarize");
+    }
+
+    if !processing_times.is_empty() {
+        let min_processing = processing_times.iter().min().unwrap();
+        let max_processing = processing_times.iter().max().unwrap();
+        let avg_processing = processing_times.iter().sum::<i32>() / processing_times.len() as i32;
+
+        println!(
+            "Processing times -- min: {}, avg: {}, max: {}",
+            min_processing, avg_processing, max_processing
+        );
+    } else {
+        println!("No processing times to summarize");
     }
 
     Ok(())

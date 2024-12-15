@@ -53,7 +53,7 @@ jobs:
       run: cargo build --release
 
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
       run: cargo fmt --all --check
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
       run: cargo clippy --all-targets -- -D warnings
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
