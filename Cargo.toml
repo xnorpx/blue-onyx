@@ -26,7 +26,7 @@ clap = { version = "4", default-features = false, features = [
 chrono = "0"
 fast_image_resize = "5"
 futures = { version = "0", default-features = false }
-hf-hub = { version = "0", default-features = false, features = ["tokio"] }
+hf-hub = { version = "0", default-features = false, features = ["online", "tokio"] }
 image = "0"
 imageproc = "0"
 indicatif = "0"
@@ -46,7 +46,7 @@ smallvec = { version = "1", features = ["union"] }
 tracing = { version = "0" }
 tracing-appender = "0"
 tracing-subscriber = { version = "0" }
-tokio = { version = "1", default-features = false, features = ["signal"] }
+tokio = { version = "1", default-features = false, features = ["signal", "fs"] }
 tokio-util = { version = "0", features = ["codec"] }
 uuid = { version = "1", features = ["v4"] }
 zune-core = "0"

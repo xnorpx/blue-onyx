@@ -5,6 +5,7 @@ use tracing::{info, warn, Level};
 
 pub mod api;
 pub mod detector;
+pub mod download_models;
 pub mod image;
 pub mod server;
 pub mod system_info;

@@ -97,12 +97,22 @@ struct Cli {
     /// Save inference stats to file
     #[clap(long)]
     save_stats_path: Option<PathBuf>,
+    /// Path to download all models to
+    /// This command will only download the models to the specified path
+    /// and then exit
+    #[clap(long)]
+    download_model_path: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
     init_logging(args.log_level, None);
     system_info()?;
+
+    if args.download_model_path.is_some() {
+        blue_onyx::download_models::download_models(args.download_model_path.unwrap())?;
+        return Ok(());
+    }
 
     let detector_config = DetectorConfig {
         model: args.model,
