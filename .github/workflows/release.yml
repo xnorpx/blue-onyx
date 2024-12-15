@@ -69,15 +69,15 @@ jobs:
     - name: Build release
       run: cargo build --release
 
-    - name: Determine release binary
+    - name: Determine release binaries
       shell: bash
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          bin="target/release/blue_onyx.exe"
+          BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe"
         else
-          bin="target/release/blue_onyx"
+          BIN="target/release/blue_onyx"
         fi
-        echo "BIN=$bin" >> $GITHUB_ENV
+        echo "BIN=$BIN" >> $GITHUB_ENV
 
     - name: Determine archive name
       shell: bash
@@ -89,7 +89,7 @@ jobs:
       shell: bash
       run: |
         mkdir -p "$ARCHIVE"/
-        cp "$BIN" "$ARCHIVE"/
+        cp $BIN "$ARCHIVE"/
 
     - name: Build archive (Windows)
       shell: bash
