@@ -6,6 +6,7 @@ on:
     - master
   schedule:
   - cron: '00 01 * * *'
+  workflow_dispatch:
 
 permissions:
   # to fetch code (actions/checkout)
