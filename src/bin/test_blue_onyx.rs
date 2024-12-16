@@ -22,10 +22,6 @@ struct Args {
     #[clap(short, long)]
     image: Option<String>,
 
-    /// Save image with boundary bbox
-    #[clap(long)]
-    image_ob: Option<String>,
-
     /// Number of requests to make
     #[clap(short, long, default_value_t = 1)]
     number_of_requests: u32,

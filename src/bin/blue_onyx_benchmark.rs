@@ -307,7 +307,7 @@ impl InferenceStats {
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect();
-        let file_name = format!("blue_onnx_{}_inference_stats.txt", sanitized_device_name);
+        let file_name = format!("blue_onyx_{}_inference_stats.txt", sanitized_device_name);
         let path = path.join(file_name);
         let mut file = std::fs::File::create(path.clone())?;
 
