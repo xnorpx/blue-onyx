@@ -31,7 +31,7 @@ image = "0"
 imageproc = "0"
 indicatif = "0"
 jpeg-encoder = "0"
-ndarray = "*"
+ndarray = "0"
 num_cpus = "1"
 ort = { version = "2.0.0-rc.9", default-features = false, features = [
     "ndarray",
@@ -41,7 +41,7 @@ ort = { version = "2.0.0-rc.9", default-features = false, features = [
 raw-cpuid = "11"
 reqwest = { version = "0", features = ["stream", "multipart", "json"] }
 serde = "1"
-serde_yaml = "*"
+serde_yaml = "0"
 smallvec = { version = "1", features = ["union"] }
 tracing = { version = "0" }
 tracing-appender = "0"
@@ -65,7 +65,7 @@ windows = { version = "0", default-features = false, features = [
 
 [build-dependencies]
 ureq = "2"
-zip = "*"
+zip = "2"
 
 [profile.release]
 opt-level = 3
