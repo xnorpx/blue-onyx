@@ -18,10 +18,14 @@ pub fn cpu_model() -> String {
 
 pub fn gpu_model(index: usize) -> String {
     let gpu_names = gpu_info(false).unwrap_or_default();
-    gpu_names
+    let mut gpu_name = gpu_names
         .get(index)
         .cloned()
-        .unwrap_or_else(|| "Unknown".to_owned())
+        .unwrap_or_else(|| "Unknown".to_owned());
+    gpu_name = gpu_name.replace('\0', "");
+    gpu_name = gpu_name.trim().to_string();
+    gpu_name = gpu_name.split_whitespace().collect::<Vec<_>>().join(" ");
+    gpu_name
 }
 
 pub fn cpu_info() -> anyhow::Result<()> {

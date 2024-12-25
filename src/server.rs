@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 use tokio::{
-    sync::oneshot,
+    sync::{oneshot, Mutex},
     time::{timeout, Duration},
 };
 use tokio_util::sync::CancellationToken;
@@ -28,22 +28,12 @@ use tracing::{error, info, warn};
 const MEGABYTE: usize = 1024 * 1024; // 1 MB = 1024 * 1024 bytes
 const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
 
-#[allow(unused)]
-#[derive(Debug, Deserialize)]
-struct VersionJson {
-    version: String,
-    windows: String,
-    windows_sha256: String,
-}
-
-struct Metrics {}
-
 struct ServerState {
     sender: Sender<(
         VisionDetectionRequest,
         oneshot::Sender<VisionDetectionResponse>,
     )>,
-    _metrics: Metrics, // TODO: Implement metrics
+    metrics: Mutex<Metrics>,
 }
 
 pub async fn run_server(
@@ -53,10 +43,11 @@ pub async fn run_server(
         VisionDetectionRequest,
         oneshot::Sender<VisionDetectionResponse>,
     )>,
+    metrics: Metrics,
 ) -> anyhow::Result<()> {
     let server_state = Arc::new(ServerState {
         sender,
-        _metrics: Metrics {}, // TODO: Implement metrics
+        metrics: Mutex::new(metrics), // TODO: Implement metrics
     });
 
     let blue_onyx = Router::new()
@@ -135,6 +126,12 @@ async fn v1_vision_detection(
         }
     };
     vision_response.analysis_round_trip_ms = request_start_time.elapsed().as_millis() as i32;
+
+    {
+        let mut metrics = server_state.metrics.lock().await;
+        metrics.update_metrics(&vision_response);
+    }
+
     Ok(Json(vision_response))
 }
 
@@ -222,6 +219,14 @@ where
     }
 }
 
+#[allow(unused)]
+#[derive(Debug, Deserialize)]
+struct VersionJson {
+    version: String,
+    windows: String,
+    windows_sha256: String,
+}
+
 pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
     let response =
         reqwest::get("https://github.com/xnorpx/blue-onyx/releases/latest/download/version.json")
@@ -233,4 +238,98 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
         latest_release_version_str
     );
     Ok((latest_release_version_str, release_notes_url))
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone)]
+pub struct Metrics {
+    start_time: Instant,
+    model_name: String,
+    device_name: String,
+    execution_provider_name: String,
+    using_gpu: bool,
+    number_of_requests: u128,
+    total_inference_ms: u128,
+    min_inference_ms: i32,
+    max_inference_ms: i32,
+    total_processing_ms: u128,
+    min_processing_ms: i32,
+    max_processing_ms: i32,
+    total_analysis_round_trip_ms: u128,
+    min_analysis_round_trip_ms: i32,
+    max_analysis_round_trip_ms: i32,
+}
+
+impl Metrics {
+    pub fn new(
+        model_name: String,
+        device_name: String,
+        execution_provider: String,
+        using_gpu: bool,
+    ) -> Self {
+        Self {
+            start_time: Instant::now(),
+            model_name,
+            device_name,
+            execution_provider_name: execution_provider,
+            using_gpu,
+            number_of_requests: 0,
+            total_inference_ms: 0,
+            min_inference_ms: i32::MAX,
+            max_inference_ms: i32::MIN,
+            total_processing_ms: 0,
+            min_processing_ms: i32::MAX,
+            max_processing_ms: i32::MIN,
+            total_analysis_round_trip_ms: 0,
+            min_analysis_round_trip_ms: i32::MAX,
+            max_analysis_round_trip_ms: i32::MIN,
+        }
+    }
+
+    fn update_metrics(&mut self, response: &VisionDetectionResponse) {
+        self.number_of_requests = self.number_of_requests.wrapping_add(1);
+        self.total_inference_ms = self
+            .total_inference_ms
+            .wrapping_add(response.inference_ms as u128);
+        self.min_inference_ms = self.min_inference_ms.min(response.inference_ms);
+        self.max_inference_ms = self.max_inference_ms.max(response.inference_ms);
+        self.total_processing_ms = self
+            .total_processing_ms
+            .wrapping_add(response.process_ms as u128);
+        self.min_processing_ms = self.min_processing_ms.min(response.process_ms);
+        self.max_processing_ms = self.max_processing_ms.max(response.process_ms);
+        self.total_analysis_round_trip_ms = self
+            .total_analysis_round_trip_ms
+            .wrapping_add(response.analysis_round_trip_ms as u128);
+        self.min_analysis_round_trip_ms = self
+            .min_analysis_round_trip_ms
+            .min(response.analysis_round_trip_ms);
+        self.max_analysis_round_trip_ms = self
+            .max_analysis_round_trip_ms
+            .max(response.analysis_round_trip_ms);
+    }
+
+    #[allow(unused)]
+    fn avg_ms(&self, total_ms: u128) -> i32 {
+        if self.number_of_requests == 0 {
+            0
+        } else {
+            (total_ms as f64 / self.number_of_requests as f64).round() as i32
+        }
+    }
+
+    #[allow(unused)]
+    fn avg_inference_ms(&self) -> i32 {
+        self.avg_ms(self.total_inference_ms)
+    }
+
+    #[allow(unused)]
+    fn avg_processing_ms(&self) -> i32 {
+        self.avg_ms(self.total_processing_ms)
+    }
+
+    #[allow(unused)]
+    fn avg_analysis_round_trip_ms(&self) -> i32 {
+        self.avg_ms(self.total_analysis_round_trip_ms)
+    }
 }

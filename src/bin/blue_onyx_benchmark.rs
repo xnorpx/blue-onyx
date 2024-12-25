@@ -286,14 +286,11 @@ impl InferenceStats {
         let average_inference_ms =
             format!("{:.1}", self.average_inference.as_micros() as f64 / 1000.0);
         let images_per_second = format!("{:.1}", self.images_per_second);
-        let mut device_name = self.device_name.replace('\0', "");
-        device_name = device_name.trim().to_string();
-        device_name = device_name.split_whitespace().collect::<Vec<_>>().join(" ");
 
         format!(
             "{},{},{},{},{},{},{},{},{},{},{},{}",
             self.model_name,
-            device_name,
+            self.device_name,
             self.version,
             self.device_type,
             self.platform,

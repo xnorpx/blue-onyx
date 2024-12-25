@@ -1,6 +1,10 @@
 use blue_onyx::{
-    detector::DetectorConfig, init_logging, server::run_server, system_info::system_info,
-    worker::DetectorWorker, LogLevel,
+    detector::DetectorConfig,
+    init_logging,
+    server::{run_server, Metrics},
+    system_info::{self, system_info},
+    worker::DetectorWorker,
+    LogLevel,
 };
 use clap::Parser;
 use std::{path::PathBuf, sync::mpsc::channel};
@@ -95,6 +99,24 @@ fn main() -> anyhow::Result<()> {
     let (sender, receive) = channel();
     // Run a separate thread for the detector worker
     let mut detector_worker = DetectorWorker::new(detector_config, receive)?;
+
+    let detector = detector_worker.get_detector();
+    let model_name = detector.get_model_name();
+    let using_gpu = detector.is_using_gpu();
+    let execution_providers_name = detector.get_endpoint_provider_name();
+
+    let device_name = if using_gpu {
+        system_info::gpu_model(args.gpu_index as usize)
+    } else {
+        system_info::cpu_model()
+    };
+    let metrics = Metrics::new(
+        model_name.clone(),
+        device_name,
+        execution_providers_name,
+        using_gpu,
+    );
+
     let thread_handle = std::thread::spawn(move || {
         #[cfg(target_os = "windows")]
         unsafe {
@@ -128,7 +150,7 @@ fn main() -> anyhow::Result<()> {
             ctrl_c_token.cancel();
         });
 
-        run_server(args.port, cancellation_token, sender)
+        run_server(args.port, cancellation_token, sender, metrics)
             .await
             .expect("Failed to run server");
     });
