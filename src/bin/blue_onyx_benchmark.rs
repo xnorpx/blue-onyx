@@ -165,6 +165,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let inference_stats = InferenceStats::new(
+        detector.get_model_name().clone(),
         device_name,
         predictions.device_type,
         predictions.endpoint_provider,
@@ -204,6 +205,7 @@ impl Default for Platform {
 
 #[derive(Debug, Clone)]
 pub struct InferenceStats {
+    pub model_name: String,
     pub version: String,
     pub device_name: String,
     pub device_type: DeviceType,
@@ -219,6 +221,7 @@ pub struct InferenceStats {
 
 impl InferenceStats {
     pub fn new(
+        model_name: String,
         device_name: String,
         device_type: DeviceType,
         endpoint_provider: EndpointProvider,
@@ -237,6 +240,7 @@ impl InferenceStats {
             0. // Not enough time to calculate images per second moar images please!
         };
         Self {
+            model_name: model_name.replace(".onnx", ""),
             version: env!("CARGO_PKG_VERSION").to_string(),
             device_name,
             device_type,
@@ -259,7 +263,8 @@ impl InferenceStats {
 
     pub fn format_stats_header() -> String {
         format!(
-            "{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            "Model Name",
             "Device Name",
             "Version",
             "Type",
@@ -281,10 +286,14 @@ impl InferenceStats {
         let average_inference_ms =
             format!("{:.1}", self.average_inference.as_micros() as f64 / 1000.0);
         let images_per_second = format!("{:.1}", self.images_per_second);
+        let mut device_name = self.device_name.replace('\0', "");
+        device_name = device_name.trim().to_string();
+        device_name = device_name.split_whitespace().collect::<Vec<_>>().join(" ");
 
         format!(
-            "{},{},{},{},{},{},{},{},{},{},{}",
-            self.device_name,
+            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            self.model_name,
+            device_name,
             self.version,
             self.device_type,
             self.platform,
@@ -307,9 +316,17 @@ impl InferenceStats {
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect();
-        let file_name = format!("blue_onyx_{}_inference_stats.txt", sanitized_device_name);
+        let sanitized_model_name = self.model_name.replace(" ", "_").replace(".onnx", "");
+        let file_name = format!(
+            "blue_onyx_{}_{}_report.txt",
+            sanitized_device_name, sanitized_model_name
+        );
         let path = path.join(file_name);
-        let mut file = std::fs::File::create(path.clone())?;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path.clone())?;
 
         writeln!(file, "{}", InferenceStats::format_stats_header())?;
         write!(file, "{}", self.format_stats())?;
