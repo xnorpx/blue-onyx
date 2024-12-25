@@ -124,12 +124,22 @@ impl Detector {
         }
 
         let (model_bytes, model_name) = if let Some(model) = detector_config.model {
-            let model_str = model.to_str().unwrap().to_string();
+            let model_str = model
+                .to_str()
+                .ok_or_else(|| anyhow::anyhow!("Failed to convert model path to string"))?
+                .to_string();
             (std::fs::read(&model)?, model_str)
         } else {
+            let exe_path: PathBuf = std::env::current_exe()?;
+            let model_path = exe_path
+                .parent()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Failed to get parent directory of executable path")
+                })?
+                .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
             (
-                crate::SMALL_RT_DETR_V2_MODEL_BYTES.to_vec(),
-                "rt-detrv2-s.onnx".to_string(),
+                std::fs::read(&model_path)?,
+                crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string(),
             )
         };
 
@@ -168,9 +178,10 @@ impl Detector {
 
         // Warmup
         info!("Warming up the detector");
-        let warmup_start = Instant::now();
-        detector.detect(Bytes::from(crate::BIKE_IMAGE_BYTES), None, None)?;
-        info!("Detector warmed up in: {:?}", warmup_start.elapsed());
+        for _ in 0..10 {
+            detector.detect(Bytes::from(crate::DOG_BIKE_CAR_BYTES), None, None)?;
+        }
+        info!("Detector warmed up");
         Ok(detector)
     }
 

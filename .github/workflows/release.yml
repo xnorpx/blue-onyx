@@ -38,6 +38,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create $VERSION --draft --verify-tag --title $VERSION
+      - name: Create version.json
+        shell: bash
+        run: |
+          cat <<EOF > version.json
+          {
+            "version": "${{ env.VERSION }}",
+            "windows": "blue_onyx-${{ env.VERSION }}-win.zip",
+            "windows_sha256": "blue_onyx-${{ env.VERSION }}-win.zip.sha256"
+          }
+          EOF
+      - name: Upload version.json
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ env.VERSION }} version.json
+      - name: Upload install_latest_blue_onyx.ps1
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ env.VERSION }} install_latest_blue_onyx.ps1
     outputs:
       version: ${{ env.VERSION }}
 

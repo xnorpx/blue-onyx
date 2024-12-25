@@ -11,9 +11,8 @@ pub mod server;
 pub mod system_info;
 pub mod worker;
 
-pub static BIKE_IMAGE_BYTES: &[u8] = include_bytes!("../assets/crossing.jpg");
 pub static DOG_BIKE_CAR_BYTES: &[u8] = include_bytes!("../assets/dog_bike_car.jpg");
-pub static SMALL_RT_DETR_V2_MODEL_BYTES: &[u8] = include_bytes!("../models/rt-detrv2-s.onnx");
+pub static SMALL_RT_DETR_V2_MODEL_FILE_NAME: &str = "rt-detrv2-s.onnx";
 pub static COCO_CLASSES_STR: &str = include_str!("../assets/coco_classes.yaml");
 
 #[allow(non_snake_case)]

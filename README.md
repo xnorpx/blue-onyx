@@ -8,15 +8,23 @@
 ## TL;DR
 
 - Windows only (for now)
+- CPU and GPU inference (NVIDIA, AMD and Intel)
 - [ONNX Inference](https://github.com/onnx/onnx)
 - [Direct ML Endpoint](https://github.com/microsoft/DirectML)
 - [RT-DETR-V2 Model](https://github.com/lyuwenyu/RT-DETR/tree/main/rtdetrv2_pytorch)
-- [No Coral support](https://github.com/microsoft/onnxruntime/issues/10248)
+- [ONNX RT-DETR-V2 Models](https://huggingface.co/xnorpx/rt-detr2-onnx)
 
-## Quick start
+## Install with THE one mighty oneliner
 
-- Download release
+```powershell
+ powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
+ ```
+
+## I don't trust scripts I want to install myself
+
+- Download latest release
 - Unzip
+- Download models (blue_onyx.exe --download-model-path .)
 - blue_onyx.exe to run service
 - test_blue_onyx.exe to test service
 - blue_onyx_benchmark.exe for benchmark and model testing
@@ -28,7 +36,7 @@ Help:
 blue_onyx.exe --help
 ```
 
-Download more models:
+Download models:
 ```bash 
 blue_onyx.exe --download-model-path .
 ```
