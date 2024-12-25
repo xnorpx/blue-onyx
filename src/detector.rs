@@ -57,6 +57,7 @@ pub struct Detector {
     endpoint_provider: EndpointProvider,
     save_image_path: Option<PathBuf>,
     save_ref_image: bool,
+    model_name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +163,7 @@ impl Detector {
         };
 
         let mut detector = Self {
+            model_name,
             endpoint_provider,
             session,
             resizer: Resizer::default(),
@@ -330,6 +332,10 @@ impl Detector {
             device_type: self.device_type,
             endpoint_provider: self.endpoint_provider,
         })
+    }
+
+    pub fn get_model_name(&self) -> &String {
+        &self.model_name
     }
 }
 
