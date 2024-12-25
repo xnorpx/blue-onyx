@@ -11,6 +11,8 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
+use reqwest;
+use serde::Deserialize;
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::{mpsc::Sender, Arc},
@@ -25,6 +27,14 @@ use tracing::{error, info, warn};
 
 const MEGABYTE: usize = 1024 * 1024; // 1 MB = 1024 * 1024 bytes
 const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
+
+#[allow(unused)]
+#[derive(Debug, Deserialize)]
+struct VersionJson {
+    version: String,
+    windows: String,
+    windows_sha256: String,
+}
 
 struct Metrics {}
 
@@ -129,15 +139,18 @@ async fn v1_vision_detection(
 }
 
 async fn v1_status_update_available() -> Result<Json<StatusUpdateResponse>, BlueOnyxError> {
+    let (latest_release_version_str, release_notes_url) = get_latest_release_info().await?;
+    let latest = VersionInfo::parse(latest_release_version_str.as_str(), Some(release_notes_url))?;
+    let current = VersionInfo::parse(env!("CARGO_PKG_VERSION"), None)?;
+    let updates_available = latest > current;
     let response = StatusUpdateResponse {
         success: true,
         message: "".to_string(),
-        version: None,
-        current: VersionInfo::default(),
-        latest: VersionInfo::default(),
-        updateAvailable: false, // Always respond that no update is available
+        version: None, // Deprecated field
+        current,
+        latest,
+        updateAvailable: updates_available,
     };
-
     Ok(Json(response))
 }
 
@@ -207,4 +220,17 @@ where
     fn from(err: E) -> Self {
         Self(err.into())
     }
+}
+
+pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
+    let response =
+        reqwest::get("https://github.com/xnorpx/blue-onyx/releases/latest/download/version.json")
+            .await?;
+    let version_info: VersionJson = response.json().await?;
+    let latest_release_version_str = version_info.version;
+    let release_notes_url = format!(
+        "https://github.com/xnorpx/blue-onyx/releases/{}",
+        latest_release_version_str
+    );
+    Ok((latest_release_version_str, release_notes_url))
 }
