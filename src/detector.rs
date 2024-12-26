@@ -6,6 +6,7 @@ use crate::{
         Resizer,
     },
 };
+use anyhow::bail;
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis};
 use ort::{
@@ -15,7 +16,7 @@ use ort::{
 };
 use smallvec::SmallVec;
 use std::{fmt::Debug, path::PathBuf, time::Instant};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub struct DetectResult {
     pub predictions: SmallVec<[Prediction; 10]>,
@@ -138,8 +139,12 @@ impl Detector {
                     anyhow::anyhow!("Failed to get parent directory of executable path")
                 })?
                 .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
+            let Ok(model_bytes) = std::fs::read(&model_path) else {
+                error!("Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary", model_path, crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
+                bail!("Failed to read model file");
+            };
             (
-                std::fs::read(&model_path)?,
+                model_bytes,
                 crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string(),
             )
         };
