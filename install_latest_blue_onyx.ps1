@@ -223,17 +223,17 @@ try {
     # Now that we can see all the GPU's identifed when downloading all models.
     # Select which GPU blue_onyx will use in bat files. 
     # Import necessary namespace
-    # Import necessary namespace
     Add-Type -AssemblyName System.Windows.Forms
 
     # Get a list of available GPUs (replace with your actual GPU detection method)
-    $gpus = Get-WmiObject Win32_VideoController | Select-Object Name
+	# We want to exclude RDP Displays, and Sort the list like how it is in Task Manager so the Index is correct. 
+	$gpus = Get-CimInstance Win32_VideoController | Select-Object Name | Where-Object name -NotMatch "Microsoft Remote Display Adapter" |Sort-Object Name
     $gpuNames = $gpus.Name
 
     # Create a form
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Select GPU"
-    $form.Size = New-Object System.Drawing.Size(400, 250)
+    $form.Text = "Blue Onyx GPU Selection"
+    $form.Size = New-Object System.Drawing.Size(350, 210)
     $form.StartPosition = 'CenterScreen'
 
     # Create a label
@@ -252,7 +252,7 @@ try {
     # Create an OK button
     $okButton = New-Object System.Windows.Forms.Button
     $okButton.Text = "OK"
-    $okButton.Location = New-Object System.Drawing.Point(70, 90)
+    $okButton.Location = New-Object System.Drawing.Point(135, 90)
     $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
     $form.Controls.Add($okButton)
 
