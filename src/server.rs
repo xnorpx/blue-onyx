@@ -2,6 +2,7 @@ use crate::api::{
     StatusUpdateResponse, VersionInfo, VisionCustomListResponse, VisionDetectionRequest,
     VisionDetectionResponse,
 };
+use askama::Template;
 use axum::{
     body::{self, Body},
     extract::{DefaultBodyLimit, Multipart, State},
@@ -62,6 +63,9 @@ pub async fn run_server(
         .route("/v1/vision/detection", post(v1_vision_detection))
         .with_state(server_state.clone())
         .route("/v1/vision/custom/list", post(v1_vision_custom_list))
+        .route("/stats", get(stats_handler))
+        .with_state(server_state.clone())
+        .route("/favicon.ico", get(favicon_handler))
         .fallback(fallback_handler)
         .layer(DefaultBodyLimit::max(THIRTY_MEGABYTES));
 
@@ -166,6 +170,22 @@ async fn v1_vision_custom_list() -> Result<Json<VisionCustomListResponse>, BlueO
     };
 
     Ok(Json(response))
+}
+
+#[derive(Template)]
+#[template(path = "stats.html")]
+struct StatsTemplate<'a> {
+    message: &'a str,
+}
+
+async fn stats_handler(State(_server_state): State<Arc<ServerState>>) -> StatsTemplate<'static> {
+    StatsTemplate {
+        message: "Hello World",
+    }
+}
+
+async fn favicon_handler() -> impl IntoResponse {
+    StatusCode::NO_CONTENT
 }
 
 struct BlueOnyxError(anyhow::Error);
