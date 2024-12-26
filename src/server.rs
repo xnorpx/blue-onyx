@@ -6,7 +6,7 @@ use askama::Template;
 use axum::{
     body::{self, Body},
     extract::{DefaultBodyLimit, Multipart, State},
-    http::{Request, StatusCode},
+    http::{header::CACHE_CONTROL, Request, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -174,14 +174,20 @@ async fn v1_vision_custom_list() -> Result<Json<VisionCustomListResponse>, BlueO
 
 #[derive(Template)]
 #[template(path = "stats.html")]
-struct StatsTemplate<'a> {
-    message: &'a str,
+struct StatsTemplate {
+    metrics: Metrics,
 }
 
-async fn stats_handler(State(_server_state): State<Arc<ServerState>>) -> StatsTemplate<'static> {
-    StatsTemplate {
-        message: "Hello World",
-    }
+async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl IntoResponse {
+    let metrics = {
+        let metrics_guard = server_state.metrics.lock().await;
+        metrics_guard.clone()
+    };
+    let template = StatsTemplate { metrics };
+    (
+        [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
+        template.into_response(),
+    )
 }
 
 async fn favicon_handler() -> impl IntoResponse {
@@ -260,14 +266,12 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
     Ok((latest_release_version_str, release_notes_url))
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct Metrics {
     start_time: Instant,
     model_name: String,
     device_name: String,
     execution_provider_name: String,
-    using_gpu: bool,
     number_of_requests: u128,
     total_inference_ms: u128,
     min_inference_ms: i32,
@@ -281,18 +285,12 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new(
-        model_name: String,
-        device_name: String,
-        execution_provider: String,
-        using_gpu: bool,
-    ) -> Self {
+    pub fn new(model_name: String, device_name: String, execution_provider: String) -> Self {
         Self {
             start_time: Instant::now(),
             model_name,
             device_name,
             execution_provider_name: execution_provider,
-            using_gpu,
             number_of_requests: 0,
             total_inference_ms: 0,
             min_inference_ms: i32::MAX,
@@ -304,6 +302,14 @@ impl Metrics {
             min_analysis_round_trip_ms: i32::MAX,
             max_analysis_round_trip_ms: i32::MIN,
         }
+    }
+
+    fn uptime(&self) -> String {
+        let elapsed = self.start_time.elapsed();
+        let days = elapsed.as_secs() / 86400;
+        let hours = (elapsed.as_secs() % 86400) / 3600;
+        let minutes = (elapsed.as_secs() % 3600) / 60;
+        format!("{} days, {} hours and {} minutes", days, hours, minutes)
     }
 
     fn update_metrics(&mut self, response: &VisionDetectionResponse) {
@@ -329,7 +335,6 @@ impl Metrics {
             .max(response.analysis_round_trip_ms);
     }
 
-    #[allow(unused)]
     fn avg_ms(&self, total_ms: u128) -> i32 {
         if self.number_of_requests == 0 {
             0
@@ -338,17 +343,14 @@ impl Metrics {
         }
     }
 
-    #[allow(unused)]
     fn avg_inference_ms(&self) -> i32 {
         self.avg_ms(self.total_inference_ms)
     }
 
-    #[allow(unused)]
     fn avg_processing_ms(&self) -> i32 {
         self.avg_ms(self.total_processing_ms)
     }
 
-    #[allow(unused)]
     fn avg_analysis_round_trip_ms(&self) -> i32 {
         self.avg_ms(self.total_analysis_round_trip_ms)
     }

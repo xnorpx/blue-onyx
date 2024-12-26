@@ -110,12 +110,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         system_info::cpu_model()
     };
-    let metrics = Metrics::new(
-        model_name.clone(),
-        device_name,
-        execution_providers_name,
-        using_gpu,
-    );
+    let metrics = Metrics::new(model_name.clone(), device_name, execution_providers_name);
 
     let thread_handle = std::thread::spawn(move || {
         #[cfg(target_os = "windows")]
