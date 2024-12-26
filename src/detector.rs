@@ -337,6 +337,14 @@ impl Detector {
     pub fn get_model_name(&self) -> &String {
         &self.model_name
     }
+
+    pub fn get_endpoint_provider_name(&self) -> String {
+        self.endpoint_provider.to_string()
+    }
+
+    pub fn is_using_gpu(&self) -> bool {
+        self.device_type == DeviceType::GPU
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -349,7 +357,7 @@ impl std::fmt::Display for EndpointProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EndpointProvider::CPU => write!(f, "CPU"),
-            EndpointProvider::DirectML => write!(f, "DML"),
+            EndpointProvider::DirectML => write!(f, "DirectML"),
         }
     }
 }

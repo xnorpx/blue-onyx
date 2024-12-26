@@ -29,6 +29,10 @@ impl DetectorWorker {
         })
     }
 
+    pub fn get_detector(&self) -> &Detector {
+        &self.detector
+    }
+
     pub fn run(&mut self) {
         while let Ok((vision_request, response_sender)) = self.receiver.recv() {
             let VisionDetectionRequest {
