@@ -142,6 +142,31 @@ try {
         Write-Host "Multiple or no subfolders found, skipping single-folder flatten logic."
     }
 
+    # --- 6.5. Check if blue_onyx.exe is running and kill it ---
+    Write-Host "Checking if blue_onyx.exe is running..."
+    $processName = "blue_onyx"
+    $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
+
+    if ($process) {
+        Write-Host "$processName.exe is currently running. Attempting to terminate..."
+        try {
+            Stop-Process -Id $process.Id -Force
+            Write-Green "$processName.exe has been terminated successfully."
+        }
+        catch {
+            throw "Failed to terminate $processName.exe. Please close the application manually and retry."
+        }
+
+        # Optionally, wait for the process to exit
+        Start-Sleep -Seconds 2
+        if (Get-Process -Name $processName -ErrorAction SilentlyContinue) {
+            throw "$processName.exe is still running after attempting to terminate."
+        }
+    }
+    else {
+        Write-Host "$processName.exe is not running. Proceeding with installation..."
+    }
+
     # --- 7. Copy new files into .blue-onyx, overwriting if they exist ---
     Write-Host "Overwriting existing files in $destinationPath with the new files..."
     Copy-Item -Path (Join-Path $flattenPath '*') -Destination $destinationPath -Recurse -Force
@@ -222,6 +247,7 @@ pause
     Write-Green "  test_blue_onyx_server.bat"
 
     Write-Green "`nPlease restart your PowerShell or Command Prompt to ensure the updated PATH is loaded."
+    Write-Green "`nPlease restart Blue Onyx if this was a reinstall or update."
     Write-Green "Done!"
 }
 catch {
