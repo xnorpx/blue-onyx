@@ -259,3 +259,22 @@ impl Resizer {
         Ok(())
     }
 }
+
+pub fn draw_boundary_boxes_on_encoded_image(
+    data: Bytes,
+    predictions: &[Prediction],
+) -> anyhow::Result<Bytes> {
+    let mut image = Image::default();
+    decode_jpeg(None, data, &mut image)?;
+    let dynamic_image_with_boundary_box =
+        create_dynamic_image_maybe_with_boundary_box(Some(predictions), &image, 20)?;
+    let mut encoded_image = Vec::new();
+    let encoder = Encoder::new(&mut encoded_image, 100);
+    encoder.encode(
+        dynamic_image_with_boundary_box.as_rgb8().unwrap(),
+        dynamic_image_with_boundary_box.width() as u16,
+        dynamic_image_with_boundary_box.height() as u16,
+        ColorType::Rgb,
+    )?;
+    Ok(Bytes::from(encoded_image))
+}

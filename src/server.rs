@@ -1,6 +1,9 @@
-use crate::api::{
-    StatusUpdateResponse, VersionInfo, VisionCustomListResponse, VisionDetectionRequest,
-    VisionDetectionResponse,
+use crate::{
+    api::{
+        StatusUpdateResponse, VersionInfo, VisionCustomListResponse, VisionDetectionRequest,
+        VisionDetectionResponse,
+    },
+    image::draw_boundary_boxes_on_encoded_image,
 };
 use askama::Template;
 use axum::{
@@ -11,7 +14,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use base64::{engine::general_purpose, Engine as _};
+use bytes::Bytes;
 use chrono::Utc;
+use mime::IMAGE_JPEG;
 use reqwest;
 use serde::Deserialize;
 use std::{
@@ -64,6 +70,8 @@ pub async fn run_server(
         .with_state(server_state.clone())
         .route("/v1/vision/custom/list", post(v1_vision_custom_list))
         .route("/stats", get(stats_handler))
+        .with_state(server_state.clone())
+        .route("/test", get(show_form).post(handle_upload))
         .with_state(server_state.clone())
         .route("/favicon.ico", get(favicon_handler))
         .fallback(fallback_handler)
@@ -190,33 +198,16 @@ async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl Int
     )
 }
 
-async fn favicon_handler() -> impl IntoResponse {
-    StatusCode::NO_CONTENT
+async fn show_form() -> impl IntoResponse {
+    let template = TestTemplate { image_data: None };
+    (
+        [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
+        template.into_response(),
+    )
 }
 
-struct BlueOnyxError(anyhow::Error);
-
-impl IntoResponse for BlueOnyxError {
-    fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(VisionDetectionResponse {
-                success: false,
-                message: "".into(),
-                error: Some(self.0.to_string()),
-                predictions: vec![],
-                count: 0,
-                command: "".into(),
-                module_id: "".into(),
-                execution_provider: "".into(),
-                can_useGPU: false,
-                inference_ms: 0_i32,
-                process_ms: 0_i32,
-                analysis_round_trip_ms: 0_i32,
-            }),
-        )
-            .into_response()
-    }
+async fn favicon_handler() -> impl IntoResponse {
+    StatusCode::NO_CONTENT
 }
 
 async fn fallback_handler(req: Request<Body>) -> impl IntoResponse {
@@ -235,16 +226,6 @@ async fn fallback_handler(req: Request<Body>) -> impl IntoResponse {
 
     (StatusCode::NOT_FOUND, "Endpoint not implemented")
 }
-
-impl<E> From<E> for BlueOnyxError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
 struct VersionJson {
@@ -353,5 +334,117 @@ impl Metrics {
 
     fn avg_analysis_round_trip_ms(&self) -> i32 {
         self.avg_ms(self.total_analysis_round_trip_ms)
+    }
+}
+
+#[derive(Template)]
+#[template(path = "test.html")]
+struct TestTemplate<'a> {
+    image_data: Option<&'a str>,
+}
+
+async fn handle_upload(
+    State(server_state): State<Arc<ServerState>>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    let request_start_time = Instant::now();
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+    {
+        let name = field.name().unwrap_or("").to_string();
+        if name == "image" {
+            let content_type = field
+                .content_type()
+                .map(|ct| ct.to_string())
+                .unwrap_or_default();
+            if content_type != IMAGE_JPEG.to_string() {
+                return Err(StatusCode::BAD_REQUEST);
+            }
+
+            let data: Bytes = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
+            let vision_request = VisionDetectionRequest {
+                min_confidence: 0., // This will be set to None and will use server default
+                image_data: data.clone(),
+                image_name: "image.jpg".to_string(),
+            };
+
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            if let Err(err) = server_state.sender.send((vision_request, sender)) {
+                error!(?err, "Failed to send request to detection worker");
+            }
+            let result = timeout(Duration::from_secs(30), receiver).await;
+
+            let mut vision_response = match result {
+                Ok(Ok(response)) => response,
+                Ok(Err(err)) => {
+                    error!("Failed to receive vision detection response: {:?}", err);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+                Err(_) => {
+                    error!("Timeout while waiting for vision detection response");
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            };
+
+            let data =
+                draw_boundary_boxes_on_encoded_image(data, vision_response.predictions.as_slice())
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            let encoded = general_purpose::STANDARD.encode(&data);
+            let data_url = format!("data:image/jpeg;base64,{}", encoded);
+
+            let template = TestTemplate {
+                image_data: Some(&data_url),
+            };
+
+            vision_response.analysis_round_trip_ms =
+                request_start_time.elapsed().as_millis() as i32;
+
+            {
+                let mut metrics = server_state.metrics.lock().await;
+                metrics.update_metrics(&vision_response);
+            }
+            return Ok((
+                [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
+                template.into_response(),
+            ));
+        }
+    }
+    Err(StatusCode::BAD_REQUEST)
+}
+
+struct BlueOnyxError(anyhow::Error);
+
+impl IntoResponse for BlueOnyxError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(VisionDetectionResponse {
+                success: false,
+                message: "".into(),
+                error: Some(self.0.to_string()),
+                predictions: vec![],
+                count: 0,
+                command: "".into(),
+                module_id: "".into(),
+                execution_provider: "".into(),
+                can_useGPU: false,
+                inference_ms: 0_i32,
+                process_ms: 0_i32,
+                analysis_round_trip_ms: 0_i32,
+            }),
+        )
+            .into_response()
+    }
+}
+
+impl<E> From<E> for BlueOnyxError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
     }
 }
