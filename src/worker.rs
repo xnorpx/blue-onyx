@@ -48,9 +48,9 @@ impl DetectorWorker {
                 Some(image_name)
             };
 
-            let detect_result = self
-                .detector
-                .detect(image_data, image_name, Some(min_confidence));
+            let min_confidence = (min_confidence > 0.01).then_some(min_confidence);
+
+            let detect_result = self.detector.detect(image_data, image_name, min_confidence);
 
             let detect_response = match detect_result {
                 Ok(detect_result) => VisionDetectionResponse {

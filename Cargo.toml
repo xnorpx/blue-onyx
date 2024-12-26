@@ -15,6 +15,7 @@ axum = { version = "0", default-features = false, features = [
     "multipart",
     "tokio",
 ] }
+base64 = "0"
 bytes = "1"
 clap = { version = "4", default-features = false, features = [
     "color",
@@ -33,6 +34,7 @@ image = "0"
 imageproc = "0"
 indicatif = "0"
 jpeg-encoder = "0"
+mime = "0"
 ndarray = "0"
 num_cpus = "1"
 ort = { version = "2.0.0-rc.9", default-features = false, features = [
