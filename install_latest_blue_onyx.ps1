@@ -14,7 +14,7 @@
     5. Verifies the ZIP file's integrity using a SHA256 checksum (via regex).
     6. Extracts the ZIP into a "temp_unzip" folder inside %USERPROFILE%\.blue-onyx, then flattens it if needed.
     7. Copies the new files into %USERPROFILE%\.blue-onyx, overwriting old ones if they exist, without asking permission.
-    8. Adds that folder to the PATH (User environment).
+    8. Adds that folder to the PATH (System "Machine" environment).
     9. Runs "blue_onyx.exe --download-model-path" to download all models into .blue-onyx.
     10. Creates .bat files on the user's Desktop with server start / benchmarking / testing commands.
 #>
@@ -50,7 +50,7 @@ try {
     $versionJsonUrl  = "https://github.com/xnorpx/blue-onyx/releases/latest/download/version.json"
     Write-Host "Downloading version.json from $versionJsonUrl to $versionJsonFile..."
     Invoke-WebRequest -Uri $versionJsonUrl -OutFile $versionJsonFile -UseBasicParsing -ErrorAction Stop
-    
+
     if (-not (Test-Path $versionJsonFile)) {
         throw "Failed to retrieve version.json file from GitHub."
     }
@@ -59,22 +59,22 @@ try {
     Write-Host "Parsing version.json..."
     $jsonContent = Get-Content -Path $versionJsonFile -Raw
     $json = $jsonContent | ConvertFrom-Json
-    
+
     if (-not $json.version -or -not $json.windows -or -not $json.windows_sha256) {
         throw "version.json does not contain the required fields (version, windows, windows_sha256)."
     }
-    
+
     $zipUrl    = "https://github.com/xnorpx/blue-onyx/releases/latest/download/$($json.windows)"
     $sha256Url = "https://github.com/xnorpx/blue-onyx/releases/latest/download/$($json.windows_sha256)"
-    
+
     Write-Host "Version: $($json.version)"
     Write-Host "ZIP URL: $zipUrl"
     Write-Host "SHA256 URL: $sha256Url"
-    
+
     # --- 4. Check if ZIP and SHA256 already exist in %TEMP%, else download (cache) ---
     $zipFile    = Join-Path $tempPath $json.windows
     $sha256File = Join-Path $tempPath $json.windows_sha256
-    
+
     if (Test-Path $zipFile) {
         Write-Host "Found cached ZIP file at $zipFile. Skipping download..."
     }
@@ -82,7 +82,7 @@ try {
         Write-Host "Downloading ZIP file to $zipFile..."
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipFile -UseBasicParsing -ErrorAction Stop
     }
-    
+
     if (Test-Path $sha256File) {
         Write-Host "Found cached SHA256 file at $sha256File. Skipping download..."
     }
@@ -90,34 +90,52 @@ try {
         Write-Host "Downloading SHA256 file to $sha256File..."
         Invoke-WebRequest -Uri $sha256Url -OutFile $sha256File -UseBasicParsing -ErrorAction Stop
     }
-    
+
     # --- 5. Verify the ZIP file's integrity with the SHA256 ---
     Write-Host "Verifying ZIP file integrity..."
     $sha256FileContent = Get-Content $sha256File -Raw
     $pattern = '[A-Fa-f0-9]{64}'  # 64 hex characters for a SHA256 hash
-    
+
     $match = [System.Text.RegularExpressions.Regex]::Match($sha256FileContent, $pattern)
     if (-not $match.Success) {
         throw "Could not parse a valid 64-hex SHA256 from the .sha256 file."
     }
     $expectedSha256 = $match.Value.ToLower()
-    
+
     $actualHash = (Get-FileHash -Algorithm SHA256 $zipFile).Hash.ToLower()
-    
+
     Write-Host "Expected SHA256: $expectedSha256"
     Write-Host "Actual   SHA256: $actualHash"
-    
+
     if ($expectedSha256 -ne $actualHash) {
         throw "ZIP file SHA256 does not match expected value!"
     }
     Write-Green "SHA256 verification successful."
-    
+
     # --- 6. Extract the ZIP into a temporary subfolder, then flatten if needed ---
-    $destinationPath = Join-Path $env:USERPROFILE ".blue-onyx"
+
+    # Get the desired folder from the user using a file dialog
+    $folderBrowser = New-Object -ComObject Shell.Application
+    $folder = $folderBrowser.BrowseForFolder(0, "Select Installation Folder, Cancel to install in default location", 0)
+    if ($folder) {
+        $destinationPath = Join-Path $folder.Self.Path ".blue-onyx"
+    } else {
+        # Handle the case where the user cancels the dialog
+        Write-Warning "No folder selected, installing in default location."
+        $destinationPath = Join-Path $env:USERPROFILE ".blue-onyx"
+    }
+
     if (-not (Test-Path $destinationPath)) {
         # Create .blue-onyx if it doesn't exist
         New-Item -ItemType Directory -Path $destinationPath | Out-Null
     }
+
+    # # --- 6. Extract the ZIP into a temporary subfolder, then flatten if needed ---
+    # $destinationPath = Join-Path $env:USERPROFILE ".blue-onyx"
+    # if (-not (Test-Path $destinationPath)) {
+    #     # Create .blue-onyx if it doesn't exist
+    #     New-Item -ItemType Directory -Path $destinationPath | Out-Null
+    # }
 
     # Create a temporary folder under .blue-onyx for unzipping
     $tempExtractPath = Join-Path $destinationPath "temp_unzip"
@@ -176,16 +194,16 @@ try {
 
     # --- 8. Add that folder to the PATH (for the user environment) ---
     Write-Host "Adding $destinationPath to User PATH..."
-    $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-    
+    $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+
     if ($userPath -notlike "*$destinationPath*") {
         if ([string]::IsNullOrEmpty($userPath)) {
             $newPath = $destinationPath
         } else {
             $newPath = "$userPath;$destinationPath"
         }
-        
-        [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+
+        [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "Machine")
         # Also update the current session PATH so user can test immediately
         $env:PATH = "$($env:PATH);$destinationPath"
     } else {
@@ -198,14 +216,16 @@ try {
     if (-not (Test-Path $exePath)) {
         throw "Could not find blue_onyx.exe at $exePath. Installation may have failed or the file may be missing."
     }
-    # We'll run the exe in a separate process. 
+    # We'll run the exe in a separate process.
     # This will download models into .blue-onyx folder.
     & $exePath --download-model-path $destinationPath
 
     # --- 10. Create Batch Files on Desktop BEFORE final success text ---
-    Write-Host "Creating batch files on the Desktop..."
+    #Write-Host "Creating batch files on the Desktop..."
+    Write-Host "Creating batch files in the Install folder..."
 
-    $desktopPath = [Environment]::GetFolderPath("Desktop")
+
+    #$desktopPath = [Environment]::GetFolderPath("Desktop")
 
     # 1. blue_onyx_start_server.bat
     $startServerContent = @"
@@ -214,9 +234,18 @@ try {
 blue_onyx.exe --port 32168 --gpu-index 0 --log-level info
 pause
 "@
-    Set-Content -Path (Join-Path $desktopPath "blue_onyx_start_server.bat") -Value $startServerContent -Force
+    Set-Content -Path (Join-Path $destinationPath "blue_onyx_start_server.bat") -Value $startServerContent -Force
+    
+    # 2. blue_onyx_start_server_large_models.bat
+    $startServerContentLG = @"
+:: change --log-level info to --log-level debug for more information
+:: add --log-path %temp% to log to file instead
+blue_onyx.exe --port 32168 --gpu-index 0 --log-level info --model "$destinationPath\rt-detrv2-x.onnx"
+pause
+"@
+    Set-Content -Path (Join-Path $destinationPath "blue_onyx_start_server_large_models.bat") -Value $startServerContentLG -Force
 
-    # 2. blue_onyx_benchmark_my_machine.bat
+    # 3. blue_onyx_benchmark_my_machine.bat
     $benchmarkContent = @"
 ::GPU
 blue_onyx_benchmark.exe --repeat 100 --save-stats-path .
@@ -226,29 +255,32 @@ blue_onyx_benchmark.exe --force-cpu --repeat 100 --save-stats-path .
 
 pause
 "@
-    Set-Content -Path (Join-Path $desktopPath "blue_onyx_benchmark_my_machine.bat") -Value $benchmarkContent -Force
+    Set-Content -Path (Join-Path $destinationPath "blue_onyx_benchmark_my_machine.bat") -Value $benchmarkContent -Force
 
-    # 3. test_blue_onyx_server.bat
+    # 4. test_blue_onyx_server.bat
     $testServerContent = @"
 test_blue_onyx.exe --origin http://127.0.0.1:32168 -n 10 --interval 10
 pause
 "@
-    Set-Content -Path (Join-Path $desktopPath "test_blue_onyx_server.bat") -Value $testServerContent -Force
+    Set-Content -Path (Join-Path $destinationPath "test_blue_onyx_server.bat") -Value $testServerContent -Force
+
+
 
     # --- 11. Prompt user to restart shell and exit ---
-    Write-Green "`nInstallation is complete! Blue Onyx is now installed in:"
-    Write-Host "  $destinationPath" -ForegroundColor Green
-    
-    Write-Green "`nDownloaded models into $destinationPath"
+    Write-Host "`nInstallation is complete! Blue Onyx is now installed in:" -ForegroundColor Green
+    Write-Host "  $destinationPath" -ForegroundColor DarkYellow
 
-    Write-Green "`nBatch files created on your Desktop:"
-    Write-Green "  blue_onyx_start_server.bat"
-    Write-Green "  blue_onyx_benchmark_my_machine.bat"
-    Write-Green "  test_blue_onyx_server.bat"
+    Write-Host "`nDownloaded models into $destinationPath" -ForegroundColor DarkMagenta
 
-    Write-Green "`nPlease restart your PowerShell or Command Prompt to ensure the updated PATH is loaded."
-    Write-Green "`nPlease restart Blue Onyx if this was a reinstall or update."
-    Write-Green "Done!"
+    Write-Host "`nBatch files created on your Install Folder:" -ForegroundColor Green
+    Write-Host "  blue_onyx_start_server.bat" -ForegroundColor Yellow
+    Write-Host "  blue_onyx_start_server_large_models.bat" -ForegroundColor Yellow
+    Write-Host "  blue_onyx_benchmark_my_machine.bat" -ForegroundColor Yellow
+    Write-Host "  test_blue_onyx_server.bat" -ForegroundColor Yellow
+
+    Write-Host "`nPlease restart your PowerShell or Command Prompt to ensure the updated PATH is loaded." -ForegroundColor Green
+    Write-Host "`nPlease restart Blue Onyx if this was a reinstall or update." -ForegroundColor Green
+    Write-Host "Done!" -ForegroundColor Green
 }
 catch {
     Write-ErrorRed "$($_.Exception.Message)"
