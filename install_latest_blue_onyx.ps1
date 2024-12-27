@@ -233,7 +233,7 @@ try {
         #     Write-Host "Path already contains $destinationPath, skipping update."
         # }
 
-        # # --- I6. Add that folder to the PATH (based on pop up box selection) ---
+        # # --- I6. Add Install folder to the PATH (based on pop up box selection) ---
         Add-Type -AssemblyName System.Windows.Forms
 
         # Create the form
@@ -316,47 +316,56 @@ try {
         $gpus = Get-CimInstance Win32_VideoController | Select-Object Name | Where-Object name -NotMatch "Microsoft Remote Display Adapter" |Sort-Object Name
         $gpuNames = $gpus.Name
 
-        # Create a form
-        $form = New-Object System.Windows.Forms.Form
-        $form.Text = "Blue Onyx GPU Selection"
-        $form.Size = New-Object System.Drawing.Size(350, 210)
-        $form.StartPosition = 'CenterScreen'
+        if ($gpus.Count -gt 1) {
+          # If there are more than 1 GPU, present pop up selection form to user.
+          Write-Host "Multiple GPUs detected." -ForegroundColor Cyan
 
-        # Create a label
-        $label = New-Object System.Windows.Forms.Label
-        $label.Text = "Select GPU:"
-        $label.Location = New-Object System.Drawing.Point(20, 20)
-        $form.Controls.Add($label)
+          # Create a form
+          $form = New-Object System.Windows.Forms.Form
+          $form.Text = "Blue Onyx GPU Selection"
+          $form.Size = New-Object System.Drawing.Size(350, 210)
+          $form.StartPosition = 'CenterScreen'
 
-        # Create a combobox
-        $comboBox = New-Object System.Windows.Forms.ComboBox
-        $comboBox.Location = New-Object System.Drawing.Point(20, 50)
-        $comboBox.Width = 300
-        $comboBox.DataSource = $gpuNames
-        $form.Controls.Add($comboBox)
+          # Create a label
+          $label = New-Object System.Windows.Forms.Label
+          $label.Text = "Select GPU:"
+          $label.Location = New-Object System.Drawing.Point(20, 20)
+          $form.Controls.Add($label)
 
-        # Create an OK button
-        $okButton = New-Object System.Windows.Forms.Button
-        $okButton.Text = "OK"
-        $okButton.Location = New-Object System.Drawing.Point(135, 90)
-        $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $form.Controls.Add($okButton)
+          # Create a combobox
+          $comboBox = New-Object System.Windows.Forms.ComboBox
+          $comboBox.Location = New-Object System.Drawing.Point(20, 50)
+          $comboBox.Width = 300
+          $comboBox.DataSource = $gpuNames
+          $form.Controls.Add($comboBox)
 
-        # Show the form and get user selection
-        $result = $form.ShowDialog()
+          # Create an OK button
+          $okButton = New-Object System.Windows.Forms.Button
+          $okButton.Text = "OK"
+          $okButton.Location = New-Object System.Drawing.Point(135, 90)
+          $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+          $form.Controls.Add($okButton)
 
-        # Check if the user clicked OK
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            # Get the selected GPU name
-            $selectedGpuName = $comboBox.SelectedItem
+          # Show the form and get user selection
+          $result = $form.ShowDialog()
 
-            # Get the index of the selected GPU in the list
-            $selectedGpuIndex = $gpuNames.IndexOf($selectedGpuName)
+          # Check if the user clicked OK
+          if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+              # Get the selected GPU name
+              $selectedGpuName = $comboBox.SelectedItem
 
-            # Display the selected GPU index (replace with your desired action)
-            Write-Host "Blue Onyx will use GPU: ($selectedGpuIndex) $selectedGpuName" -ForegroundColor DarkYellow
+              # Get the index of the selected GPU in the list
+              $selectedGpuIndex = $gpuNames.IndexOf($selectedGpuName)
+
+              # Display the selected GPU index (replace with your desired action)
+              Write-Host "Blue Onyx will use GPU: ($selectedGpuIndex) $selectedGpuName" -ForegroundColor DarkYellow
+          }
+
+        } else {
+          #Since there is only One GPU, we will set the value to 0 to match Task manager.
+          $selectedGpuIndex = 0
+          Write-host "Blue Onyx will use GPU: ($selectedGpuIndex) $($gpuNames[0])" -ForegroundColor DarkYellow
         }
-
 
         # --- I10. Create Batch Files on Desktop BEFORE final success text ---
         Write-Host "Creating batch files in the Install folder..." -ForegroundColor Green
