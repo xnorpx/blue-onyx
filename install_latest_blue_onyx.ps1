@@ -215,22 +215,83 @@ try {
         # Cleanup the temp_unzip folder
         Remove-Item -Path $tempExtractPath -Recurse -Force
 
-        # --- I6. Add that folder to the PATH (for the user environment) ---
-        Write-Host "Adding $destinationPath to User PATH..." -ForegroundColor Green
-        $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        # # --- I6. Add that folder to the PATH (for the user environment) ---
+        # Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
+        # $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 
-        if ($userPath -notlike "*$destinationPath*") {
-            if ([string]::IsNullOrEmpty($userPath)) {
-                $newPath = $destinationPath
+        # if ($userPath -notlike "*$destinationPath*") {
+        #     if ([string]::IsNullOrEmpty($userPath)) {
+        #         $newPath = $destinationPath
+        #     } else {
+        #         $newPath = "$userPath;$destinationPath"
+        #     }
+
+        #     [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "Machine")
+        #     # Also update the current session PATH so user can test immediately
+        #     $env:PATH = "$($env:PATH);$destinationPath"
+        # } else {
+        #     Write-Host "Path already contains $destinationPath, skipping update."
+        # }
+
+        # # --- I6. Add that folder to the PATH (based on pop up box selection) ---
+        Add-Type -AssemblyName System.Windows.Forms
+
+        # Create the form
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "Install PATH for:"
+        $form.Size = New-Object System.Drawing.Size(300,150)
+        $form.StartPosition = "CenterScreen"
+
+        # Create the buttons
+        $continueButton = New-Object System.Windows.Forms.Button
+        $continueButton.Text = "Self Only"
+        $continueButton.Size = New-Object System.Drawing.Size(75,23)
+        $continueButton.Location = New-Object System.Drawing.Point(50,50)
+        $continueButton.Add_Click({
+            $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $form.Close()
+        })
+
+        $adminButton = New-Object System.Windows.Forms.Button
+        $adminButton.Text = "System Wide"
+        $adminButton.Size = New-Object System.Drawing.Size(100,23)
+        $adminButton.Location = New-Object System.Drawing.Point(150,50)
+        $adminButton.Add_Click({
+            $form.DialogResult = [System.Windows.Forms.DialogResult]::Yes
+            $form.Close()
+        })
+
+        # Add buttons to the form
+        $form.Controls.Add($continueButton)
+        $form.Controls.Add($adminButton)
+
+        # Show the form
+        $result = $form.ShowDialog()
+        # Note: "Self Only" = OK box and "System Wide" = Yes box
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            # Continue with the script
+            Write-Host "Adding $destinationPath to User PATH..." -ForegroundColor Green
+            $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        
+            if ($userPath -notlike "*$destinationPath*") {
+                if ([string]::IsNullOrEmpty($userPath)) {
+                    $newPath = $destinationPath
+                } else {
+                    $newPath = "$userPath;$destinationPath"
+                }
+              
+                [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+                # Also update the current session PATH so user can test immediately
+                $env:PATH = "$($env:PATH);$destinationPath"
             } else {
-                $newPath = "$userPath;$destinationPath"
+                Write-Host "Path already contains $destinationPath, skipping update."
             }
-
-            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "Machine")
-            # Also update the current session PATH so user can test immediately
-            $env:PATH = "$($env:PATH);$destinationPath"
-        } else {
-            Write-Host "Path already contains $destinationPath, skipping update."
+        } elseif ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+            # Run as admin
+            $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newPath', 'Machine')"
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
+            Start-Sleep -Seconds 2
+            Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
         }
 
         # --- I8. Run blue_onyx.exe to download all models ---
