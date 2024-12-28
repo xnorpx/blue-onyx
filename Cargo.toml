@@ -66,6 +66,7 @@ windows = { version = "0", default-features = false, features = [
     "Win32_Graphics_Direct3D12",
     "Win32_System_Threading",
 ] }
+windows-service = "0"
 
 [build-dependencies]
 ureq = "2"
