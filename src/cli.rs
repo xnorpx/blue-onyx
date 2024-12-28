@@ -46,7 +46,10 @@ pub struct Cli {
     /// Save the reference image (only if save_image_path is provided)
     #[clap(long, default_value_t = false)]
     pub save_ref_image: bool,
-    /// GPU
+    /// GPU Index, best effort to select the correct one if multiple GPUs exist.
+    /// Default is 0. The list and actual GPU index might differ.
+    /// If the wrong GPU is selected, try changing this value.
+    /// Verify through GPU usage to ensure the correct GPU is selected.
     #[clap(long, default_value_t = 0)]
     pub gpu_index: i32,
     /// Save inference stats to file
