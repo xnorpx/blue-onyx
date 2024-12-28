@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Blue Onyx{% endblock %}</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <!-- Font Awesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-pIVD4rryZb+7ATbL9dwJhKfeJnV9L9zdjVc7axUjxQbMvR5ZYH3Ns1tklXq0uwxVzX33X7lXWbIjPsrZZIbj2w=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Google Fonts - Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Variables for Consistency */
+        :root {
+            --primary-color: #00BFFF;
+            --secondary-color: #ADD8E6;
+            --background-color: #121212;
+            --container-bg: #1e1e1e;
+            --card-bg: #2c2c2c;
+            --text-color: #00BFFF;
+            --light-text-color: #ADD8E6;
+            --hover-bg: #4682B4;
+            --border-radius: 12px;
+            --transition-speed: 0.3s;
+        }
+
+        /* Apply box-sizing globally */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        /* Global Styles */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: all var(--transition-speed) ease;
+        }
+
+        a:hover {
+            color: #ffffff;
+        }
+
+        .container {
+            flex: 1;
+            width: 90%;
+            max-width: 1200px;
+            margin: 40px auto;
+            background-color: var(--container-bg);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        p {
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .logo {
+            width: 200px;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 191, 255, 0.3);
+        }
+
+        .links {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .links a {
+            padding: 12px 24px;
+            border: 2px solid var(--primary-color);
+            border-radius: 25px;
+            background-color: transparent;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .links a i {
+            margin-right: 8px;
+        }
+
+        .links a:hover {
+            background-color: var(--primary-color);
+            color: #121212;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 15px 0;
+            border-top: 1px solid var(--primary-color);
+            color: #777;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .links {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .links a {
+                width: 80%;
+                text-align: center;
+            }
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 10px 20px;
+            border: 2px solid var(--primary-color);
+            border-radius: 25px;
+            background-color: transparent;
+            color: var(--primary-color);
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-color);
+            color: #121212;
+        }
+
+        /* Card Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--primary-color);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0, 191, 255, 0.2);
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 191, 255, 0.4);
+        }
+
+        .stat-card .icon {
+            font-size: 2em;
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+
+        .stat-card .stat-content h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+        }
+
+        .stat-card .stat-content p {
+            margin: 0;
+            color: var(--secondary-color);
+        }
+
+        /* Form Styles */
+        form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 191, 255, 0.1);
+            margin-top: 20px;
+        }
+
+        /* Hide the default file input */
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Style the label to look like a button */
+        .file-upload {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border: 2px solid var(--primary-color);
+            border-radius: 25px;
+            background-color: transparent;
+            color: var(--primary-color);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+            margin-bottom: 15px;
+        }
+
+        .file-upload i {
+            margin-right: 8px;
+        }
+
+        .file-upload:hover {
+            background-color: var(--primary-color);
+            color: #121212;
+        }
+
+        input[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--primary-color);
+            color: #121212;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        input[type="submit"]:hover {
+            background-color: var(--hover-bg);
+            color: #ffffff;
+        }
+
+        /* Image Display */
+        .processed-image {
+            margin-top: 20px;
+            max-width: 100%;
+            height: auto;
+            border: 3px solid var(--primary-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 191, 255, 0.3);
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .processed-image:hover {
+            transform: scale(1.02);
+        }
+
+        /* Additional Styles for Test Page */
+        .test-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+    <div class="container">
+        {% block content %}{% endblock %}
+
+        {% block links %}
+        {% endblock %}
+    </div>
+
+    <div class="footer">
+        &copy; 2024 Blue Onyx. All rights reserved.
+    </div>
+</body>
+
+</html>

@@ -58,10 +58,7 @@ pub async fn run_server(
     });
 
     let blue_onyx = Router::new()
-        .route(
-            "/",
-            get(|| async { (StatusCode::OK, "Blue Onyx is alive and healthy") }),
-        )
+        .route("/", get(welcome_handler))
         .route(
             "/v1/status/updateavailable",
             get(v1_status_update_available),
@@ -79,6 +76,7 @@ pub async fn run_server(
 
     let addr = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port);
     info!("Starting server, listening on {}", addr);
+    info!("Welcome page, http://127.0.0.1:{}", port);
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => listener,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
@@ -95,6 +93,24 @@ pub async fn run_server(
         .await?;
 
     Ok(())
+}
+
+#[derive(Template)]
+#[template(path = "welcome.html")]
+struct WelcomeTemplate {
+    logo_data: String,
+}
+
+async fn welcome_handler() -> impl IntoResponse {
+    const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
+    let encoded_logo = general_purpose::STANDARD.encode(LOGO);
+    let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+
+    let template = WelcomeTemplate { logo_data };
+    (
+        [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
+        template.into_response(),
+    )
 }
 
 async fn v1_vision_detection(
@@ -207,7 +223,12 @@ async fn show_form() -> impl IntoResponse {
 }
 
 async fn favicon_handler() -> impl IntoResponse {
-    StatusCode::NO_CONTENT
+    const FAVICON: &[u8] = include_bytes!("../assets/favicon.ico");
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/x-icon")],
+        FAVICON,
+    )
+        .into_response()
 }
 
 async fn fallback_handler(req: Request<Body>) -> impl IntoResponse {
