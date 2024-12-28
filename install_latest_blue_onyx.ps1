@@ -215,24 +215,6 @@ try {
         # Cleanup the temp_unzip folder
         Remove-Item -Path $tempExtractPath -Recurse -Force
 
-        # # --- I6. Add that folder to the PATH (for the user environment) ---
-        # Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
-        # $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
-
-        # if ($userPath -notlike "*$destinationPath*") {
-        #     if ([string]::IsNullOrEmpty($userPath)) {
-        #         $newPath = $destinationPath
-        #     } else {
-        #         $newPath = "$userPath;$destinationPath"
-        #     }
-
-        #     [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "Machine")
-        #     # Also update the current session PATH so user can test immediately
-        #     $env:PATH = "$($env:PATH);$destinationPath"
-        # } else {
-        #     Write-Host "Path already contains $destinationPath, skipping update."
-        # }
-
         # # --- I6. Add Install folder to the PATH (based on pop up box selection) ---
         Add-Type -AssemblyName System.Windows.Forms
 
@@ -313,7 +295,8 @@ try {
 
         # Get a list of available GPUs (replace with your actual GPU detection method)
         # We want to exclude RDP Displays, and Sort the list like how it is in Task Manager so the Index is correct. 
-        $gpus = Get-CimInstance Win32_VideoController | Select-Object Name | Where-Object name -NotMatch "Microsoft Remote Display Adapter" |Sort-Object Name
+        # Send all GPUs to an Array then count them. 
+        $gpus = @(Get-CimInstance Win32_VideoController | Select-Object Name | Where-Object name -NotMatch "Microsoft Remote Display Adapter" | Sort-Object Name)
         $gpuNames = $gpus.Name
 
         if ($gpus.Count -gt 1) {
