@@ -30,7 +30,7 @@ use tokio::{
     time::{timeout, Duration},
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info};
 
 const MEGABYTE: usize = 1024 * 1024; // 1 MB = 1024 * 1024 bytes
 const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
@@ -219,7 +219,7 @@ async fn fallback_handler(req: Request<Body>) -> impl IntoResponse {
         .await
         .unwrap_or_else(|_| body::Bytes::new());
 
-    warn!(
+    debug!(
         "Unimplemented endpoint called: Method: {}, URI: {}, Headers: {:?}, Body: {:?}",
         method, uri, headers, body_bytes
     );

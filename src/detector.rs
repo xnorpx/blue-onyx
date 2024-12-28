@@ -96,7 +96,8 @@ impl Detector {
             providers.push(
                 DirectMLExecutionProvider::default()
                     .with_device_id(detector_config.gpu_index)
-                    .build(),
+                    .build()
+                    .error_on_failure(),
             );
             device_type = DeviceType::GPU;
             (1, 1) // For GPU we just hardcode to 1 thread
@@ -185,10 +186,12 @@ impl Detector {
 
         // Warmup
         info!("Warming up the detector");
-        for _ in 0..10 {
-            detector.detect(Bytes::from(crate::DOG_BIKE_CAR_BYTES), None, None)?;
-        }
-        info!("Detector warmed up");
+        let detector_warmup_start_time = Instant::now();
+        detector.detect(Bytes::from(crate::DOG_BIKE_CAR_BYTES), None, None)?;
+        info!(
+            "Detector warmed up in: {:?}",
+            detector_warmup_start_time.elapsed()
+        );
         Ok(detector)
     }
 
