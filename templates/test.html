@@ -1,61 +1,28 @@
-<!-- templates/test.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Blue Onyx - Test</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f8ff;
-            margin: 50px;
-            text-align: center;
-        }
-        h1 {
-            color: #4682b4;
-        }
-        form {
-            margin: 20px auto;
-            padding: 20px;
-            border: 2px solid #4682b4;
-            border-radius: 10px;
-            width: 300px;
-            background-color: #ffffff;
-        }
-        input[type="file"] {
-            width: 90%;
-            padding: 10px;
-            margin: 10px 0;
-        }
-        input[type="submit"] {
-            padding: 10px 20px;
-            background-color: #4682b4;
-            color: #ffffff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        img {
-            margin-top: 20px;
-            max-width: 80%;
-            height: auto;
-            border: 2px solid #4682b4;
-            border-radius: 10px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Blue Onyx</h1>
+{% extends "base.html" %}
 
+{% block title %}Blue Onyx - Image Test{% endblock %}
+
+{% block content %}
+<h1>Blue Onyx - Image Test</h1>
+
+<div class="test-section">
     <form action="/test" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/jpeg" required>
-        <br>
+        <label for="image-upload" class="file-upload">
+            <i class="fas fa-upload"></i> Choose a JPEG Image
+        </label>
+        <input type="file" id="image-upload" name="image" accept="image/jpeg" required>
         <input type="submit" value="Upload">
     </form>
 
     {% if image_data.is_some() %}
-        <h2>Processed Image:</h2>
-        <img src="{{ image_data.unwrap() }}" alt="Processed Image">
+    <h2>Processed Image:</h2>
+    <img src="{{ image_data.unwrap() }}" alt="Processed Image" class="processed-image">
     {% endif %}
-</body>
-</html>
+</div>
+{% endblock %}
+
+{% block links %}
+<div class="links">
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+</div>
+{% endblock %}

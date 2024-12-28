@@ -1,169 +1,146 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Metrics Statistics</title>
-    <style>
-        /* Global Styles */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #000; /* Black background */
-            color: #00BFFF; /* Deep Sky Blue text */
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            width: 90%;
-            max-width: 1200px;
-            margin: 40px auto;
-            background-color: #1a1a1a; /* Dark gray container background */
-            box-shadow: 0 4px 6px rgba(255, 255, 255, 0.1); /* Subtle white shadow */
-            border: 2px solid #00BFFF; /* Blue border */
-            border-radius: 8px;
-            padding: 20px 30px;
-        }
-        h1 {
-            text-align: center;
-            color: #00BFFF; /* Blue header text */
-            margin-bottom: 30px;
-        }
-        .section {
-            margin-bottom: 25px;
-        }
-        .section h2 {
-            color: #00BFFF; /* Blue section headers */
-            border-bottom: 2px solid #00BFFF;
-            padding-bottom: 5px;
-            margin-bottom: 15px;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        .card {
-            background-color: #2a2a2a; /* Slightly lighter dark gray */
-            border: 1px solid #00BFFF; /* Blue border for cards */
-            border-radius: 6px;
-            padding: 15px 20px;
-            box-shadow: 0 2px 4px rgba(255, 255, 255, 0.05); /* Subtle white shadow */
-        }
-        .card h3 {
-            margin-top: 0;
-            color: #00BFFF; /* Blue card headers */
-        }
-        .card p {
-            margin: 8px 0;
-            line-height: 1.6;
-            color: #ADD8E6; /* Light Blue text for card content */
-        }
-        .badge {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 12px;
-            background-color: #00BFFF; /* Blue badge */
-            color: #fff;
-            font-size: 0.9em;
-        }
-        .badge.red {
-            background-color: #FF6347; /* Tomato red for disabled */
-        }
-        .footer {
-            text-align: center;
-            padding: 15px 0;
-            border-top: 1px solid #00BFFF;
-            color: #777;
-            margin-top: 30px;
-        }
-        @media (max-width: 600px) {
-            .container {
-                padding: 15px 20px;
-            }
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        /* Hover effect for cards */
-        .card:hover {
-            box-shadow: 0 4px 8px rgba(0, 191, 255, 0.2); /* Lighter blue shadow on hover */
-            transform: translateY(-5px);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Blue Onyx</h1>
+{% extends "base.html" %}
 
-        <div class="section">
-            <h2>System Information</h2>
-            <div class="stats-grid">
-                <div class="card">
-                    <h3>Uptime</h3>
-                    <p>{{ metrics.uptime() }}</p>
-                </div>
-                <div class="card">
-                    <h3>Model Name</h3>
-                    <p>{{ metrics.model_name }}</p>
-                </div>
-                <div class="card">
-                    <h3>Device Name</h3>
-                    <p>{{ metrics.device_name }}</p>
-                </div>
-                <div class="card">
-                    <h3>Execution Provider</h3>
-                    <p>{{ metrics.execution_provider_name }}</p>
-                </div>
-            </div>
+{% block title %}Blue Onyx - Stats{% endblock %}
+
+{% block content %}
+<h1>Blue Onyx - Stats</h1>
+<meta http-equiv="refresh" content="10">
+
+<div class="stats-grid">
+    <!-- System Information Section -->
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-clock"></i>
         </div>
-
-        <div class="section">
-            <h2>Request Statistics</h2>
-            <div class="stats-grid">
-                <div class="card">
-                    <h3>Number of Requests</h3>
-                    <p>{{ metrics.number_of_requests }}</p>
-                </div>
-                <div class="card">
-                    <h3>Average Inference Time</h3>
-                    <p>{{ metrics.avg_inference_ms() }} ms</p>
-                </div>
-                <div class="card">
-                    <h3>Minimum Inference Time</h3>
-                    <p>{{ metrics.min_inference_ms }} ms</p>
-                </div>
-                <div class="card">
-                    <h3>Maximum Inference Time</h3>
-                    <p>{{ metrics.max_inference_ms }} ms</p>
-                </div>
-
-                <div class="card">
-                    <h3>Average Processing Time</h3>
-                    <p>{{ metrics.avg_processing_ms() }} ms</p>
-                </div>
-                <div class="card">
-                    <h3>Minimum Processing Time</h3>
-                    <p>{{ metrics.min_processing_ms }} ms</p>
-                </div>
-                <div class="card">
-                    <h3>Maximum Processing Time</h3>
-                    <p>{{ metrics.max_processing_ms }} ms</p>
-                </div>
-
-                <div class="card">
-                    <h3>Average Analysis Round Trip Time</h3>
-                    <p>{{ metrics.avg_analysis_round_trip_ms() }} ms</p>
-                </div>
-                <div class="card">
-                    <h3>Minimum Analysis Round Trip Time</h3>
-                    <p>{{ metrics.min_analysis_round_trip_ms }} ms</p>
-                </div>
-                <div class="card">
-                    <h3>Maximum Analysis Round Trip Time</h3>
-                    <p>{{ metrics.max_analysis_round_trip_ms }} ms</p>
-                </div>
-            </div>
+        <div class="stat-content">
+            <h3>Uptime</h3>
+            <p>{{ metrics.uptime() }}</p>
         </div>
     </div>
-</body>
-</html>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Model Name</h3>
+            <p>{{ metrics.model_name }}</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-desktop"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Device Name</h3>
+            <p>{{ metrics.device_name }}</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-cogs"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Execution Provider</h3>
+            <p>{{ metrics.execution_provider_name }}</p>
+        </div>
+    </div>
+
+    <!-- Request Statistics Section -->
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Number of Requests</h3>
+            <p>{{ metrics.number_of_requests }}</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-stopwatch"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Avg Inference Time</h3>
+            <p>{{ metrics.avg_inference_ms() }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-tachometer-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Min Inference Time</h3>
+            <p>{{ metrics.min_inference_ms }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-tachometer-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Max Inference Time</h3>
+            <p>{{ metrics.max_inference_ms }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Avg Processing Time</h3>
+            <p>{{ metrics.avg_processing_ms() }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Min Processing Time</h3>
+            <p>{{ metrics.min_processing_ms }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Max Processing Time</h3>
+            <p>{{ metrics.max_processing_ms }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-exchange-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Avg Analysis Round Trip Time</h3>
+            <p>{{ metrics.avg_analysis_round_trip_ms() }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-exchange-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Min Analysis Round Trip Time</h3>
+            <p>{{ metrics.min_analysis_round_trip_ms }} ms</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-exchange-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Max Analysis Round Trip Time</h3>
+            <p>{{ metrics.max_analysis_round_trip_ms }} ms</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block links %}
+<div class="links">
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+</div>
+{% endblock %}

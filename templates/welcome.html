@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to Blue Onyx{% endblock %}
+
+{% block content %}
+<!-- Embedded Logo -->
+<img src="{{ logo_data }}" alt="Blue Onyx Logo" class="logo">
+
+<h1>Welcome to Blue Onyx</h1>
+<p>Object Detection</p>
+{% endblock %}
+
+{% block links %}
+<div class="links">
+    <a href="/stats"><i class="fas fa-chart-bar"></i> Server Stats</a>
+    <a href="/test"><i class="fas fa-upload"></i> Image Test</a>
+</div>
+{% endblock %}
