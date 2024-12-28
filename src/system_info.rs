@@ -18,14 +18,10 @@ pub fn cpu_model() -> String {
 
 pub fn gpu_model(index: usize) -> String {
     let gpu_names = gpu_info(false).unwrap_or_default();
-    let mut gpu_name = gpu_names
+    gpu_names
         .get(index)
         .cloned()
-        .unwrap_or_else(|| "Unknown".to_owned());
-    gpu_name = gpu_name.replace('\0', "");
-    gpu_name = gpu_name.trim().to_string();
-    gpu_name = gpu_name.split_whitespace().collect::<Vec<_>>().join(" ");
-    gpu_name
+        .unwrap_or_else(|| "Unknown".to_owned())
 }
 
 pub fn cpu_info() -> anyhow::Result<()> {
@@ -62,20 +58,22 @@ pub fn gpu_info(log_info: bool) -> windows::core::Result<Vec<String>> {
         let desc: DXGI_ADAPTER_DESC1 = unsafe { adapter.GetDesc1()? };
         let device_name = String::from_utf16_lossy(&desc.Description);
         if !device_name.contains("Microsoft") {
-            let device_name = String::from_utf16_lossy(&desc.Description);
-            gpu_names.push(device_name.clone());
-            if log_info {
-                info!(
-                    "GPU {} | {} | Vendor: {:X}, Device: {:X}, Dedicated VRAM: {:.2} MB",
-                    adapter_index,
-                    device_name,
-                    desc.VendorId,
-                    desc.DeviceId,
-                    desc.DedicatedVideoMemory as f64 / (1024.0 * 1024.0) // Convert bytes to MB
-                );
+            let mut device_name = String::from_utf16_lossy(&desc.Description);
+            device_name = device_name.replace('\0', "");
+            device_name = device_name.trim().to_string();
+            device_name = device_name.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !gpu_names.contains(&device_name) {
+                gpu_names.push(device_name.clone());
             }
         }
         adapter_index += 1;
+    }
+
+    gpu_names.sort();
+    if log_info {
+        for (index, device_name) in gpu_names.iter().enumerate() {
+            info!("GPU {} | {}", index, device_name);
+        }
     }
 
     Ok(gpu_names)
