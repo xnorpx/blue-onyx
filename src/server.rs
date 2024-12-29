@@ -143,7 +143,7 @@ async fn v1_vision_detection(
 
     if server_state.sender.is_full() {
         warn!("Worker queue is full server is overloaded, rejecting request");
-        warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+        update_dropped_requests(server_state).await;
         return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
     }
 
@@ -152,7 +152,7 @@ async fn v1_vision_detection(
         .send((vision_request, sender, request_start_time))
     {
         warn!(?err, "Failed to send request to detection worker");
-        warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+        update_dropped_requests(server_state).await;
         return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
     }
     let result = timeout(Duration::from_secs(30), receiver).await;
@@ -160,11 +160,13 @@ async fn v1_vision_detection(
     let mut vision_response = match result {
         Ok(Ok(response)) => response,
         Ok(Err(err)) => {
-            error!("Failed to receive vision detection response: {:?}", err);
+            warn!("Failed to receive vision detection response: {:?}", err);
+            update_dropped_requests(server_state).await;
             return Err(BlueOnyxError::from(err));
         }
         Err(_) => {
-            error!("Timeout while waiting for vision detection response");
+            warn!("Timeout while waiting for vision detection response");
+            update_dropped_requests(server_state).await;
             return Err(BlueOnyxError::from(anyhow::anyhow!("Operation timed out")));
         }
     };
@@ -290,6 +292,7 @@ pub struct Metrics {
     device_name: String,
     execution_provider_name: String,
     number_of_requests: u128,
+    dropped_requests: u128,
     total_inference_ms: u128,
     min_inference_ms: i32,
     max_inference_ms: i32,
@@ -309,6 +312,7 @@ impl Metrics {
             device_name,
             execution_provider_name: execution_provider,
             number_of_requests: 0,
+            dropped_requests: 0,
             total_inference_ms: 0,
             min_inference_ms: i32::MAX,
             max_inference_ms: i32::MIN,
@@ -352,6 +356,10 @@ impl Metrics {
             .max(response.analysis_round_trip_ms);
     }
 
+    fn update_dropped_requests(&mut self) {
+        self.dropped_requests = self.dropped_requests.wrapping_add(1);
+    }
+
     fn avg_ms(&self, total_ms: u128) -> i32 {
         if self.number_of_requests == 0 {
             0
@@ -371,6 +379,12 @@ impl Metrics {
     fn avg_analysis_round_trip_ms(&self) -> i32 {
         self.avg_ms(self.total_analysis_round_trip_ms)
     }
+}
+
+async fn update_dropped_requests(server_state: Arc<ServerState>) {
+    warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+    let mut metrics = server_state.metrics.lock().await;
+    metrics.update_dropped_requests();
 }
 
 #[derive(Template)]

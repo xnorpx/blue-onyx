@@ -1,7 +1,6 @@
 use crate::LogLevel;
 use clap::Parser;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 #[derive(Parser)]
 #[command(author = "Marcus Asteborg", version=env!("CARGO_PKG_VERSION"), about = "TODO")]

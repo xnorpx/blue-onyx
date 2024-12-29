@@ -51,8 +51,17 @@
             <i class="fas fa-chart-line"></i>
         </div>
         <div class="stat-content">
-            <h3>Number of Requests</h3>
+            <h3>Successful Requests</h3>
             <p>{{ metrics.number_of_requests }}</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>Dropped Requests</h3>
+            <p>{{ metrics.dropped_requests }}</p>
         </div>
     </div>
     <div class="stat-card">
@@ -60,7 +69,7 @@
             <i class="fas fa-stopwatch"></i>
         </div>
         <div class="stat-content">
-            <h3>Avg Inference Time</h3>
+            <h3>Average Inference Time</h3>
             <p>{{ metrics.avg_inference_ms() }} ms</p>
         </div>
     </div>
@@ -87,7 +96,7 @@
             <i class="fas fa-sync-alt"></i>
         </div>
         <div class="stat-content">
-            <h3>Avg Processing Time</h3>
+            <h3>Average Processing Time</h3>
             <p>{{ metrics.avg_processing_ms() }} ms</p>
         </div>
     </div>
@@ -114,7 +123,7 @@
             <i class="fas fa-exchange-alt"></i>
         </div>
         <div class="stat-content">
-            <h3>Avg Analysis Round Trip Time</h3>
+            <h3>Average Analysis Round Trip Time</h3>
             <p>{{ metrics.avg_analysis_round_trip_ms() }} ms</p>
         </div>
     </div>
