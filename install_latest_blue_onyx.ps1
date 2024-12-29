@@ -39,6 +39,23 @@ function Write-Green {
 }
 
 try {
+    # DO THIS FIRST
+    # --- 1. Check if blue_onyx.exe is running and kill it ---
+    Write-Host "Checking if blue_onyx.exe is running..." -ForegroundColor Yellow
+    $processName = "blue_onyx"
+    $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
+
+    if ($process) {
+        Write-Host "$processName.exe is currently running. Attempting to terminate..."
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c taskkill /F /IM $processName.exe" -Verb RunAs | Wait-Process 
+        Start-Sleep -Seconds 2
+        Write-Host "$processName.exe is not running. Proceeding with installation..." -ForegroundColor Green
+        }
+
+    else {
+        Write-Host "$processName.exe is not running. Proceeding with installation..." -ForegroundColor Green
+    }
+
     # --- 1. Prepare download path in %TEMP% ---
     $tempPath = Join-Path $env:TEMP "BlueOnyxInstall"
     if (-not (Test-Path $tempPath)) {
@@ -183,31 +200,7 @@ try {
             Write-Host "Multiple or no subfolders found, skipping single-folder flatten logic."
         }
 
-        # --- I4. Check if blue_onyx.exe is running and kill it ---
-        Write-Host "Checking if blue_onyx.exe is running..." -ForegroundColor Yellow
-        $processName = "blue_onyx"
-        $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
-
-        if ($process) {
-            Write-Host "$processName.exe is currently running. Attempting to terminate..."
-            try {
-                Stop-Process -Id $process.Id -Force
-                Write-Green "$processName.exe has been terminated successfully." -ForegroundColor Green
-            }
-            catch {
-                throw "Failed to terminate $processName.exe. Please close the application manually and retry."
-            }
-
-            # Optionally, wait for the process to exit
-            Start-Sleep -Seconds 2
-            if (Get-Process -Name $processName -ErrorAction SilentlyContinue) {
-                throw "$processName.exe is still running after attempting to terminate."
-            }
-        }
-        else {
-            Write-Host "$processName.exe is not running. Proceeding with installation..." -ForegroundColor Green
-        }
-
+        
         # --- I5. Copy new files into .blue-onyx, overwriting if they exist ---
         Write-Host "Overwriting existing files in $destinationPath with the new files..." -ForegroundColor Green
         Copy-Item -Path (Join-Path $flattenPath '*') -Destination $destinationPath -Recurse -Force
@@ -249,16 +242,19 @@ try {
 
         # Show the form
         $result = $form.ShowDialog()
+        
         # Note: "Self Only" = OK box and "System Wide" = Yes box
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             # Continue with the script
             Write-Host "Adding $destinationPath to User PATH..." -ForegroundColor Green
+            # Gets the Current User PATH
             $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
         
             if ($userPath -notlike "*$destinationPath*") {
                 if ([string]::IsNullOrEmpty($userPath)) {
                     $newPath = $destinationPath
                 } else {
+                    #append new Install Path to User Path.
                     $newPath = "$userPath;$destinationPath"
                 }
               
@@ -266,14 +262,41 @@ try {
                 # Also update the current session PATH so user can test immediately
                 $env:PATH = "$($env:PATH);$destinationPath"
             } else {
-                Write-Host "Path already contains $destinationPath, skipping update."
+                Write-Host "Path already contains $destinationPath, skipping update." -ForegroundColor Green
             }
+
         } elseif ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Run as admin
-            $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newPath', 'Machine')"
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
-            Start-Sleep -Seconds 2
-            Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
+            
+             # Continue with the script
+             Write-Host "Adding $destinationPath to System PATH..." -ForegroundColor Green
+             # Gets the Current System PATH
+             $sysPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+         
+             if ($sysPath -notlike "*$destinationPath*") {
+                 if ([string]::IsNullOrEmpty($sysPath)) {
+                     $newsysPath = $destinationPath
+                 } else {
+                     #append new Install Path to System Path.
+                     $newsysPath = "$sysPath;$destinationPath"
+                 }
+                 # Run as admin to update the System PATH
+                 $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newsysPath', 'Machine')"
+                 Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
+                 Start-Sleep -Seconds 2
+                 Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor DarkYellow
+                 # Also update the current session PATH so user can test immediately
+                 $env:PATH = "$($env:PATH);$destinationPath"
+             } else {
+                 Write-Host "Path already contains $destinationPath, skipping update." -ForegroundColor Green
+             }
+
+            
+            
+            # #$newsysPath = "$sysPath;$destinationPath"
+            # $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newsysPath', 'Machine')"
+            # Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
+            # Start-Sleep -Seconds 2
+            # Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
         }
 
         # --- I8. Run blue_onyx.exe to download all models ---
@@ -295,7 +318,6 @@ try {
 
         # Get a list of available GPUs (replace with your actual GPU detection method)
         # We want to exclude RDP Displays, and Sort the list like how it is in Task Manager so the Index is correct. 
-        # Send all GPUs to an Array then count them. 
         $gpus = @(Get-CimInstance Win32_VideoController | Select-Object Name | Where-Object name -NotMatch "Microsoft Remote Display Adapter" | Sort-Object Name)
         $gpuNames = $gpus.Name
 
