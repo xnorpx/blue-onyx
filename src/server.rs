@@ -17,12 +17,13 @@ use axum::{
 use base64::{engine::general_purpose, Engine as _};
 use bytes::Bytes;
 use chrono::Utc;
+use crossbeam::channel::Sender;
 use mime::IMAGE_JPEG;
 use reqwest;
 use serde::Deserialize;
 use std::{
     net::{Ipv4Addr, SocketAddr},
-    sync::{mpsc::Sender, Arc},
+    sync::Arc,
     time::Instant,
 };
 use tokio::{
@@ -30,7 +31,7 @@ use tokio::{
     time::{timeout, Duration},
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 const MEGABYTE: usize = 1024 * 1024; // 1 MB = 1024 * 1024 bytes
 const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
@@ -39,6 +40,7 @@ struct ServerState {
     sender: Sender<(
         VisionDetectionRequest,
         oneshot::Sender<VisionDetectionResponse>,
+        Instant,
     )>,
     metrics: Mutex<Metrics>,
 }
@@ -49,12 +51,13 @@ pub async fn run_server(
     sender: Sender<(
         VisionDetectionRequest,
         oneshot::Sender<VisionDetectionResponse>,
+        Instant,
     )>,
     metrics: Metrics,
 ) -> anyhow::Result<()> {
     let server_state = Arc::new(ServerState {
         sender,
-        metrics: Mutex::new(metrics), // TODO: Implement metrics
+        metrics: Mutex::new(metrics),
     });
 
     let blue_onyx = Router::new()
@@ -137,8 +140,20 @@ async fn v1_vision_detection(
     }
 
     let (sender, receiver) = tokio::sync::oneshot::channel();
-    if let Err(err) = server_state.sender.send((vision_request, sender)) {
-        error!(?err, "Failed to send request to detection worker");
+
+    if server_state.sender.is_full() {
+        warn!("Worker queue is full server is overloaded, rejecting request");
+        warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+        return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
+    }
+
+    if let Err(err) = server_state
+        .sender
+        .send((vision_request, sender, request_start_time))
+    {
+        warn!(?err, "Failed to send request to detection worker");
+        warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+        return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
     }
     let result = timeout(Duration::from_secs(30), receiver).await;
 
@@ -392,7 +407,10 @@ async fn handle_upload(
             };
 
             let (sender, receiver) = tokio::sync::oneshot::channel();
-            if let Err(err) = server_state.sender.send((vision_request, sender)) {
+            if let Err(err) = server_state
+                .sender
+                .send((vision_request, sender, request_start_time))
+            {
                 error!(?err, "Failed to send request to detection worker");
             }
             let result = timeout(Duration::from_secs(30), receiver).await;
