@@ -20,6 +20,18 @@
  powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
  ```
 
+## Install service
+
+**Note: You need to run as administrator to register the service and change the install path and command line arguments for your setup.**
+```powershell
+sc.exe create blue_onyx_service binPath= "$env:USERPROFILE\.blue-onyx\blue_onyx_service.exe --port 32168" start= auto displayname= "Blue Onyx Service"
+net start blue_onyx_service
+```
+
+Verify it is working by going to http://127.0.0.1:32168/
+
+(If you don't want to run blue_onyx as a service you can just run blue_onyx.exe)
+
 ## I don't trust scripts I want to install myself
 
 - Download latest release
