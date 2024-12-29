@@ -242,16 +242,19 @@ try {
 
         # Show the form
         $result = $form.ShowDialog()
+        
         # Note: "Self Only" = OK box and "System Wide" = Yes box
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             # Continue with the script
             Write-Host "Adding $destinationPath to User PATH..." -ForegroundColor Green
+            # Gets the Current User PATH
             $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
         
             if ($userPath -notlike "*$destinationPath*") {
                 if ([string]::IsNullOrEmpty($userPath)) {
                     $newPath = $destinationPath
                 } else {
+                    #append new Install Path to User Path.
                     $newPath = "$userPath;$destinationPath"
                 }
               
@@ -259,14 +262,41 @@ try {
                 # Also update the current session PATH so user can test immediately
                 $env:PATH = "$($env:PATH);$destinationPath"
             } else {
-                Write-Host "Path already contains $destinationPath, skipping update."
+                Write-Host "Path already contains $destinationPath, skipping update." -ForegroundColor Green
             }
+
         } elseif ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Run as admin
-            $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$destinationPath', 'Machine')"
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
-            Start-Sleep -Seconds 2
-            Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
+            
+             # Continue with the script
+             Write-Host "Adding $destinationPath to System PATH..." -ForegroundColor Green
+             # Gets the Current System PATH
+             $sysPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+         
+             if ($sysPath -notlike "*$destinationPath*") {
+                 if ([string]::IsNullOrEmpty($userPath)) {
+                     $newsysPath = $destinationPath
+                 } else {
+                     #append new Install Path to System Path.
+                     $newsysPath = "$sysPath;$destinationPath"
+                 }
+                 # Run as admin to update the System PATH
+                 $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newsysPath', 'Machine')"
+                 Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
+                 Start-Sleep -Seconds 2
+                 Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor DarkYellow
+                 # Also update the current session PATH so user can test immediately
+                 $env:PATH = "$($env:PATH);$destinationPath"
+             } else {
+                 Write-Host "Path already contains $destinationPath, skipping update." -ForegroundColor Green
+             }
+
+            
+            
+            # #$newsysPath = "$sysPath;$destinationPath"
+            # $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newsysPath', 'Machine')"
+            # Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
+            # Start-Sleep -Seconds 2
+            # Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
         }
 
         # --- I8. Run blue_onyx.exe to download all models ---
