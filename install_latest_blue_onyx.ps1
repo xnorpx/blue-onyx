@@ -39,6 +39,23 @@ function Write-Green {
 }
 
 try {
+    # DO THIS FIRST
+    # --- 1. Check if blue_onyx.exe is running and kill it ---
+    Write-Host "Checking if blue_onyx.exe is running..." -ForegroundColor Yellow
+    $processName = "blue_onyx"
+    $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
+
+    if ($process) {
+        Write-Host "$processName.exe is currently running. Attempting to terminate..."
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c taskkill /F /IM $processName.exe" -Verb RunAs | Wait-Process 
+        Start-Sleep -Seconds 2
+        Write-Host "$processName.exe is not running. Proceeding with installation..." -ForegroundColor Green
+        }
+
+    else {
+        Write-Host "$processName.exe is not running. Proceeding with installation..." -ForegroundColor Green
+    }
+
     # --- 1. Prepare download path in %TEMP% ---
     $tempPath = Join-Path $env:TEMP "BlueOnyxInstall"
     if (-not (Test-Path $tempPath)) {
@@ -183,31 +200,7 @@ try {
             Write-Host "Multiple or no subfolders found, skipping single-folder flatten logic."
         }
 
-        # --- I4. Check if blue_onyx.exe is running and kill it ---
-        Write-Host "Checking if blue_onyx.exe is running..." -ForegroundColor Yellow
-        $processName = "blue_onyx"
-        $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
-
-        if ($process) {
-            Write-Host "$processName.exe is currently running. Attempting to terminate..."
-            try {
-                Stop-Process -Id $process.Id -Force
-                Write-Green "$processName.exe has been terminated successfully." -ForegroundColor Green
-            }
-            catch {
-                throw "Failed to terminate $processName.exe. Please close the application manually and retry."
-            }
-
-            # Optionally, wait for the process to exit
-            Start-Sleep -Seconds 2
-            if (Get-Process -Name $processName -ErrorAction SilentlyContinue) {
-                throw "$processName.exe is still running after attempting to terminate."
-            }
-        }
-        else {
-            Write-Host "$processName.exe is not running. Proceeding with installation..." -ForegroundColor Green
-        }
-
+        
         # --- I5. Copy new files into .blue-onyx, overwriting if they exist ---
         Write-Host "Overwriting existing files in $destinationPath with the new files..." -ForegroundColor Green
         Copy-Item -Path (Join-Path $flattenPath '*') -Destination $destinationPath -Recurse -Force
@@ -270,7 +263,7 @@ try {
             }
         } elseif ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
             # Run as admin
-            $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$newPath', 'Machine')"
+            $command = "[System.Environment]::SetEnvironmentVariable('PATH', '$destinationPath', 'Machine')"
             Start-Process -FilePath "powershell.exe" -ArgumentList "-Command $command" -Verb RunAs
             Start-Sleep -Seconds 2
             Write-Host "Adding $destinationPath to Environment PATH..." -ForegroundColor Green
@@ -295,7 +288,6 @@ try {
 
         # Get a list of available GPUs (replace with your actual GPU detection method)
         # We want to exclude RDP Displays, and Sort the list like how it is in Task Manager so the Index is correct. 
-        # Send all GPUs to an Array then count them. 
         $gpus = @(Get-CimInstance Win32_VideoController | Select-Object Name | Where-Object name -NotMatch "Microsoft Remote Display Adapter" | Sort-Object Name)
         $gpuNames = $gpus.Name
 
