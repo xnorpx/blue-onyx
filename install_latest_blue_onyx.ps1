@@ -273,7 +273,7 @@ try {
              $sysPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
          
              if ($sysPath -notlike "*$destinationPath*") {
-                 if ([string]::IsNullOrEmpty($userPath)) {
+                 if ([string]::IsNullOrEmpty($sysPath)) {
                      $newsysPath = $destinationPath
                  } else {
                      #append new Install Path to System Path.
