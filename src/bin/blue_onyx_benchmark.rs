@@ -125,6 +125,7 @@ fn main() -> anyhow::Result<()> {
         gpu_index: args.gpu_index,
         intra_threads: args.intra_threads,
         inter_threads: args.inter_threads,
+        timeout: Duration::MAX,
     };
 
     let mut detector = Detector::new(detector_config)?;

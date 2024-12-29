@@ -1,6 +1,7 @@
 use crate::LogLevel;
 use clap::Parser;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(author = "Marcus Asteborg", version=env!("CARGO_PKG_VERSION"), about = "TODO")]
@@ -10,6 +11,17 @@ pub struct Cli {
     //#[arg(long, default_value_t = 32168)]
     #[arg(long, default_value_t = 32168)]
     pub port: u16,
+    /// Duration to wait for a response from the detection worker.
+    /// Ideally, this should be similar to the client's timeout setting.
+    #[arg(long, default_value = "15", value_parser = parse_duration)]
+    pub request_timeout: Duration,
+    /// Worker queue size.
+    /// The number of requests that can be queued before the server starts rejecting them.
+    /// If not set, the server will estimate the queue size based on the timeout and the
+    /// inference performance.
+    /// This estimation is based on the timeout and the expected number of requests per second.
+    #[arg(long)]
+    pub worker_queue_size: Option<usize>,
     /// Path to the ONNX rt-detrv2 onnx model file.
     /// If not given the default model small model is used.
     #[clap(long)]
@@ -60,4 +72,9 @@ pub struct Cli {
     /// and then exit
     #[clap(long)]
     pub download_model_path: Option<PathBuf>,
+}
+
+fn parse_duration(s: &str) -> anyhow::Result<Duration> {
+    let secs: u64 = s.parse()?;
+    Ok(Duration::from_secs(secs))
 }

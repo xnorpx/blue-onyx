@@ -27,6 +27,7 @@ clap = { version = "4", default-features = false, features = [
     "usage",
 ] }
 chrono = "0"
+crossbeam = "0"
 fast_image_resize = "5"
 futures = { version = "0", default-features = false }
 hf-hub = { version = "0", default-features = false, features = ["online", "tokio"] }

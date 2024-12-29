@@ -15,7 +15,11 @@ use ort::{
     session::{Session, SessionOutputs},
 };
 use smallvec::SmallVec;
-use std::{fmt::Debug, path::PathBuf, time::Instant};
+use std::{
+    fmt::Debug,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 use tracing::{debug, error, info, warn};
 
 pub struct DetectResult {
@@ -73,6 +77,7 @@ pub struct DetectorConfig {
     pub gpu_index: i32,
     pub intra_threads: usize,
     pub inter_threads: usize,
+    pub timeout: Duration,
 }
 
 impl Detector {
@@ -340,6 +345,24 @@ impl Detector {
             device_type: self.device_type,
             endpoint_provider: self.endpoint_provider,
         })
+    }
+
+    pub fn get_min_processing_time(&mut self) -> anyhow::Result<Duration> {
+        const TUNE_RUNS: usize = 10;
+        info!("Running detector {TUNE_RUNS} times to get min processing time");
+        let mut min_processing_time = Duration::MAX;
+
+        for _ in 0..TUNE_RUNS {
+            let detector_warmup_start_time = Instant::now();
+            self.detect(Bytes::from(crate::DOG_BIKE_CAR_BYTES), None, None)?;
+            let processing_time = detector_warmup_start_time.elapsed();
+            min_processing_time = min_processing_time.min(processing_time);
+        }
+        info!(
+            ?min_processing_time,
+            "Done running detector {TUNE_RUNS} times"
+        );
+        Ok(min_processing_time)
     }
 
     pub fn get_model_name(&self) -> &String {

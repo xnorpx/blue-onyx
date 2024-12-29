@@ -47,11 +47,12 @@ pub fn blue_onyx_service(
         gpu_index: args.gpu_index,
         intra_threads: args.intra_threads,
         inter_threads: args.inter_threads,
+        timeout: args.request_timeout,
     };
 
-    let (sender, receive) = std::sync::mpsc::channel();
     // Run a separate thread for the detector worker
-    let mut detector_worker = worker::DetectorWorker::new(detector_config, receive)?;
+    let (sender, mut detector_worker) =
+        worker::DetectorWorker::new(detector_config, args.worker_queue_size)?;
 
     let detector = detector_worker.get_detector();
     let model_name = detector.get_model_name();
