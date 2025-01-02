@@ -1,5 +1,6 @@
 use clap::ValueEnum;
 use cli::Cli;
+use detector::OnnxConfig;
 use serde::Deserialize;
 use server::run_server;
 use std::{future::Future, path::PathBuf};
@@ -37,17 +38,20 @@ pub fn blue_onyx_service(
     std::thread::JoinHandle<()>,
 )> {
     let detector_config = detector::DetectorConfig {
-        model: args.model,
+        object_detection_onnx_config: OnnxConfig {
+            force_cpu: args.force_cpu,
+            gpu_index: args.gpu_index,
+            intra_threads: args.intra_threads,
+            inter_threads: args.inter_threads,
+            model: args.model,
+        },
         object_classes: args.object_classes,
         object_filter: args.object_filter,
         confidence_threshold: args.confidence_threshold,
-        force_cpu: args.force_cpu,
         save_image_path: args.save_image_path,
         save_ref_image: args.save_ref_image,
-        gpu_index: args.gpu_index,
-        intra_threads: args.intra_threads,
-        inter_threads: args.inter_threads,
         timeout: args.request_timeout,
+        object_detection_model: args.object_detection_model_type,
     };
 
     // Run a separate thread for the detector worker
