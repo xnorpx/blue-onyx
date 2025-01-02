@@ -37,6 +37,7 @@ indicatif = "0"
 jpeg-encoder = "0"
 mime = "0"
 ndarray = "0"
+nalgebra = {version = "0", default-features = false}
 num_cpus = "1"
 ort = { version = "2.0.0-rc.9", default-features = false, features = [
     "ndarray",

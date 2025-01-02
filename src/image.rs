@@ -3,7 +3,9 @@ use ab_glyph::{FontArc, PxScale};
 use anyhow::bail;
 use bytes::Bytes;
 use image::{DynamicImage, ImageBuffer};
+use imageproc::geometric_transformations::warp;
 use jpeg_encoder::{ColorType, Encoder};
+use nalgebra::{Matrix3, Vector3};
 use std::{fmt, path::Path, time::Instant};
 use tracing::{debug, info};
 use zune_core::{colorspace::ColorSpace, options::DecoderOptions};
@@ -20,15 +22,139 @@ impl Image {
     pub fn resize(&mut self, size: usize) {
         self.pixels.resize(size, 0);
     }
-}
 
-impl fmt::Display for Image {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?}, Resolution: {}x{}",
-            self.name, self.width, self.height
-        )
+    /// Applies a perspective transformation to the current image and stores the result in `output`.
+    ///
+    /// # Arguments
+    ///
+    /// * `coeffs` - A 9-element array representing the 3x3 perspective transformation matrix.
+    /// * `x_min` - The minimum x-coordinate for cropping.
+    /// * `y_min` - The minimum y-coordinate for cropping.
+    /// * `x_max` - The maximum x-coordinate for cropping.
+    /// * `y_max` - The maximum y-coordinate for cropping.
+    /// * `output` - A mutable reference to an `Image` where the transformed image will be stored.
+    pub fn apply_perspective_transform(
+        &self,
+        coeffs: [f32; 9],
+        x_min: f32,
+        y_min: f32,
+        x_max: f32,
+        y_max: f32,
+        output: &mut Image,
+    ) {
+        // Step 1: Construct the homography matrix
+        let homography = Matrix3::from_row_slice(&coeffs);
+
+        // Step 2: Compute the inverse homography matrix
+        let inverse_homography = match homography.try_inverse() {
+            Some(inv) => inv,
+            None => {
+                eprintln!("Error: Homography matrix is singular and cannot be inverted.");
+                return;
+            }
+        };
+
+        // Step 3: Define the dimensions of the output image
+        let output_width = ((x_max - x_min).ceil()) as usize;
+        let output_height = ((y_max - y_min).ceil()) as usize;
+
+        // Initialize the output image
+        output.name = Some(format!(
+            "{}_transformed",
+            self.name.clone().unwrap_or_else(|| "output".to_string())
+        ));
+        output.width = output_width;
+        output.height = output_height;
+        output.pixels = vec![0u8; output_width * output_height * 3]; // RGB
+
+        // Step 4: Iterate over each pixel in the output image
+        for y_out in 0..output_height {
+            for x_out in 0..output_width {
+                // Compute the corresponding position in the source image
+                // Add 0.5 to target coordinates to map to pixel centers
+                let x_target = x_min + x_out as f32 + 0.5;
+                let y_target = y_min + y_out as f32 + 0.5;
+
+                let target_vector = Vector3::new(x_target, y_target, 1.0);
+                let source_vector = inverse_homography * target_vector;
+
+                let w = source_vector[2];
+                if w.abs() < 1e-5 {
+                    // Avoid division by zero
+                    continue;
+                }
+
+                let x_src = source_vector[0] / w;
+                let y_src = source_vector[1] / w;
+
+                // Perform bilinear interpolation
+                let interpolated_rgb = self.bilinear_interpolate_rgb(x_src, y_src);
+
+                // Assign the interpolated RGB value to the output pixel
+                let idx_out = (y_out * output_width + x_out) * 3;
+                output.pixels[idx_out] = interpolated_rgb.0;
+                output.pixels[idx_out + 1] = interpolated_rgb.1;
+                output.pixels[idx_out + 2] = interpolated_rgb.2;
+            }
+        }
+    }
+
+    /// Performs bilinear interpolation on the source image at the given floating-point coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The x-coordinate in the source image.
+    /// * `y` - The y-coordinate in the source image.
+    ///
+    /// # Returns
+    ///
+    /// * `(u8, u8, u8)` - The interpolated RGB pixel value.
+    fn bilinear_interpolate_rgb(&self, x: f32, y: f32) -> (u8, u8, u8) {
+        // Get the integer parts
+        let x0 = x.floor() as isize;
+        let y0 = y.floor() as isize;
+        let x1 = x0 + 1;
+        let y1 = y0 + 1;
+
+        // Get the fractional parts
+        let wx = x - x0 as f32;
+        let wy = y - y0 as f32;
+
+        // Initialize RGB values
+        let mut r = 0f32;
+        let mut g = 0f32;
+        let mut b = 0f32;
+
+        // Helper closure to get RGB values safely
+        let get_rgb = |x: isize, y: isize| -> Option<(u8, u8, u8)> {
+            if x >= 0 && x < self.width as isize && y >= 0 && y < self.height as isize {
+                let idx = (y as usize * self.width + x as usize) * 3;
+                Some((self.pixels[idx], self.pixels[idx + 1], self.pixels[idx + 2]))
+            } else {
+                None // Return None for out-of-bounds
+            }
+        };
+
+        // Retrieve the four surrounding pixels
+        let p00 = get_rgb(x0, y0).unwrap_or((0, 0, 0));
+        let p10 = get_rgb(x1, y0).unwrap_or((0, 0, 0));
+        let p01 = get_rgb(x0, y1).unwrap_or((0, 0, 0));
+        let p11 = get_rgb(x1, y1).unwrap_or((0, 0, 0));
+
+        // Perform bilinear interpolation for each channel
+        r = (p00.0 as f32 * (1.0 - wx) + p10.0 as f32 * wx) * (1.0 - wy)
+            + (p01.0 as f32 * (1.0 - wx) + p11.0 as f32 * wx) * wy;
+        g = (p00.1 as f32 * (1.0 - wx) + p10.1 as f32 * wx) * (1.0 - wy)
+            + (p01.1 as f32 * (1.0 - wx) + p11.1 as f32 * wx) * wy;
+        b = (p00.2 as f32 * (1.0 - wx) + p10.2 as f32 * wx) * (1.0 - wy)
+            + (p01.2 as f32 * (1.0 - wx) + p11.2 as f32 * wx) * wy;
+
+        // Clamp the results to [0, 255] and convert to u8
+        let r = r.clamp(0.0, 255.0) as u8;
+        let g = g.clamp(0.0, 255.0) as u8;
+        let b = b.clamp(0.0, 255.0) as u8;
+
+        (r, g, b)
     }
 }
 

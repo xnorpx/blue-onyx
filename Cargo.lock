@@ -404,6 +404,7 @@ dependencies = [
  "indicatif",
  "jpeg-encoder",
  "mime",
+ "nalgebra",
  "ndarray",
  "num_cpus",
  "ort",

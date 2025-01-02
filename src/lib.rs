@@ -10,6 +10,7 @@ use windows::Win32::System::Threading::{
     THREAD_PRIORITY_TIME_CRITICAL,
 };
 
+pub mod alpr;
 pub mod api;
 pub mod cli;
 pub mod detector;
