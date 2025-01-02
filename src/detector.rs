@@ -12,7 +12,7 @@ use ndarray::{Array, ArrayView, Axis};
 use ort::{
     execution_providers::DirectMLExecutionProvider,
     inputs,
-    session::{Session, SessionOutputs},
+    session::{Session, SessionInputs, SessionOutputs},
 };
 use smallvec::SmallVec;
 use std::{
@@ -63,59 +63,139 @@ pub struct Detector {
     save_image_path: Option<PathBuf>,
     save_ref_image: bool,
     model_name: String,
+    object_detection_model: ObjectDetectionModel,
+}
+
+#[derive(Debug, Clone)]
+pub struct OnnxConfig {
+    pub intra_threads: usize,
+    pub inter_threads: usize,
+    pub gpu_index: i32,
+    pub force_cpu: bool,
+    pub model: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
+pub enum ObjectDetectionModel {
+    #[default]
+    RtDetrv2,
+}
+
+impl std::fmt::Display for ObjectDetectionModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ObjectDetectionModel::RtDetrv2 => write!(f, "rt-detrv2"),
+        }
+    }
+}
+
+impl ObjectDetectionModel {
+    pub fn pre_process<'a>(
+        &self,
+        resized_image: &'a Image,
+        input: &'a mut Array<f32, ndarray::Dim<[usize; 4]>>,
+        orig_size: &'a Array<i64, ndarray::Dim<[usize; 2]>>,
+    ) -> SessionInputs<'a, 'a> {
+        match self {
+            Self::RtDetrv2 => rt_detrv2_pre_process(resized_image, input, orig_size),
+        }
+    }
+    pub fn post_process(
+        &self,
+        outputs: SessionOutputs<'_, '_>,
+        confidence_threshold: f32,
+        resize_factor_x: f32,
+        resize_factor_y: f32,
+        object_filter: &Option<Vec<bool>>,
+        object_classes: &[String],
+    ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
+        match self {
+            Self::RtDetrv2 => rt_detrv2_post_process(
+                outputs,
+                confidence_threshold,
+                resize_factor_x,
+                resize_factor_y,
+                object_filter,
+                object_classes,
+            ),
+        }
+    }
+}
+
+fn rt_detrv2_pre_process<'a>(
+    resized_image: &'a Image,
+    input: &'a mut Array<f32, ndarray::Dim<[usize; 4]>>,
+    orig_size: &'a Array<i64, ndarray::Dim<[usize; 2]>>,
+) -> SessionInputs<'a, 'a> {
+    for (i, pixel) in resized_image.pixels.iter().enumerate() {
+        let channel = i % 3;
+        let value = *pixel as f32 / 255.0;
+        let index = i / 3;
+        let y = index / 640;
+        let x = index % 640;
+        input[[0, channel, y, x]] = value;
+    }
+
+    ort::session::SessionInputs::ValueMap(
+        inputs!["images" => input.view(), "orig_target_sizes" => orig_size.view()].unwrap(),
+    )
+}
+
+fn rt_detrv2_post_process(
+    outputs: SessionOutputs<'_, '_>,
+    confidence_threshold: f32,
+    resize_factor_x: f32,
+    resize_factor_y: f32,
+    object_filter: &Option<Vec<bool>>,
+    object_classes: &[String],
+) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
+    let labels: ArrayView<i64, _> = outputs["labels"].try_extract_tensor::<i64>()?;
+    let bboxes: ArrayView<f32, _> = outputs["boxes"].try_extract_tensor::<f32>()?;
+    let scores: ArrayView<f32, _> = outputs["scores"].try_extract_tensor::<f32>()?;
+    let labels = labels.index_axis(Axis(0), 0);
+    let bboxes = bboxes.index_axis(Axis(0), 0);
+    let scores = scores.index_axis(Axis(0), 0);
+    let mut predictions = SmallVec::<[Prediction; 10]>::new();
+    for (i, bbox) in bboxes.outer_iter().enumerate() {
+        if scores[i] > confidence_threshold {
+            // If object filter is set, skip objects that are not in the filter
+            if let Some(object_filter) = object_filter.as_ref() {
+                // If the object is not in the filter, skip it
+                if !object_filter[labels[i] as usize] {
+                    continue;
+                }
+            }
+            let prediction = Prediction {
+                x_min: (bbox[0] * resize_factor_x) as usize,
+                x_max: (bbox[2] * resize_factor_x) as usize,
+                y_min: (bbox[1] * resize_factor_y) as usize,
+                y_max: (bbox[3] * resize_factor_y) as usize,
+                confidence: scores[i],
+                label: object_classes[labels[i] as usize].clone(),
+            };
+            debug!("Prediction - {}: {:?}", predictions.len() + 1, prediction);
+            predictions.push(prediction);
+        }
+    }
+
+    Ok(predictions)
 }
 
 #[derive(Debug, Clone)]
 pub struct DetectorConfig {
-    pub model: Option<PathBuf>,
     pub object_classes: Option<PathBuf>,
     pub object_filter: Vec<String>,
     pub confidence_threshold: f32,
-    pub force_cpu: bool,
     pub save_image_path: Option<PathBuf>,
     pub save_ref_image: bool,
-    pub gpu_index: i32,
-    pub intra_threads: usize,
-    pub inter_threads: usize,
     pub timeout: Duration,
+    pub object_detection_onnx_config: OnnxConfig,
+    pub object_detection_model: ObjectDetectionModel,
 }
 
 impl Detector {
     pub fn new(detector_config: DetectorConfig) -> anyhow::Result<Self> {
         let object_classes = get_object_classes(detector_config.object_classes)?;
-        let mut providers = Vec::new();
-        let mut device_type = DeviceType::CPU;
-        let (num_intra_threads, num_inter_threads) = if detector_config.force_cpu {
-            let num_intra_threads = detector_config
-                .intra_threads
-                .min(num_cpus::get_physical() - 1);
-            let num_inter_threads = detector_config
-                .inter_threads
-                .min(num_cpus::get_physical() - 1);
-            info!(
-                "Forcing CPU for inference with {} intra and {} inter threads",
-                num_intra_threads, num_inter_threads
-            );
-            (num_intra_threads, num_inter_threads)
-        } else if direct_ml_available() {
-            providers.push(
-                DirectMLExecutionProvider::default()
-                    .with_device_id(detector_config.gpu_index)
-                    .build()
-                    .error_on_failure(),
-            );
-            device_type = DeviceType::GPU;
-            (1, 1) // For GPU we just hardcode to 1 thread
-        } else {
-            let num_intra_threads = detector_config
-                .intra_threads
-                .min(num_cpus::get_physical() - 1);
-            let num_inter_threads = detector_config
-                .inter_threads
-                .min(num_cpus::get_physical() - 1);
-            warn!("DirectML not available, falling back to CPU for inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
-            (detector_config.intra_threads, detector_config.inter_threads)
-        };
 
         let mut object_filter = None;
         if !detector_config.object_filter.is_empty() {
@@ -131,47 +211,8 @@ impl Detector {
             object_filter = Some(object_filter_vector);
         }
 
-        let (model_bytes, model_name) = if let Some(model) = detector_config.model {
-            let model_str = model
-                .to_str()
-                .ok_or_else(|| anyhow::anyhow!("Failed to convert model path to string"))?
-                .to_string();
-            (std::fs::read(&model)?, model_str)
-        } else {
-            let exe_path: PathBuf = std::env::current_exe()?;
-            let model_path = exe_path
-                .parent()
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Failed to get parent directory of executable path")
-                })?
-                .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
-            let Ok(model_bytes) = std::fs::read(&model_path) else {
-                error!("Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary", model_path, crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
-                bail!("Failed to read model file");
-            };
-            (
-                model_bytes,
-                crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string(),
-            )
-        };
-
-        info!(
-            "Initializing detector with model: {:?}, #{} classes and inference running on {}",
-            model_name,
-            object_classes.len(),
-            device_type,
-        );
-
-        let session = Session::builder()?
-            .with_execution_providers(providers)?
-            .with_intra_threads(num_intra_threads)?
-            .with_inter_threads(num_inter_threads)?
-            .commit_from_memory(model_bytes.as_slice())?;
-
-        let endpoint_provider = match device_type {
-            DeviceType::GPU => EndpointProvider::DirectML,
-            DeviceType::CPU => EndpointProvider::CPU,
-        };
+        let (device_type, model_name, session, endpoint_provider) =
+            initialize_onnx(&detector_config.object_detection_onnx_config)?;
 
         let mut detector = Self {
             model_name,
@@ -187,6 +228,7 @@ impl Detector {
             device_type,
             save_image_path: detector_config.save_image_path,
             save_ref_image: detector_config.save_ref_image,
+            object_detection_model: detector_config.object_detection_model,
         };
 
         // Warmup
@@ -206,7 +248,7 @@ impl Detector {
         image_name: Option<String>,
         min_confidence: Option<f32>,
     ) -> anyhow::Result<DetectResult> {
-        // Process from here
+        // Save the image if save_ref_image is set
         if let Some(image_name) = image_name.clone() {
             debug!("Detecting objects in image: {}", image_name);
             if let Some(save_image_path) = self.save_image_path.clone() {
@@ -222,6 +264,7 @@ impl Detector {
             }
         }
 
+        // Process from here
         let processing_time_start = Instant::now();
         decode_jpeg(image_name.clone(), image_bytes, &mut self.decoded_image)?;
         let decode_image_time = processing_time_start.elapsed();
@@ -245,59 +288,31 @@ impl Detector {
         let resize_image_time = resize_image_start_time.elapsed();
         debug!("Resize image time: {:#?}", resize_image_time);
 
-        for (i, pixel) in self.resized_image.pixels.iter().enumerate() {
-            let channel = i % 3;
-            let value = *pixel as f32 / 255.0;
-            let index = i / 3;
-            let y = index / 640;
-            let x = index % 640;
-            self.input[[0, channel, y, x]] = value;
-        }
+        let session_inputs = self.object_detection_model.pre_process(
+            &self.resized_image,
+            &mut self.input,
+            &orig_size,
+        );
+
         let pre_processing_time = processing_time_start.elapsed();
         debug!("Pre-process time: {:?}", pre_processing_time);
 
         let start_inference_time = std::time::Instant::now();
-        let outputs: SessionOutputs = self.session.run(
-            inputs!["images" => self.input.view(), "orig_target_sizes" => orig_size.view()]?,
-        )?;
+        let outputs: SessionOutputs = self.session.run(session_inputs)?;
         let inference_time = start_inference_time.elapsed();
         debug!("Inference time: {:?}", inference_time);
 
         let post_processing_time_start = Instant::now();
 
-        let labels: ArrayView<i64, _> = outputs["labels"].try_extract_tensor::<i64>()?;
-        let bboxes: ArrayView<f32, _> = outputs["boxes"].try_extract_tensor::<f32>()?;
-        let scores: ArrayView<f32, _> = outputs["scores"].try_extract_tensor::<f32>()?;
-
-        let labels = labels.index_axis(Axis(0), 0);
-        let bboxes = bboxes.index_axis(Axis(0), 0);
-        let scores = scores.index_axis(Axis(0), 0);
-
-        let mut predictions = SmallVec::<[Prediction; 10]>::new();
-
         let confidence_threshold = min_confidence.unwrap_or(self.confidence_threshold);
-
-        for (i, bbox) in bboxes.outer_iter().enumerate() {
-            if scores[i] > confidence_threshold {
-                // If object filter is set, skip objects that are not in the filter
-                if let Some(object_filter) = self.object_filter.as_ref() {
-                    // If the object is not in the filter, skip it
-                    if !object_filter[labels[i] as usize] {
-                        continue;
-                    }
-                }
-                let prediction = Prediction {
-                    x_min: (bbox[0] * resize_factor_x) as usize,
-                    x_max: (bbox[2] * resize_factor_x) as usize,
-                    y_min: (bbox[1] * resize_factor_y) as usize,
-                    y_max: (bbox[3] * resize_factor_y) as usize,
-                    confidence: scores[i],
-                    label: self.object_classes[labels[i] as usize].clone(),
-                };
-                debug!("Prediction - {}: {:?}", predictions.len() + 1, prediction);
-                predictions.push(prediction);
-            }
-        }
+        let predictions = self.object_detection_model.post_process(
+            outputs,
+            confidence_threshold,
+            resize_factor_x,
+            resize_factor_y,
+            &self.object_filter,
+            &self.object_classes,
+        )?;
 
         let now = Instant::now();
         let post_processing_time = now.duration_since(post_processing_time_start);
@@ -376,6 +391,71 @@ impl Detector {
     pub fn is_using_gpu(&self) -> bool {
         self.device_type == DeviceType::GPU
     }
+}
+
+fn initialize_onnx(
+    onnx_config: &OnnxConfig,
+) -> Result<(DeviceType, String, Session, EndpointProvider), anyhow::Error> {
+    let mut providers = Vec::new();
+    let mut device_type = DeviceType::CPU;
+    let (num_intra_threads, num_inter_threads) = if onnx_config.force_cpu {
+        let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+        let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+        info!(
+            "Forcing CPU for inference with {} intra and {} inter threads",
+            num_intra_threads, num_inter_threads
+        );
+        (num_intra_threads, num_inter_threads)
+    } else if direct_ml_available() {
+        providers.push(
+            DirectMLExecutionProvider::default()
+                .with_device_id(onnx_config.gpu_index)
+                .build()
+                .error_on_failure(),
+        );
+        device_type = DeviceType::GPU;
+        (1, 1) // For GPU we just hardcode to 1 thread
+    } else {
+        let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+        let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+        warn!("DirectML not available, falling back to CPU for inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
+        (onnx_config.intra_threads, onnx_config.inter_threads)
+    };
+    let (model_bytes, model_name) = if let Some(model) = onnx_config.model.clone() {
+        let model_str = model
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert model path to string"))?
+            .to_string();
+        (std::fs::read(&model)?, model_str)
+    } else {
+        let exe_path: PathBuf = std::env::current_exe()?;
+        let model_path = exe_path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get parent directory of executable path"))?
+            .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
+        let Ok(model_bytes) = std::fs::read(&model_path) else {
+            error!("Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary", model_path, crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
+            bail!("Failed to read model file");
+        };
+        (
+            model_bytes,
+            crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string(),
+        )
+    };
+    info!(
+        "Initializing detector with model: {:?} and inference running on {}",
+        model_name, device_type,
+    );
+    let session = Session::builder()?
+        .with_execution_providers(providers)?
+        .with_intra_threads(num_intra_threads)?
+        .with_inter_threads(num_inter_threads)?
+        .commit_from_memory(model_bytes.as_slice())?;
+    let endpoint_provider = match device_type {
+        DeviceType::GPU => EndpointProvider::DirectML,
+        DeviceType::CPU => EndpointProvider::CPU,
+    };
+    Ok((device_type, model_name, session, endpoint_provider))
 }
 
 #[derive(Debug, Clone, Copy)]

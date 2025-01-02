@@ -25,7 +25,9 @@
 //!
 use anyhow::bail;
 use blue_onyx::{
-    detector::{Detector, DetectorConfig, DeviceType, EndpointProvider},
+    detector::{
+        Detector, DetectorConfig, DeviceType, EndpointProvider, ObjectDetectionModel, OnnxConfig,
+    },
     image::load_image,
     init_logging,
     system_info::{cpu_model, gpu_model, system_info},
@@ -55,10 +57,15 @@ struct Cli {
     /// If not given default test image is used
     #[clap(long)]
     image: Option<PathBuf>,
-    /// Path to the ONNX rt-detrv2 onnx model file.
-    /// If not given the default model small model is used.
+    /// Path to the ONNX model file.
+    /// If not specified, the default rt-detrv2 small model will be used
+    /// provided it is available in the directory.
     #[clap(long)]
-    model: Option<PathBuf>,
+    pub model: Option<PathBuf>,
+    /// Type of model type to use.
+    /// Default: rt-detrv2
+    #[clap(long, default_value_t = ObjectDetectionModel::RtDetrv2)]
+    pub object_detection_model_type: ObjectDetectionModel,
     /// Path to the object classes yaml file
     /// Default: coco_classes.yaml which is the 80 standard COCO classes
     #[clap(long)]
@@ -115,17 +122,20 @@ fn main() -> anyhow::Result<()> {
     }
 
     let detector_config = DetectorConfig {
-        model: args.model,
+        object_detection_onnx_config: OnnxConfig {
+            model: args.model,
+            force_cpu: args.force_cpu,
+            gpu_index: args.gpu_index,
+            intra_threads: args.intra_threads,
+            inter_threads: args.inter_threads,
+        },
         object_classes: args.object_classes,
         object_filter: args.object_filter,
         confidence_threshold: args.confidence_threshold,
-        force_cpu: args.force_cpu,
         save_image_path: args.save_image_path,
         save_ref_image: args.save_ref_image,
-        gpu_index: args.gpu_index,
-        intra_threads: args.intra_threads,
-        inter_threads: args.inter_threads,
         timeout: Duration::MAX,
+        object_detection_model: args.object_detection_model_type,
     };
 
     let mut detector = Detector::new(detector_config)?;

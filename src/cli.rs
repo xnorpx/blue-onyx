@@ -1,4 +1,4 @@
-use crate::LogLevel;
+use crate::{detector::ObjectDetectionModel, LogLevel};
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
 
@@ -21,10 +21,15 @@ pub struct Cli {
     /// This estimation is based on the timeout and the expected number of requests per second.
     #[arg(long)]
     pub worker_queue_size: Option<usize>,
-    /// Path to the ONNX rt-detrv2 onnx model file.
-    /// If not given the default model small model is used.
+    /// Path to the ONNX model file.
+    /// If not specified, the default rt-detrv2 small model will be used
+    /// provided it is available in the directory.
     #[clap(long)]
     pub model: Option<PathBuf>,
+    /// Type of model type to use.
+    /// Default: rt-detrv2
+    #[clap(long, default_value_t = ObjectDetectionModel::RtDetrv2)]
+    pub object_detection_model_type: ObjectDetectionModel,
     /// Path to the object classes yaml file
     /// Default: coco_classes.yaml which is the 80 standard COCO classes
     #[clap(long)]
