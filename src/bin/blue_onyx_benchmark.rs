@@ -117,7 +117,7 @@ fn main() -> anyhow::Result<()> {
     system_info()?;
 
     if args.download_model_path.is_some() {
-        blue_onyx::download_models::download_models(args.download_model_path.unwrap())?;
+        blue_onyx::download_models::download_models(args.download_model_path.unwrap(), false)?;
         return Ok(());
     }
 

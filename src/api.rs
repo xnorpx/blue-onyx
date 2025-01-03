@@ -41,7 +41,7 @@ pub struct VisionDetectionResponse {
     pub analysis_round_trip_ms: i32,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Prediction {
     pub x_max: usize,
     pub x_min: usize,
