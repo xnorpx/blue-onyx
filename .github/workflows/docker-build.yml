@@ -1,0 +1,61 @@
+name: Build and Publish Docker Image
+
+on:
+  workflow_run:
+    workflows: ["release"]
+    types:
+      - completed
+
+jobs:
+  build:
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Build blue_onyx binaries
+        run: |
+          cargo build --release --bin blue_onyx
+          cargo build --release --bin blue_onyx_download_models
+
+      - name: Download models
+        run: |
+          ./target/release/blue_onyx_download_models /tmp/models
+          ./target/release/blue_onyx_download_models /tmp/models custom-model
+
+      - name: Prepare Docker context
+        run: |
+          mkdir docker-context
+          cp ./target/release/blue_onyx docker-context/
+          cp ./target/release/libonnxruntime.so docker-context/
+          cp -r /tmp/models docker-context/models
+          cp ./Dockerfile docker-context/
+
+      - name: Get blue_onyx version
+        id: get_version
+        run: |
+          VERSION=$(./target/release/blue_onyx --version | awk '{print $2}')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: docker-context
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/blue_onyx:latest
+            ghcr.io/${{ github.repository_owner }}/blue_onyx:${{ env.VERSION }}

@@ -58,6 +58,8 @@ jobs:
             "version": "${{ env.VERSION }}",
             "windows": "blue_onyx-${{ env.VERSION }}-win.zip",
             "windows_sha256": "blue_onyx-${{ env.VERSION }}-win.zip.sha256"
+            "linux": "blue_onyx-${{ env.VERSION }}-linux.zip",
+            "linux_sha256": "blue_onyx-${{ env.VERSION }}-linux.zip.sha256"
           }
           EOF
       - name: Upload version.json
@@ -88,6 +90,9 @@ jobs:
         - build: win
           os: windows-latest
           rust: stable
+        - build: linux
+          os: linux-latest
+          rust: stable
 
     steps:
     - name: Checkout repository
@@ -107,7 +112,7 @@ jobs:
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
           BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe target/release/blue_onyx_download_models.exe"
         else
-          BIN="target/release/blue_onyx"
+          BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark target/release/blue_onyx_download_models"
         fi
         echo "BIN=$BIN" >> $GITHUB_ENV
 
