@@ -5,12 +5,7 @@ use serde::Deserialize;
 use server::run_server;
 use std::{future::Future, path::PathBuf};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn, Level};
-use windows::Win32::System::Threading::{
-    GetCurrentProcessorNumber, GetCurrentThread, SetThreadAffinityMask, SetThreadPriority,
-    THREAD_PRIORITY_TIME_CRITICAL,
-};
-
+use tracing::{info, warn, Level};
 pub mod api;
 pub mod cli;
 pub mod detector;
@@ -73,17 +68,21 @@ pub fn blue_onyx_service(
     let server_future = run_server(args.port, cancel_token.clone(), sender, metrics);
 
     let thread_handle = std::thread::spawn(move || {
-        #[cfg(target_os = "windows")]
+        #[cfg(windows)]
         unsafe {
+            use windows::Win32::System::Threading::{
+                GetCurrentProcessorNumber, GetCurrentThread, SetThreadAffinityMask,
+                SetThreadPriority, THREAD_PRIORITY_TIME_CRITICAL,
+            };
             let thread_handle = GetCurrentThread();
             if let Err(err) = SetThreadPriority(thread_handle, THREAD_PRIORITY_TIME_CRITICAL) {
-                error!(?err, "Failed to set thread priority to time critical");
+                tracing::error!(?err, "Failed to set thread priority to time critical");
             }
             let processor_number = GetCurrentProcessorNumber();
             let core_mask = 1usize << processor_number;
             let previous_mask = SetThreadAffinityMask(thread_handle, core_mask);
             if previous_mask == 0 {
-                error!("Failed to set thread affinity.");
+                tracing::error!("Failed to set thread affinity.");
             }
         }
         detector_worker.run();

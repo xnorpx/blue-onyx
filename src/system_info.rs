@@ -48,7 +48,13 @@ pub fn cpu_info() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn gpu_info(log_info: bool) -> windows::core::Result<Vec<String>> {
+#[cfg(not(windows))]
+pub fn gpu_info(_log_info: bool) -> anyhow::Result<Vec<String>> {
+    Ok(vec![]) // TODO: Do something for Linux
+}
+
+#[cfg(windows)]
+pub fn gpu_info(log_info: bool) -> anyhow::Result<Vec<String>> {
     use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, DXGI_ADAPTER_DESC1};
     let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
     let mut adapter_index = 0;

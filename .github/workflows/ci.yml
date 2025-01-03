@@ -39,6 +39,15 @@ jobs:
         - build: win
           os: windows-latest
           rust: stable
+        - build: linux beta
+          os: ubuntu-latest
+          rust: beta
+        - build: linux nightly
+          os: ubuntu-latest
+          rust: nightly
+        - build: linux
+          os: ubuntu-latest
+          rust: stable
 
     steps:
     - name: Checkout repository
