@@ -1,5 +1,4 @@
-use std::env;
-use std::{fs::File, io::Write, path::Path, process::Command};
+use std::{env, fs::File, io::Write, path::Path, process::Command};
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
@@ -9,14 +8,13 @@ const ONNX_SOURCE: (&str, &str) = (
 
 const DIRECTML: &str = "https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4";
 
-const ONNX_BUILD_COMMANDS: [&str; 11] = [
+const ONNX_BUILD_COMMANDS: [&str; 10] = [
     "--build_shared_lib",
     "--parallel",
     "--compile_no_warning_as_error",
     "--skip_tests",
     "--disable_exceptions",
     "--disable_rtti",
-    "--enable_msvc_static_runtime",
     "--enable_lto",
     "--disable_contrib_ops",
     "--cmake_extra_defines",
@@ -34,19 +32,23 @@ fn get_build_config() -> &'static str {
 fn main() {
     let target_dir = env::var("OUT_DIR").unwrap();
     check_and_download_onnx_source(&target_dir);
-    check_and_download_directml(&target_dir);
+    if cfg!(windows) {
+        check_and_download_directml(&target_dir);
+    }
 
     let build_dir = std::path::Path::new(&target_dir)
         .join(ONNX_SOURCE.0)
         .join("build");
+
     if !build_dir.exists() {
         build_onnx(&target_dir);
     }
 
+    let os_dir = if cfg!(windows) { "Windows" } else { "Linux" };
     let onnx_dir = std::path::Path::new(&target_dir)
         .join(ONNX_SOURCE.0)
         .join("build")
-        .join("Windows")
+        .join(os_dir)
         .join(get_build_config());
     println!("cargo:rustc-env=ORT_LIB_LOCATION={:?}", onnx_dir);
 }
@@ -139,16 +141,20 @@ fn check_and_download_directml(target_dir: &str) {
 
 fn build_onnx(target_dir: &str) {
     let onnx_dir = std::path::Path::new(target_dir).join(ONNX_SOURCE.0);
-    let build_script = onnx_dir.join("build.bat");
-    let directml_dir = std::path::Path::new(target_dir).join("directml");
 
-    let mut build_commands = vec![
-        "--config".to_string(),
-        get_build_config().to_string(),
-        "--use_dml".to_string(),
-        "--dml_path".to_string(),
-        directml_dir.to_str().unwrap().to_string(),
-    ];
+    let mut build_commands = vec!["--config".to_string(), get_build_config().to_string()];
+
+    let build_script = if cfg!(windows) {
+        let directml_dir = std::path::Path::new(target_dir).join("directml");
+        build_commands.push("--enable_msvc_static_runtime".to_string());
+        build_commands.push("--use_dml".to_string());
+        build_commands.push("--dml_path".to_string());
+        build_commands.push(directml_dir.to_str().unwrap().to_string());
+        onnx_dir.join("build.bat")
+    } else {
+        onnx_dir.join("build.sh")
+    };
+
     build_commands.extend(ONNX_BUILD_COMMANDS.iter().map(|&s| s.to_string()));
 
     let status = Command::new(build_script)
@@ -163,17 +169,33 @@ fn build_onnx(target_dir: &str) {
         println!("cargo:warning=Build script executed successfully");
     }
 
-    let onnx_runtime_dll = std::path::Path::new(&target_dir)
-        .join(ONNX_SOURCE.0)
-        .join("build")
-        .join("Windows")
-        .join(get_build_config())
-        .join(get_build_config())
-        .join("onnxruntime.dll");
+    let shared_lib_name = if cfg!(windows) {
+        "onnxruntime.dll".to_owned()
+    } else {
+        "libonnxruntime.so".to_owned()
+    };
+
+    let onnx_runtime_shared_lib = if cfg!(windows) {
+        std::path::Path::new(&target_dir)
+            .join(ONNX_SOURCE.0)
+            .join("build")
+            .join("Windows")
+            // ORT does something weird with the build config on Windows
+            .join(get_build_config())
+            .join(get_build_config())
+            .join(shared_lib_name.clone())
+    } else {
+        std::path::Path::new(&target_dir)
+            .join(ONNX_SOURCE.0)
+            .join("build")
+            .join("Linux")
+            .join(get_build_config())
+            .join(shared_lib_name.clone())
+    };
 
     let output_dir = Path::new(target_dir).ancestors().nth(3).unwrap();
     if !output_dir.exists() {
         std::fs::create_dir_all(output_dir).unwrap();
     }
-    std::fs::copy(&onnx_runtime_dll, output_dir.join("onnxruntime.dll")).unwrap();
+    std::fs::copy(&onnx_runtime_shared_lib, output_dir.join(shared_lib_name)).unwrap();
 }
