@@ -54,7 +54,7 @@ mod blue_onyx_service {
 
     pub fn my_service_main(service_name: Vec<OsString>) {
         let arguments: Vec<OsString> = env::args_os().collect();
-        let args = Cli::try_parse_from(arguments.clone()).unwrap();
+        let mut args = Cli::try_parse_from(arguments.clone()).unwrap();
 
         let default_log_path = std::path::PathBuf::from(format!(
             "{}\\{}",
@@ -67,8 +67,10 @@ mod blue_onyx_service {
             .clone()
             .unwrap_or_else(|| default_log_path.clone());
 
+        args.log_path = Some(log_path.clone());
+
         println!("Logs will be written to log path: {}", log_path.display());
-        let _guard = init_logging(args.log_level, Some("c:\\git\\".into()));
+        let _guard = init_logging(args.log_level, &mut args.log_path);
         info!("Starting blue onyx service with args: {:#?}", arguments);
 
         let (blue_onyx_service, cancellation_token, thread_handle) = match blue_onyx_service(args) {

@@ -81,7 +81,7 @@ pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
 ) -> anyhow::Result<()> {
     let encode_image_start_time = Instant::now();
 
-    let image = create_dynamic_image_maybe_with_boundary_box(predictions, image, 20)?;
+    let image = create_dynamic_image_maybe_with_boundary_box(predictions, image)?;
 
     let encoder = Encoder::new_file(jpeg_file, 100)?;
     encoder.encode(
@@ -140,8 +140,9 @@ pub fn create_od_image_name(image_name: &str, strip_path: bool) -> anyhow::Resul
 pub fn create_dynamic_image_maybe_with_boundary_box(
     predictions: Option<&[Prediction]>,
     decoded_image: &Image,
-    legend_size: u32,
 ) -> anyhow::Result<DynamicImage> {
+    let (thickness, legend_size) =
+        boundary_box_config(decoded_image.width as u32, decoded_image.height as u32);
     let mut img = ImageBuffer::from_vec(
         decoded_image.width as u32,
         decoded_image.height as u32,
@@ -161,18 +162,25 @@ pub fn create_dynamic_image_maybe_with_boundary_box(
             let dy = prediction.y_max - prediction.y_min;
 
             if dx > 0 && dy > 0 {
-                imageproc::drawing::draw_hollow_rect_mut(
-                    &mut img,
-                    imageproc::rect::Rect::at(prediction.x_min as i32, prediction.y_min as i32)
-                        .of_size(dx as u32, dy as u32),
-                    image::Rgb([255, 0, 0]),
-                );
+                for t in 0..thickness {
+                    let x_min = prediction.x_min + t;
+                    let y_min = prediction.y_min + t;
+                    let rect_width = dx - 2 * t;
+                    let rect_height = dy - 2 * t;
+
+                    imageproc::drawing::draw_hollow_rect_mut(
+                        &mut img,
+                        imageproc::rect::Rect::at(x_min as i32, y_min as i32)
+                            .of_size(rect_width as u32, rect_height as u32),
+                        image::Rgb([255, 0, 0]),
+                    );
+                }
             }
             if let Some(font) = font.as_ref() {
                 imageproc::drawing::draw_filled_rect_mut(
                     &mut img,
                     imageproc::rect::Rect::at(prediction.x_min as i32, prediction.y_min as i32)
-                        .of_size(dx as u32, legend_size),
+                        .of_size(dx as u32, legend_size as u32),
                     image::Rgb([170, 0, 0]),
                 );
                 let legend = format!(
@@ -193,6 +201,22 @@ pub fn create_dynamic_image_maybe_with_boundary_box(
         }
     }
     Ok(DynamicImage::ImageRgb8(img))
+}
+
+fn boundary_box_config(width: u32, height: u32) -> (usize, u64) {
+    let base_width = 640.0;
+    let base_height = 480.0;
+    let base_thickness = 1.0;
+    let base_fontsize = 20.0;
+
+    let scale_width = width as f32 / base_width;
+    let scale_height = height as f32 / base_height;
+    let scale = scale_width.max(scale_height).max(1.0);
+
+    let thickness = (base_thickness * scale).ceil() as usize;
+    let fontsize = (base_fontsize + (scale.ceil() * 3.)) as u64;
+
+    (thickness.max(1), fontsize)
 }
 
 pub struct Resizer {
@@ -267,7 +291,7 @@ pub fn draw_boundary_boxes_on_encoded_image(
     let mut image = Image::default();
     decode_jpeg(None, data, &mut image)?;
     let dynamic_image_with_boundary_box =
-        create_dynamic_image_maybe_with_boundary_box(Some(predictions), &image, 20)?;
+        create_dynamic_image_maybe_with_boundary_box(Some(predictions), &image)?;
     let mut encoded_image = Vec::new();
     let encoder = Encoder::new(&mut encoded_image, 100);
     encoder.encode(

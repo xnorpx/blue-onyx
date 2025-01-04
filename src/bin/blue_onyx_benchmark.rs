@@ -113,7 +113,7 @@ struct Cli {
 
 fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
-    init_logging(args.log_level, None);
+    let _guard = init_logging(args.log_level, &mut None);
     system_info()?;
 
     if args.download_model_path.is_some() {
