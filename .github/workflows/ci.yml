@@ -24,7 +24,7 @@ jobs:
     name: build-test-cpu
     env:
       RUST_BACKTRACE: 1
-      RUSTFLAGS: -C target-cpu=native
+      RUSTFLAGS: -C target-cpu=native -D warnings
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

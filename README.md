@@ -1,26 +1,38 @@
 
-<div align="center">
-<img src="assets/blue_onyx.gif" alt="blue_onyx"/>
+<div style="display: flex; justify-content: space-between;">
+    <img src="assets/logo_medium.png" alt="blue_onyx" style="width:30%;" />
+    <img src="assets/demo.jpg" alt="blue_onyx" style="width:60%;" />
 </div>
 
 # Object Detection Service
 
+Object detection service written in Rust with Onnx inference engine.
+Supports Blue Iris and Agent DVR.
+
 ## TL;DR
 
-- Windows only (for now)
-- CPU and GPU inference (NVIDIA, AMD and Intel)
-- [ONNX Inference](https://github.com/onnx/onnx)
-- [Direct ML Endpoint](https://github.com/microsoft/DirectML)
-- [RT-DETR-V2 Model](https://github.com/lyuwenyu/RT-DETR/tree/main/rtdetrv2_pytorch)
-- [ONNX RT-DETR-V2 Models](https://huggingface.co/xnorpx/rt-detr2-onnx)
+Current features:
 
-## Install with THE one mighty oneliner
+| Feature                                     | Windows x86_64 | Linux x86_64 |
+|---------------------------------------------|:--------------:|:------------:|
+| RT-DETR-V2 ONNX Models                      | 🟢             | 🟢          |
+| Yolo 5 ONNX Models (including custom)       | 🟢             | 🟢          |
+| Run as a service                            | 🟢             | ❌          |
+| Docker image                                | ❌             | 🟢          |
+| CPU Inference                               | 🟢             | 🟢          |
+| AMD GPU Inference                           | 🟢             | ❌          |
+| Intel GPU Inference                         | 🟢             | ❌          |
+| Nvidia GPU Inference                        | 🟢             | ❌          |
+| Coral TPU Inference                         | ❌             | ❌          |
+
+
+## Install on Windows with THE one mighty oneliner
 
 ```powershell
  powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
- ```
+```
 
-## Install service
+## Install as service on Windows
 
 **Note: You need to run as administrator to register the service and change the install path and command line arguments for your setup.**
 ```powershell
@@ -32,14 +44,22 @@ Verify it is working by going to http://127.0.0.1:32168/
 
 (If you don't want to run blue_onyx as a service you can just run blue_onyx.exe)
 
+## Docker container on Linux
+
+```bash
+docker pull ghcr.io/xnorpx/blue-onyx:latest
+docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest --log-level debug --port 32168
+```
+
 ## I don't trust scripts I want to install myself
 
-- Download latest release
+- [Download latest release](https://github.com/xnorpx/blue-onyx/releases)
 - Unzip
-- Download models (blue_onyx.exe --download-model-path .)
-- blue_onyx.exe to run service
-- test_blue_onyx.exe to test service
-- blue_onyx_benchmark.exe for benchmark and model testing
+- Run blue_onyx
+
+## Notes on Linux
+
+If you run outside of docker you need to install OpenSSL 3
 
 ## Tips
 
@@ -82,12 +102,12 @@ Then run in another terminal do 100 requests with 100 ms interval
 ```bash
 test_blue_onyx.exe --number-of-requests 100 --interval 100
 ```
-    
+        
 Test image and save image with boundary box use --image to specify your own image.
 ```bash
 blue_onyx_benchmark.exe --save-image-path .
 ```
 
 <div align="center">
-<img src="assets/dog_bike_car_od.jpg" alt="dog_bike_car_od"/>
+    <img src="assets/dog_bike_car_od.jpg" alt="dog_bike_car_od"/>
 </div>
