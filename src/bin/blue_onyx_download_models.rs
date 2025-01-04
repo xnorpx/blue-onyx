@@ -14,7 +14,7 @@ fn main() {
         return;
     }
 
-    init_logging(blue_onyx::LogLevel::Info, None);
+    init_logging(blue_onyx::LogLevel::Info, &mut None);
 
     let download_model_path: PathBuf = if args.len() > 1 && args[1] != "custom-model" {
         PathBuf::from(&args[1])

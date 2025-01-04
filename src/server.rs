@@ -23,6 +23,7 @@ use reqwest;
 use serde::Deserialize;
 use std::{
     net::{Ipv4Addr, SocketAddr},
+    path::PathBuf,
     sync::Arc,
     time::Instant,
 };
@@ -62,6 +63,7 @@ pub async fn run_server(
 
     let blue_onyx = Router::new()
         .route("/", get(welcome_handler))
+        .with_state(server_state.clone())
         .route(
             "/v1/status/updateavailable",
             get(v1_status_update_available),
@@ -102,14 +104,19 @@ pub async fn run_server(
 #[template(path = "welcome.html")]
 struct WelcomeTemplate {
     logo_data: String,
+    metrics: Metrics,
 }
 
-async fn welcome_handler() -> impl IntoResponse {
+async fn welcome_handler(State(server_state): State<Arc<ServerState>>) -> impl IntoResponse {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
     let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+    let metrics = {
+        let metrics_guard = server_state.metrics.lock().await;
+        metrics_guard.clone()
+    };
 
-    let template = WelcomeTemplate { logo_data };
+    let template = WelcomeTemplate { logo_data, metrics };
     (
         [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
         template.into_response(),
@@ -287,6 +294,8 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
+    version: String,
+    log_path: String,
     start_time: Instant,
     model_name: String,
     device_name: String,
@@ -305,8 +314,18 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new(model_name: String, device_name: String, execution_provider: String) -> Self {
+    pub fn new(
+        model_name: String,
+        device_name: String,
+        execution_provider: String,
+        log_path: Option<PathBuf>,
+    ) -> Self {
         Self {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            log_path: log_path
+                .unwrap_or_else(|| PathBuf::from("stdout"))
+                .to_string_lossy()
+                .to_string(),
             start_time: Instant::now(),
             model_name,
             device_name,

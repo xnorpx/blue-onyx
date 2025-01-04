@@ -1,8 +1,8 @@
-
-<div style="display: flex; justify-content: space-between;">
-    <img src="assets/logo_medium.png" alt="blue_onyx" style="width:30%;" />
-    <img src="assets/demo.jpg" alt="blue_onyx" style="width:60%;" />
+<div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+    <img src="assets/logo_medium.png" alt="blue_onyx" style="height: 200px;" />
+    <img src="assets/demo.jpg" alt="blue_onyx" style="height: 200px;" />
 </div>
+
 
 # Object Detection Service
 
