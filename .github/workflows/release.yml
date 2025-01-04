@@ -91,7 +91,7 @@ jobs:
           os: windows-latest
           rust: stable
         - build: linux
-          os: linux-latest
+          os: ubuntu-latest
           rust: stable
 
     steps:
