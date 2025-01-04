@@ -57,7 +57,7 @@ jobs:
           {
             "version": "${{ env.VERSION }}",
             "windows": "blue_onyx-${{ env.VERSION }}-win.zip",
-            "windows_sha256": "blue_onyx-${{ env.VERSION }}-win.zip.sha256"
+            "windows_sha256": "blue_onyx-${{ env.VERSION }}-win.zip.sha256",
             "linux": "blue_onyx-${{ env.VERSION }}-linux.zip",
             "linux_sha256": "blue_onyx-${{ env.VERSION }}-linux.zip.sha256"
           }
