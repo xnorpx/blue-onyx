@@ -5,7 +5,7 @@ use serde::Deserialize;
 use server::run_server;
 use std::{future::Future, path::PathBuf};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn, Level};
+use tracing::{info, Level};
 pub mod api;
 pub mod cli;
 pub mod detector;
@@ -106,17 +106,13 @@ pub fn direct_ml_available() -> bool {
     }
     #[cfg(windows)]
     {
-        if let Ok(exe_path) = std::env::current_exe() {
-            let exe_dir = exe_path.parent().unwrap();
-            let direct_ml_path = exe_dir.join("DirectML.dll");
-            let direct_ml_available = direct_ml_path.exists();
-            if !direct_ml_available {
-                warn!("DirectML.dll not found in the same directory as the executable");
-            }
-            return direct_ml_available;
-        }
-        warn!("Failed to get current executable path");
-        false
+        let Ok(exe_path) = std::env::current_exe() else {
+            return false;
+        };
+        let Some(exe_dir) = exe_path.parent() else {
+            return false;
+        };
+        exe_dir.join("DirectML.dll").exists()
     }
 }
 
