@@ -100,17 +100,24 @@ pub fn get_object_classes(yaml_file: Option<PathBuf>) -> anyhow::Result<Vec<Stri
 }
 
 pub fn direct_ml_available() -> bool {
-    if let Ok(exe_path) = std::env::current_exe() {
-        let exe_dir = exe_path.parent().unwrap();
-        let direct_ml_path = exe_dir.join("DirectML.dll");
-        let direct_ml_available = direct_ml_path.exists();
-        if !direct_ml_available {
-            warn!("DirectML.dll not found in the same directory as the executable");
-        }
-        return direct_ml_available;
+    #[cfg(not(windows))]
+    {
+        false
     }
-    warn!("Failed to get current executable path");
-    false
+    #[cfg(windows)]
+    {
+        if let Ok(exe_path) = std::env::current_exe() {
+            let exe_dir = exe_path.parent().unwrap();
+            let direct_ml_path = exe_dir.join("DirectML.dll");
+            let direct_ml_available = direct_ml_path.exists();
+            if !direct_ml_available {
+                warn!("DirectML.dll not found in the same directory as the executable");
+            }
+            return direct_ml_available;
+        }
+        warn!("Failed to get current executable path");
+        false
+    }
 }
 
 pub fn init_logging(

@@ -50,11 +50,27 @@ pub struct Cli {
     /// Force using CPU for inference
     #[clap(long, default_value_t = false)]
     pub force_cpu: bool,
-    /// Intra thread parallelism max is cpu cores - 1
+    /// Intra thread parallelism max is CPU cores - 1.
+    /// On Windows, you can use high thread counts, but if you use too high
+    /// thread count on Linux, you will get a BIG performance hit.
+    /// So default is 1, then you can increase it if you want to test the
+    /// performance.
+    #[cfg(target_os = "windows")]
     #[clap(long, default_value_t = 192)]
     pub intra_threads: usize,
-    /// Inter thread parallelism max is cpu cores - 1
+    #[cfg(not(target_os = "windows"))]
+    #[clap(long, default_value_t = 2)]
+    pub intra_threads: usize,
+    /// Inter thread parallelism max is CPU cores - 1.
+    /// On Windows, you can use high thread counts, but if you use too high
+    /// thread count on Linux, you will get a BIG performance hit.
+    /// So default is 2, then you can increase it if you want to test the
+    /// performance.
+    #[cfg(target_os = "windows")]
     #[clap(long, default_value_t = 192)]
+    pub inter_threads: usize,
+    #[cfg(not(target_os = "windows"))]
+    #[clap(long, default_value_t = 2)]
     pub inter_threads: usize,
     /// Optional path to save the processed images
     #[clap(long)]
