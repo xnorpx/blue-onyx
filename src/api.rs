@@ -13,7 +13,7 @@ pub struct VisionDetectionRequest {
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Default, Debug)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct VisionDetectionResponse {
     /// True if successful.
     pub success: bool,
@@ -28,17 +28,17 @@ pub struct VisionDetectionResponse {
     /// The command that was sent as part of this request. Can be detect, list, status.
     pub command: String,
     /// The Id of the module that processed this request.
-    pub module_id: String,
+    pub moduleId: String,
     /// The name of the device or package handling the inference. eg CPU, GPU
-    pub execution_provider: String,
+    pub executionProvider: String,
     /// True if this module can use the current GPU if one is present.
-    pub can_useGPU: bool,
+    pub canUseGPU: bool,
     // The time (ms) to perform the AI inference.
-    pub inference_ms: i32,
+    pub inferenceMs: i32,
     // The time (ms) to process the image (includes inference and image manipulation operations).
-    pub process_ms: i32,
+    pub processMs: i32,
     // The time (ms) for the round trip to the analysis module and back.
-    pub analysis_round_trip_ms: i32,
+    pub analysisRoundTripMs: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
