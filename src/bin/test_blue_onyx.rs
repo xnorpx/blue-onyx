@@ -78,12 +78,13 @@ async fn main() -> anyhow::Result<()> {
     results.into_iter().for_each(|result| {
         if let Ok(Ok(result)) = result {
             vision_detection_response = result.0;
-            inference_times.push(vision_detection_response.inference_ms);
-            processing_times.push(vision_detection_response.process_ms);
+            inference_times.push(vision_detection_response.inferenceMs);
+            processing_times.push(vision_detection_response.processMs);
             request_times.push(result.1);
         }
     });
 
+    assert!(inference_times.len() == args.number_of_requests as usize);
     println!("{:#?}", vision_detection_response);
 
     println!("Runtime duration: {:?}", runtime_duration);
@@ -151,8 +152,32 @@ async fn send_vision_detection_request(
         .part("image", image_part);
 
     let request_start_time = Instant::now();
-    let response = client.post(url).multipart(form).send().await?;
-    let response = response.json::<VisionDetectionResponse>().await?;
+    let response = match client.post(url).multipart(form).send().await {
+        Ok(resp) => resp,
+        Err(e) => {
+            eprintln!("Request send error: {}", e);
+            return Err(anyhow::anyhow!(e));
+        }
+    };
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = match response.text().await {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("Failed to read response body: {}", e);
+                return Err(anyhow::anyhow!(e));
+            }
+        };
+        eprintln!("Error: Status: {}, Body: {}", status, body);
+        return Err(anyhow::anyhow!("Request failed with status {}", status));
+    }
+    let response = match response.json::<VisionDetectionResponse>().await {
+        Ok(json) => json,
+        Err(e) => {
+            eprintln!("Failed to parse JSON: {}", e);
+            return Err(anyhow::anyhow!(e));
+        }
+    };
 
     Ok((response, Instant::now().duration_since(request_start_time)))
 }
