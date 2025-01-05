@@ -177,7 +177,7 @@ async fn v1_vision_detection(
             return Err(BlueOnyxError::from(anyhow::anyhow!("Operation timed out")));
         }
     };
-    vision_response.analysis_round_trip_ms = request_start_time.elapsed().as_millis() as i32;
+    vision_response.analysisRoundTripMs = request_start_time.elapsed().as_millis() as i32;
 
     {
         let mut metrics = server_state.metrics.lock().await;
@@ -356,23 +356,23 @@ impl Metrics {
         self.number_of_requests = self.number_of_requests.wrapping_add(1);
         self.total_inference_ms = self
             .total_inference_ms
-            .wrapping_add(response.inference_ms as u128);
-        self.min_inference_ms = self.min_inference_ms.min(response.inference_ms);
-        self.max_inference_ms = self.max_inference_ms.max(response.inference_ms);
+            .wrapping_add(response.inferenceMs as u128);
+        self.min_inference_ms = self.min_inference_ms.min(response.inferenceMs);
+        self.max_inference_ms = self.max_inference_ms.max(response.inferenceMs);
         self.total_processing_ms = self
             .total_processing_ms
-            .wrapping_add(response.process_ms as u128);
-        self.min_processing_ms = self.min_processing_ms.min(response.process_ms);
-        self.max_processing_ms = self.max_processing_ms.max(response.process_ms);
+            .wrapping_add(response.processMs as u128);
+        self.min_processing_ms = self.min_processing_ms.min(response.processMs);
+        self.max_processing_ms = self.max_processing_ms.max(response.processMs);
         self.total_analysis_round_trip_ms = self
             .total_analysis_round_trip_ms
-            .wrapping_add(response.analysis_round_trip_ms as u128);
+            .wrapping_add(response.analysisRoundTripMs as u128);
         self.min_analysis_round_trip_ms = self
             .min_analysis_round_trip_ms
-            .min(response.analysis_round_trip_ms);
+            .min(response.analysisRoundTripMs);
         self.max_analysis_round_trip_ms = self
             .max_analysis_round_trip_ms
-            .max(response.analysis_round_trip_ms);
+            .max(response.analysisRoundTripMs);
     }
 
     fn update_dropped_requests(&mut self) {
@@ -471,8 +471,7 @@ async fn handle_upload(
                 image_data: Some(&data_url),
             };
 
-            vision_response.analysis_round_trip_ms =
-                request_start_time.elapsed().as_millis() as i32;
+            vision_response.analysisRoundTripMs = request_start_time.elapsed().as_millis() as i32;
 
             {
                 let mut metrics = server_state.metrics.lock().await;
@@ -500,12 +499,12 @@ impl IntoResponse for BlueOnyxError {
                 predictions: vec![],
                 count: 0,
                 command: "".into(),
-                module_id: "".into(),
-                execution_provider: "".into(),
-                can_useGPU: false,
-                inference_ms: 0_i32,
-                process_ms: 0_i32,
-                analysis_round_trip_ms: 0_i32,
+                moduleId: "".into(),
+                executionProvider: "".into(),
+                canUseGPU: false,
+                inferenceMs: 0_i32,
+                processMs: 0_i32,
+                analysisRoundTripMs: 0_i32,
             }),
         )
             .into_response()
