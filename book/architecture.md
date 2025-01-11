@@ -1,8 +1,14 @@
 ## Architecture
 
-The design of Blue Onyx is very simple. It implements the same HTTP API as other open-source object detection services for compatibility. It is mainly implemented in Rust, which makes it very robust. The HTTP server runs async in one thread to receive requests. Each request is then put on a channel/queue to the worker thread. The worker thread handles the decoding of the image, resizing, and finally running the inference. Once this is done, the results are gathered, and a response is sent back to the task in the main thread that was handling the request.
+The design of Blue Onyx is very simple. It implements the same HTTP API as other open-source object detection services for compatibility.
 
-Each Blue Onyx instance runs one model. If a user wants to run multiple models on one machine, they can launch multiple Blue Onyx instances running on different ports.
+```http
+/v1/vision/detection
+```
+
+It is mainly implemented in Rust, which makes it very robust. The HTTP server runs async in one thread to receive requests. Each request is then put on a channel/queue to the worker thread. The worker thread handles the decoding of the image, resizing, and finally running the inference. Once this is done, the results are gathered, and a response is sent back to the task in the main thread that was handling the request.
+
+Each Blue Onyx instance runs one model. If a user wants to run multiple models on one machine, one can launch multiple Blue Onyx instances running on different ports. The only consideration would be if one run on CPU to assign a subset of cores to each server. For GPU the scheduling is handled by the GPU and multiple processes and threads can share GPU if needed.
 
 - Blue Onyx Server 1 with model 1 on port 32168
 - Blue Onyx Server 2 with model 2 on port 32167

@@ -7,7 +7,7 @@ Blue Onyx is a simple object detection server for runnin local object detection 
         Blue Onyx was created out of frustration with other open-source object detection services, which were often a mix of hastily assembled Python code under HTTPS endpoints.
     </div>
     <div style="flex: 1; text-align: center;">
-        <img src="tinker.webp" alt="Tinker" width="100"/>
+        <img src="tinker.webp" alt="Tinker" width="150"/>
     </div>
 </div>
 
@@ -30,6 +30,6 @@ For example, if you are running an x86 Windows or standard Linux distribution wi
         However, if you are running an ARM-based unRAID toaster with Hailo or Coral TPUs, with docker inside proxmox and NVIDIA datacenter Tesla GPU, Blue Onyx might not fulfill all your requirements.
     </div>
     <div style="flex: 1; text-align: center;">
-        <img src="toaster.webp" alt="Toaster" width="100"/>
+        <img src="toaster.webp" alt="Toaster" width="150"/>
     </div>
 </div>
