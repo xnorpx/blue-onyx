@@ -556,6 +556,10 @@ fn initialize_onnx(
         );
         (num_intra_threads, num_inter_threads)
     } else if direct_ml_available() {
+        info!(
+            gpu_index = onnx_config.gpu_index,
+            "DirectML available, using DirectML for inference"
+        );
         providers.push(
             DirectMLExecutionProvider::default()
                 .with_device_id(onnx_config.gpu_index)
