@@ -47,7 +47,7 @@ Verify it is working by going to http://127.0.0.1:32168/
 ## Docker container on Linux
 
 ```bash
-docker pull ghcr.io/xnorpx/blue-onyx:latest
+docker pull ghcr.io/xnorpx/blue_onyx:latest
 docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest --log-level debug --port 32168
 ```
 
@@ -69,12 +69,12 @@ blue_onyx.exe --help
 ```
 
 Download models:
-```bash 
+```bash
 blue_onyx.exe --download-model-path .
 ```
 
 Run service with larger model:
-```bash 
+```bash
 blue_onyx.exe --model rt-detrv2-x.onnx
 Initializing detector with model: "rt-detrv2-x.onnx"
 ```
@@ -102,7 +102,7 @@ Then run in another terminal do 100 requests with 100 ms interval
 ```bash
 test_blue_onyx.exe --number-of-requests 100 --interval 100
 ```
-        
+
 Test image and save image with boundary box use --image to specify your own image.
 ```bash
 blue_onyx_benchmark.exe --save-image-path .
