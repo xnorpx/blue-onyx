@@ -56,12 +56,12 @@ pub fn gpu_info(_log_info: bool) -> anyhow::Result<Vec<String>> {
 #[cfg(windows)]
 pub fn gpu_info(log_info: bool) -> anyhow::Result<Vec<String>> {
     use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1, DXGI_ADAPTER_DESC1};
-    let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1()? };
+    let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1().map_err(|e| anyhow::anyhow!(e))? };
     let mut adapter_index = 0;
     let mut gpu_names = Vec::new();
 
     while let Ok(adapter) = unsafe { factory.EnumAdapters1(adapter_index) } {
-        let desc: DXGI_ADAPTER_DESC1 = unsafe { adapter.GetDesc1()? };
+        let desc: DXGI_ADAPTER_DESC1 = unsafe { adapter.GetDesc1().map_err(|e| anyhow::anyhow!(e))? };
         let device_name = String::from_utf16_lossy(&desc.Description);
         if !device_name.contains("Microsoft") {
             let mut device_name = String::from_utf16_lossy(&desc.Description);
