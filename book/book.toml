@@ -1,0 +1,6 @@
+[book]
+authors = ["xnorpx"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Blue Onyx Book"
