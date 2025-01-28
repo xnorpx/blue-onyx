@@ -8,11 +8,6 @@ fn main() -> anyhow::Result<()> {
     let _guard = init_logging(args.log_level, &mut args.log_path);
     system_info()?;
 
-    if args.download_model_path.is_some() {
-        blue_onyx::download_models::download_models(args.download_model_path.unwrap(), false)?;
-        return Ok(());
-    }
-
     let (blue_onyx_service, cancellation_token, thread_handle) = blue_onyx_service(args)?;
 
     // Run the tokio runtime on the main thread

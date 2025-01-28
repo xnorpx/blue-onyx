@@ -1,11 +1,12 @@
 use clap::ValueEnum;
 use cli::Cli;
-use detector::OnnxConfig;
+use detector::{ObjectDetectionModel, OnnxConfig};
+use download_models::{download_model, Model};
 use serde::Deserialize;
 use server::run_server;
 use std::{future::Future, path::PathBuf};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, Level};
+use tracing::{debug, info, Level};
 pub mod api;
 pub mod cli;
 pub mod detector;
@@ -16,13 +17,60 @@ pub mod system_info;
 pub mod worker;
 
 pub static DOG_BIKE_CAR_BYTES: &[u8] = include_bytes!("../assets/dog_bike_car.jpg");
-pub static SMALL_RT_DETR_V2_MODEL_FILE_NAME: &str = "rt-detrv2-s.onnx";
-pub static COCO_CLASSES_STR: &str = include_str!("../assets/coco_classes.yaml");
+pub static DEFAULT_MODEL: &str = "rt-detrv2-s.onnx";
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 struct CocoClasses {
     NAMES: Vec<String>,
+}
+
+pub fn check_model_available(
+    model: Option<PathBuf>,
+    object_classes: Option<PathBuf>,
+) -> anyhow::Result<(PathBuf, PathBuf)> {
+    // If model is None then use the default model
+    let model = if let Some(model) = model {
+        model.canonicalize()?
+    } else {
+        std::env::current_exe()
+            .map_err(|e| anyhow::anyhow!(e))
+            .and_then(|exe_path| {
+                exe_path
+                    .parent()
+                    .map(|p| p.join(DEFAULT_MODEL))
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get parent directory"))
+            })?
+    };
+
+    debug!(?model, "Model path");
+
+    // If object_classes is None then use the models classes
+    let object_classes = if let Some(object_classes) = object_classes {
+        object_classes.canonicalize()?
+    } else {
+        model.with_extension("yaml")
+    };
+
+    // Check if model is available and download it if it is not
+    if !model.exists() || !object_classes.exists() {
+        debug!(
+            ?model,
+            "Model or object classes does not exist trying to download it"
+        );
+        let model_path = model
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get model directory"))?;
+        let model_file = model
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get model file name"))?
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert model file name to string"))?;
+        let model_file = Model::Model(model_file.to_string());
+        download_model(model_path.to_path_buf(), model_file)?;
+    }
+
+    Ok((model, object_classes))
 }
 
 pub fn blue_onyx_service(
@@ -32,21 +80,29 @@ pub fn blue_onyx_service(
     CancellationToken,
     std::thread::JoinHandle<()>,
 )> {
+    let (model, object_classes) = check_model_available(args.model, args.object_classes)?;
+    let object_detection_model = match args.object_detection_model_type {
+        Some(model_type) => model_type,
+        None => {
+            ObjectDetectionModel::try_from(model.file_name().unwrap().to_str().unwrap()).unwrap()
+        }
+    };
+
     let detector_config = detector::DetectorConfig {
         object_detection_onnx_config: OnnxConfig {
             force_cpu: args.force_cpu,
             gpu_index: args.gpu_index,
             intra_threads: args.intra_threads,
             inter_threads: args.inter_threads,
-            model: args.model,
+            model,
         },
-        object_classes: args.object_classes,
+        object_classes,
         object_filter: args.object_filter,
         confidence_threshold: args.confidence_threshold,
         save_image_path: args.save_image_path,
         save_ref_image: args.save_ref_image,
         timeout: args.request_timeout,
-        object_detection_model: args.object_detection_model_type,
+        object_detection_model,
     };
 
     // Run a separate thread for the detector worker
@@ -96,11 +152,8 @@ pub fn blue_onyx_service(
     Ok((server_future, cancel_token, thread_handle))
 }
 
-pub fn get_object_classes(yaml_file: Option<PathBuf>) -> anyhow::Result<Vec<String>> {
-    let yaml_data = match yaml_file {
-        Some(yaml_file) => std::fs::read_to_string(yaml_file)?,
-        None => COCO_CLASSES_STR.to_string(),
-    };
+pub fn get_object_classes(yaml_file: PathBuf) -> anyhow::Result<Vec<String>> {
+    let yaml_data = std::fs::read_to_string(yaml_file)?;
     Ok(serde_yaml::from_str::<CocoClasses>(yaml_data.as_str())?.NAMES)
 }
 

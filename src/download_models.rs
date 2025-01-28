@@ -3,20 +3,30 @@ use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;
 
-const RT_DETR2_MODELS: &[(&str, &[&str])] = &[(
-    // Messed up the repo name, should be rt-detr2-onnx
+pub enum Model {
+    Model(String),
+    AllRtDetr2,
+    AllYolo5,
+    All,
+}
+
+pub const RT_DETR2_MODELS: &[(&str, &[&str])] = &[(
     "xnorpx/rt-detr2-onnx",
     &[
         "rt-detrv2-s.onnx",
+        "rt-detrv2-s.yaml",
         "rt-detrv2-ms.onnx",
+        "rt-detrv2-ms.yaml",
         "rt-detrv2-m.onnx",
+        "rt-detrv2-m.yaml",
         "rt-detrv2-l.onnx",
+        "rt-detrv2-l.yaml",
         "rt-detrv2-x.onnx",
+        "rt-detrv2-x.yaml",
     ],
 )];
 
-const CUSTOM_YOLO5_MODELS: &[(&str, &[&str])] = &[(
-    // Messed up the repo name, should be rt-detr2-onnx
+pub const YOLO5_MODELS: &[(&str, &[&str])] = &[(
     "xnorpx/blue-onyx-yolo5",
     &[
         "delivery.onnx",
@@ -36,7 +46,35 @@ const CUSTOM_YOLO5_MODELS: &[(&str, &[&str])] = &[(
     ],
 )];
 
-pub fn download_models(model_path: PathBuf, download_custom_yolo5: bool) -> anyhow::Result<()> {
+pub fn get_all_models() -> [&'static [(&'static str, &'static [&'static str])]; 2] {
+    [RT_DETR2_MODELS, YOLO5_MODELS]
+}
+
+pub fn get_all_model_names() -> Vec<String> {
+    let all_models = get_all_models();
+    let mut models = Vec::new();
+    for model_set in all_models.iter() {
+        for (_, files) in model_set.iter() {
+            for file in *files {
+                if file.ends_with(".onnx") {
+                    models.push(file.to_string());
+                }
+            }
+        }
+    }
+    models
+}
+
+pub fn list_models() {
+    let model_names = get_all_model_names();
+    for model_name in model_names {
+        info!("{}", model_name);
+    }
+}
+
+pub fn download_model(model_path: PathBuf, model: Model) -> anyhow::Result<()> {
+    let all_models = get_all_models();
+
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -47,15 +85,68 @@ pub fn download_models(model_path: PathBuf, download_custom_yolo5: bool) -> anyh
         }
         let api = Api::new()?;
         let mut downloaded_models: Vec<String> = Vec::new();
-        if download_custom_yolo5 {
-            download(api, CUSTOM_YOLO5_MODELS, &mut downloaded_models, model_path)
-                .await
-                .unwrap();
-        } else {
-            download(api, RT_DETR2_MODELS, &mut downloaded_models, model_path)
-                .await
-                .unwrap();
+
+        match model {
+            Model::Model(model_name) => {
+                let mut found = false;
+                for models in all_models.iter() {
+                    for (api_name, files) in models.iter() {
+                        if files.contains(&model_name.as_str()) {
+                            found = true;
+                            let api = api.model(api_name.to_string());
+                            let cached_file_path = api.get(&model_name).await?;
+                            tokio::fs::copy(cached_file_path, model_path.join(&model_name)).await?;
+                            info!(
+                                "Copied {} to {}",
+                                model_name,
+                                model_path.join(&model_name).display()
+                            );
+                            downloaded_models.push(model_name.clone());
+
+                            // Download the corresponding yaml file
+                            if let Some(yaml_name) = model_name
+                                .strip_suffix(".onnx")
+                                .map(|name| format!("{}.yaml", name))
+                            {
+                                if files.contains(&yaml_name.as_str()) {
+                                    let cached_file_path = api.get(&yaml_name).await?;
+                                    tokio::fs::copy(cached_file_path, model_path.join(&yaml_name))
+                                        .await?;
+                                    info!(
+                                        "Copied {} to {}",
+                                        yaml_name,
+                                        model_path.join(&yaml_name).display()
+                                    );
+                                    downloaded_models.push(yaml_name);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                if !found {
+                    return Err(anyhow::anyhow!("Model {} not found", model_name));
+                }
+            }
+            Model::AllRtDetr2 => {
+                download(api, RT_DETR2_MODELS, &mut downloaded_models, model_path).await?;
+            }
+            Model::AllYolo5 => {
+                download(api, YOLO5_MODELS, &mut downloaded_models, model_path).await?;
+            }
+            Model::All => {
+                for models in all_models.iter() {
+                    download(
+                        api.clone(),
+                        models,
+                        &mut downloaded_models,
+                        model_path.clone(),
+                    )
+                    .await?;
+                }
+            }
         }
+
         info!("Succesfully downloaded models: {:?}", downloaded_models);
         Ok(())
     })

@@ -28,8 +28,8 @@ pub struct Cli {
     pub model: Option<PathBuf>,
     /// Type of model type to use.
     /// Default: rt-detrv2
-    #[clap(long, default_value_t = ObjectDetectionModel::RtDetrv2)]
-    pub object_detection_model_type: ObjectDetectionModel,
+    #[clap(long)]
+    pub object_detection_model_type: Option<ObjectDetectionModel>,
     /// Path to the object classes yaml file
     /// Default: coco_classes.yaml which is the 80 standard COCO classes
     #[clap(long)]
@@ -87,11 +87,6 @@ pub struct Cli {
     /// Save inference stats to file
     #[clap(long)]
     pub save_stats_path: Option<PathBuf>,
-    /// Path to download all models to
-    /// This command will only download the models to the specified path
-    /// and then exit
-    #[clap(long)]
-    pub download_model_path: Option<PathBuf>,
 }
 
 fn parse_duration(s: &str) -> anyhow::Result<Duration> {
