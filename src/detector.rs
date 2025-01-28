@@ -1,6 +1,8 @@
 use crate::{
     api::Prediction,
-    direct_ml_available, get_object_classes,
+    direct_ml_available,
+    download_models::{RT_DETR2_MODELS, YOLO5_MODELS},
+    get_object_classes,
     image::{
         create_od_image_name, decode_jpeg, encode_maybe_draw_boundary_boxes_and_save_jpeg, Image,
         Resizer,
@@ -20,7 +22,7 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 pub struct DetectResult {
     pub predictions: SmallVec<[Prediction; 10]>,
@@ -72,7 +74,7 @@ pub struct OnnxConfig {
     pub inter_threads: usize,
     pub gpu_index: i32,
     pub force_cpu: bool,
-    pub model: Option<PathBuf>,
+    pub model: PathBuf,
 }
 
 #[derive(Debug, Clone, Default, clap::ValueEnum)]
@@ -131,6 +133,24 @@ impl ObjectDetectionModel {
                 object_classes,
             ),
         }
+    }
+}
+
+impl TryFrom<&str> for ObjectDetectionModel {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        for (model, _) in RT_DETR2_MODELS.iter() {
+            if model == &s {
+                return Ok(Self::RtDetrv2);
+            }
+        }
+        for (model, _) in YOLO5_MODELS.iter() {
+            if model == &s {
+                return Ok(Self::Yolo5);
+            }
+        }
+        bail!("Modeltype not found, please assign modeltype manually")
     }
 }
 
@@ -316,7 +336,7 @@ fn calculate_iou(a: &Prediction, b: &Prediction) -> f32 {
 
 #[derive(Debug, Clone)]
 pub struct DetectorConfig {
-    pub object_classes: Option<PathBuf>,
+    pub object_classes: PathBuf,
     pub object_filter: Vec<String>,
     pub confidence_threshold: f32,
     pub save_image_path: Option<PathBuf>,
@@ -576,30 +596,13 @@ fn initialize_onnx(
         (onnx_config.intra_threads, onnx_config.inter_threads)
     };
 
-    let (model_bytes, model_name) = if let Some(model) = onnx_config.model.clone() {
-        let model_str = model
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert model path to string"))?
-            .to_string();
-        (std::fs::read(&model)?, model_str)
-    } else {
-        let exe_path: PathBuf = std::env::current_exe()?;
-        let model_path = exe_path
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get parent directory of executable path"))?
-            .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
+    let model_name = onnx_config
+        .model
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Failed to convert model path to string"))?
+        .to_string();
 
-        let Ok(model_bytes) = std::fs::read(&model_path) else {
-            error!("Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary", model_path, crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
-
-            bail!("Failed to read model file");
-        };
-
-        (
-            model_bytes,
-            crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string(),
-        )
-    };
+    let model_bytes = std::fs::read(&onnx_config.model)?;
 
     info!(
         "Initializing detector with model: {:?} and inference running on {}",
