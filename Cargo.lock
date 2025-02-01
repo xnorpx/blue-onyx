@@ -424,7 +424,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "ureq",
+ "ureq 3.0.3",
  "uuid",
  "windows",
  "windows-service",
@@ -1142,7 +1142,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
- "ureq",
+ "ureq 2.12.1",
 ]
 
 [[package]]
@@ -3305,6 +3305,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "ureq"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "217751151c53226090391713e533d9a5e904ba2570dabaaace29032687589c3e"
+dependencies = [
+ "base64 0.22.1",
+ "cc",
+ "flate2",
+ "log",
+ "percent-encoding",
+ "rustls",
+ "rustls-pemfile 2.2.0",
+ "rustls-pki-types",
+ "ureq-proto",
+ "utf-8",
+ "webpki-roots",
+]
+
+[[package]]
+name = "ureq-proto"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c51fe73e1d8c4e06bb2698286f7e7453c6fc90528d6d2e7fc36bb4e87fe09b1"
+dependencies = [
+ "base64 0.22.1",
+ "http 1.2.0",
+ "httparse",
+ "log",
+]
+
+[[package]]
 name = "url"
 version = "2.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3314,6 +3345,12 @@ dependencies = [
  "idna",
  "percent-encoding",
 ]
+
+[[package]]
+name = "utf-8"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utf16_iter"
