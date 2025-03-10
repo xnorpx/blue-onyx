@@ -5,7 +5,7 @@ use serde::Deserialize;
 use server::run_server;
 use std::{future::Future, path::PathBuf};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, Level};
+use tracing::{Level, info};
 pub mod api;
 pub mod cli;
 pub mod detector;

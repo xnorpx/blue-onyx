@@ -35,13 +35,13 @@ mod blue_onyx_service {
     use tracing::{error, info};
 
     use windows_service::{
-        define_windows_service,
+        Result, define_windows_service,
         service::{
             ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
             ServiceType,
         },
         service_control_handler::{self, ServiceControlHandlerResult},
-        service_dispatcher, Result,
+        service_dispatcher,
     };
 
     const SERVICE_NAME: &str = "blue_onyx_service";

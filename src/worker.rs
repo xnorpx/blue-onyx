@@ -133,12 +133,16 @@ impl DetectorWorker {
             let request_time = start_request_time.elapsed();
             if request_time > self.request_timeout {
                 warn!(?detect_response, ?request_time, ?self.request_timeout, "Request timed out, this means that the server is overloaded and we will drop this response.");
-                warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+                warn!(
+                    "If you see this message spamming you should reduce the number of requests or upgrade your service to be faster."
+                );
             }
 
             if let Err(err) = response_sender.send(detect_response) {
                 warn!(?err, ?request_time, ?self.request_timeout, "Failed to send response from worker, the client request has most likely timed out so receiver is gone.");
-                warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+                warn!(
+                    "If you see this message spamming you should reduce the number of requests or upgrade your service to be faster."
+                );
             }
         }
     }

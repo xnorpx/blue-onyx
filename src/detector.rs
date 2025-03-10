@@ -2,13 +2,13 @@ use crate::{
     api::Prediction,
     direct_ml_available, get_object_classes,
     image::{
-        create_od_image_name, decode_jpeg, encode_maybe_draw_boundary_boxes_and_save_jpeg, Image,
-        Resizer,
+        Image, Resizer, create_od_image_name, decode_jpeg,
+        encode_maybe_draw_boundary_boxes_and_save_jpeg,
     },
 };
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
-use ndarray::{s, Array, ArrayView, Axis};
+use ndarray::{Array, ArrayView, Axis, s};
 use ort::{
     execution_providers::DirectMLExecutionProvider,
     inputs,
@@ -572,7 +572,10 @@ fn initialize_onnx(
     } else {
         let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
         let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-        warn!("DirectML not available, falling back to CPU for inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
+        warn!(
+            "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
+            num_intra_threads, num_inter_threads
+        );
         (onnx_config.intra_threads, onnx_config.inter_threads)
     };
 
@@ -590,7 +593,11 @@ fn initialize_onnx(
             .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
 
         let Ok(model_bytes) = std::fs::read(&model_path) else {
-            error!("Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary", model_path, crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
+            error!(
+                "Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary",
+                model_path,
+                crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string()
+            );
 
             bail!("Failed to read model file");
         };

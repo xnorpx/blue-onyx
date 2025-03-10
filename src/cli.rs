@@ -1,4 +1,4 @@
-use crate::{detector::ObjectDetectionModel, LogLevel};
+use crate::{LogLevel, detector::ObjectDetectionModel};
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
 

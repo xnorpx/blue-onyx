@@ -1,7 +1,7 @@
-use blue_onyx::{api::VisionDetectionResponse, DOG_BIKE_CAR_BYTES};
+use blue_onyx::{DOG_BIKE_CAR_BYTES, api::VisionDetectionResponse};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
-use reqwest::{multipart, Body, Client};
+use reqwest::{Body, Client, multipart};
 use std::time::{Duration, Instant};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};

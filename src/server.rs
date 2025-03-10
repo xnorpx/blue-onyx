@@ -7,14 +7,14 @@ use crate::{
 };
 use askama::Template;
 use axum::{
+    Json, Router,
     body::{self, Body},
     extract::{DefaultBodyLimit, Multipart, State},
-    http::{header::CACHE_CONTROL, Request, StatusCode},
+    http::{Request, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
 use chrono::Utc;
 use crossbeam::channel::Sender;
@@ -28,8 +28,8 @@ use std::{
     time::Instant,
 };
 use tokio::{
-    sync::{oneshot, Mutex},
-    time::{timeout, Duration},
+    sync::{Mutex, oneshot},
+    time::{Duration, timeout},
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -85,7 +85,9 @@ pub async fn run_server(
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => listener,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
-            error!("Looks like {port} is already in use either by Blue Onyx, CPAI or another application, please turn off the other application or pick another port with --port");
+            error!(
+                "Looks like {port} is already in use either by Blue Onyx, CPAI or another application, please turn off the other application or pick another port with --port"
+            );
             return Err(e.into());
         }
         Err(e) => return Err(e.into()),
@@ -401,7 +403,9 @@ impl Metrics {
 }
 
 async fn update_dropped_requests(server_state: Arc<ServerState>) {
-    warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+    warn!(
+        "If you see this message spamming you should reduce the number of requests or upgrade your service to be faster."
+    );
     let mut metrics = server_state.metrics.lock().await;
     metrics.update_dropped_requests();
 }

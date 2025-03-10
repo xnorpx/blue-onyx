@@ -25,13 +25,13 @@
 //!
 use anyhow::bail;
 use blue_onyx::{
+    LogLevel,
     detector::{
         Detector, DetectorConfig, DeviceType, EndpointProvider, ObjectDetectionModel, OnnxConfig,
     },
     image::load_image,
     init_logging,
     system_info::{cpu_model, gpu_model, system_info},
-    LogLevel,
 };
 use bytes::Bytes;
 use clap::Parser;
