@@ -140,12 +140,13 @@ impl TryFrom<&str> for ObjectDetectionModel {
     type Error = anyhow::Error;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        for (model, _) in RT_DETR2_MODELS.iter() {
+        println!("s: {}", s);
+        for  model in RT_DETR2_MODELS.1.iter() {
             if model == &s {
                 return Ok(Self::RtDetrv2);
             }
         }
-        for (model, _) in YOLO5_MODELS.iter() {
+        for model in YOLO5_MODELS.1.iter() {
             if model == &s {
                 return Ok(Self::Yolo5);
             }

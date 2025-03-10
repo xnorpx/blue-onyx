@@ -27,11 +27,11 @@ struct Cli {
     rt_detrv2: bool,
 
     /// List all available models
-    #[clap(long, conflicts_with_all = &["model", "all", "yolo5", "rt_detrv2, destination"])]
+    #[clap(long, conflicts_with_all = &["model", "all", "yolo5", "rt_detrv2", "destination"])]
     list_models: bool,
 
     /// Optional destination path where the models will be downloaded
-    #[clap(short, long, conflicts_with = "list_models")]
+    #[clap(short, long)]
     destination: Option<PathBuf>,
 }
 

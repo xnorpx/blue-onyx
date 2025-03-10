@@ -1,0 +1,150 @@
+[2m2025-01-25T23:35:14.813437Z[0m [32m INFO[0m [2mblue_onyx[0m[2m:[0m Logging initialized [3mlog_level[0m[2m=[0mDebug
+[2m2025-01-25T23:35:14.813526Z[0m [32m INFO[0m [2mblue_onyx::system_info[0m[2m:[0m System Information:
+[2m2025-01-25T23:35:14.813548Z[0m [32m INFO[0m [2mblue_onyx::system_info[0m[2m:[0m CPU | GenuineIntel | 12th Gen Intel(R) Core(TM) i7-12700F | 12 Cores | 20 Logical Cores
+[2m2025-01-25T23:35:14.815869Z[0m [32m INFO[0m [2mblue_onyx::system_info[0m[2m:[0m GPU 0 | NVIDIA GeForce RTX 4080 SUPER
+[2m2025-01-25T23:35:14.816021Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m DirectML available, using DirectML for inference [3mgpu_index[0m[2m=[0m0
+[2m2025-01-25T23:35:14.820262Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Initializing detector with model: ".\\dfine_n_coco.onnx" and inference running on GPU
+[2m2025-01-25T23:35:14.823670Z[0m [32m INFO[0m [2mort[0m[2m:[0m Loaded ONNX Runtime dylib with version '1.20.1'
+[2m2025-01-25T23:35:15.006626Z[0m [32m INFO[0m [2mort::execution_providers[0m[2m:[0m Successfully registered `DmlExecutionProvider`
+[2m2025-01-25T23:35:15.006649Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Environment not yet initialized, creating a new one
+[2m2025-01-25T23:35:15.014907Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Environment created [3menv_ptr[0m[2m=[0m"0x24ee8009530"
+[2m2025-01-25T23:35:15.015289Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Session Options {  execution_mode:0 execution_order:DEFAULT enable_profiling:0 optimized_model_filepath: enable_mem_pattern:1 enable_mem_reuse:1 enable_cpu_mem_arena:1 profile_file_prefix:onnxruntime_profile_ session_logid: session_log_severity_level:-1 session_log_verbosity_level:0 max_num_graph_transformation_steps:10 graph_optimization_level:3 intra_op_param:OrtThreadPoolParams { thread_pool_size: 1 auto_set_affinity: 0 allow_spinning: 1 dynamic_block_base_: 0 stack_size: 0 affinity_str:  set_denormal_as_zero: 0 } inter_op_param:OrtThreadPoolParams { thread_pool_size: 1 auto_set_affinity: 0 allow_spinning: 1 dynamic_block_base_: 0 stack_size: 0 affinity_str:  set_denormal_as_zero: 0 } use_per_session_threads:1 thread_pool_allow_spinning:1 use_deterministic_compute:0 config_options: {  } }
+[2m2025-01-25T23:35:15.015310Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Flush-to-zero and denormal-as-zero are off
+[2m2025-01-25T23:35:15.015317Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Creating and using per session threadpools since use_per_session_threads_ is true
+[2m2025-01-25T23:35:15.015335Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Dynamic block base set to 0
+[2m2025-01-25T23:35:15.030230Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Having memory pattern enabled is not supported while using DmlExecutionProvider. So disabling it for this session since it uses DmlExecutionProvider.
+[2m2025-01-25T23:35:15.030257Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Initializing session.
+[2m2025-01-25T23:35:15.030264Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Adding default CPU execution provider.
+[2m2025-01-25T23:35:15.030285Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Creating BFCArena for Cpu with following configs: initial_chunk_size_bytes: 1048576 max_dead_bytes_per_chunk: 134217728 initial_growth_chunk_size_bytes: 2097152 max_power_of_two_extend_bytes: 1073741824 memory limit: 18446744073709551615 arena_extend_strategy: 0
+[2m2025-01-25T23:35:15.031807Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m This model does not have any local functions defined. AOT Inlining is not performed
+[2m2025-01-25T23:35:15.031963Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer EnsureUniqueDQForNodeUnit modified: 0 with status: OK
+[2m2025-01-25T23:35:15.032267Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level1_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.032373Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DoubleQDQPairsRemover modified: 0 with status: OK
+[2m2025-01-25T23:35:15.032849Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ConstantSharing modified: 0 with status: OK
+[2m2025-01-25T23:35:15.033556Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer CommonSubexpressionElimination modified: 0 with status: OK
+[2m2025-01-25T23:35:15.033750Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ConstantFolding modified: 0 with status: OK
+[2m2025-01-25T23:35:15.033859Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer MatMulAddFusion modified: 0 with status: OK
+[2m2025-01-25T23:35:15.033974Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Fused reshape node: /model/encoder/encoder.0/layers.0/self_attn/Reshape_2_output_0
+[2m2025-01-25T23:35:15.033991Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Fused reshape node: /model/decoder/decoder/Reshape_output_0
+[2m2025-01-25T23:35:15.034010Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total fused reshape node count: 2
+[2m2025-01-25T23:35:15.034015Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ReshapeFusion modified: 1 with status: OK
+[2m2025-01-25T23:35:15.037952Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing initializer '/model/encoder/encoder.0/layers.0/self_attn/Constant_4_output_0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.037963Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing initializer '/model/decoder/decoder/Constant_2_output_0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.037969Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing initializer '/model/encoder/encoder.0/layers.0/self_attn/Unsqueeze_2_output_0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.038026Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer FreeDimensionOverrideTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.038033Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer GeluFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:15.038038Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer LayerNormFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:15.038152Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQPropagationTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.038250Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer EnsureUniqueDQForNodeUnit modified: 0 with status: OK
+[2m2025-01-25T23:35:15.038338Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer RocmBlasAltImpl modified: 0 with status: OK
+[2m2025-01-25T23:35:15.039603Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer TransposeOptimizer modified: 1 with status: OK
+[2m2025-01-25T23:35:15.043583Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_1_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043603Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_9_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043610Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043619Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Gather_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043625Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_2_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043629Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_3_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043633Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_4_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043637Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_5_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043664Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_6_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043669Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_7_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043673Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_8_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043677Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_10_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043681Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_11_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:15.043968Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level1_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044070Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DoubleQDQPairsRemover modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044536Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer CommonSubexpressionElimination modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044733Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ConstantFolding modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044833Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer MatMulAddFusion modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044938Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ReshapeFusion modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044945Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer FreeDimensionOverrideTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044949Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer GeluFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:15.044953Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer LayerNormFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:15.045042Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQPropagationTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.045132Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer EnsureUniqueDQForNodeUnit modified: 0 with status: OK
+[2m2025-01-25T23:35:15.045214Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer RocmBlasAltImpl modified: 0 with status: OK
+[2m2025-01-25T23:35:15.047678Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/encoder/Slice
+[2m2025-01-25T23:35:15.047979Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/Slice_1
+[2m2025-01-25T23:35:15.047995Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/Slice
+[2m2025-01-25T23:35:15.048022Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/decoder/layers.0/cross_attn/Gather_2
+[2m2025-01-25T23:35:15.048026Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/decoder/layers.0/cross_attn/Gather_3
+[2m2025-01-25T23:35:15.048030Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/decoder/layers.0/cross_attn/Gather_4
+[2m2025-01-25T23:35:15.048135Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: Gather
+[2m2025-01-25T23:35:15.048153Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/Gather_5
+[2m2025-01-25T23:35:15.048443Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/decoder/integral/Gather
+[2m2025-01-25T23:35:15.048878Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/decoder/integral_1/Gather
+[2m2025-01-25T23:35:15.049274Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Candidate for fallback CPU execution: /model/decoder/decoder/integral_2/Gather
+[2m2025-01-25T23:35:15.049502Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/encoder/Slice because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049510Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/encoder/Concat because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049522Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Slice_1 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049529Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Concat_1 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049541Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Slice because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049548Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Concat because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049557Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Gather_4 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049565Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Gather_3 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049572Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Mul_6 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049580Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Unsqueeze_16 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049587Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Gather_2 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049594Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Unsqueeze_15 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049618Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Concat_7 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049627Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Unsqueeze_6 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049634Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Mul_4 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049641Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Unsqueeze_5 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049652Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Concat_4 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049661Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: Gather because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049668Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Gather_4 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049676Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Unsqueeze because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049685Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Concat_4 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049693Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Gather_5 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049701Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Unsqueeze_3 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049709Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/Concat_6 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049721Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/layers.0/cross_attn/Concat_3 because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049731Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral/Gather because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049739Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral/Unsqueeze because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049748Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral/Concat because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049758Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral_1/Gather because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049765Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral_1/Unsqueeze because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049774Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral_1/Concat because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049784Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral_2/Gather because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049792Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral_2/Unsqueeze because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.049804Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m ORT optimization- Force fallback to CPU execution for node: /model/decoder/decoder/integral_2/Concat because the CPU execution path is deemed faster than overhead involved with execution on other EPs  capable of executing this node
+[2m2025-01-25T23:35:15.052514Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level2_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.052987Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer TransposeOptimizer_CPUExecutionProvider modified: 0 with status: OK
+[2m2025-01-25T23:35:15.053076Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQFinalCleanupTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.057494Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DmlOperatorFusionTransformer modified: 1 with status: OK
+[2m2025-01-25T23:35:15.057615Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level2_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.057706Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQFinalCleanupTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.057739Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DmlOperatorFusionTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.061025Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DmlGraphFusionTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.061184Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer RemoveDuplicateCastTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.061194Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer CastFloat16Transformer modified: 0 with status: OK
+[2m2025-01-25T23:35:15.067294Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer MemcpyTransformer modified: 1 with status: OK
+[2m2025-01-25T23:35:15.072243Z[0m [32m INFO[0m [2mort::environment[0m[2m:[0m Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.
+[2m2025-01-25T23:35:15.074722Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Use DeviceBasedPartition as default
+[2m2025-01-25T23:35:15.101009Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Saving initialized tensors.
+[2m2025-01-25T23:35:15.162512Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Done saving initialized tensors
+[2m2025-01-25T23:35:15.163912Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Session successfully initialized.
+[2m2025-01-25T23:35:15.165070Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Warming up the detector
+[2m2025-01-25T23:35:15.167326Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Decode image time: 2.2378ms, resolution 768x576
+[2m2025-01-25T23:35:15.167341Z[0m [34mDEBUG[0m [2mblue_onyx::image[0m[2m:[0m Resizing image from 768x576 to 640x640
+[2m2025-01-25T23:35:15.169089Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Resize image time: 1.7481ms
+[2m2025-01-25T23:35:15.170653Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Copy pixels to input time: 1.556ms
+[2m2025-01-25T23:35:15.171442Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process model input time: 782.6µs
+[2m2025-01-25T23:35:15.171451Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process time: 6.3629ms
+[2m2025-01-25T23:35:15.513475Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Inference time: 342.016ms
+[2m2025-01-25T23:35:15.513511Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Post-processing time: 12.9µs
+[2m2025-01-25T23:35:15.513515Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Processing time: 348.4231ms
+[2m2025-01-25T23:35:15.513518Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Detector warmed up in: 348.4337ms
+[2m2025-01-25T23:35:15.513522Z[0m [32m INFO[0m [2mblue_onyx_benchmark[0m[2m:[0m Starting inference benchmark with 1 repetitions
+[2m2025-01-25T23:35:15.513526Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Detecting objects in image: dog_bike_car.jpg
+[2m2025-01-25T23:35:15.515424Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Decode image time: 1.8949ms, resolution 768x576
+[2m2025-01-25T23:35:15.515437Z[0m [34mDEBUG[0m [2mblue_onyx::image[0m[2m:[0m Resizing image from 768x576 to 640x640
+[2m2025-01-25T23:35:15.516621Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Resize image time: 1.1836ms
+[2m2025-01-25T23:35:15.517733Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Copy pixels to input time: 1.1021ms
+[2m2025-01-25T23:35:15.518351Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process model input time: 610.1µs
+[2m2025-01-25T23:35:15.518358Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process time: 4.8293ms
+[2m2025-01-25T23:35:15.528185Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Inference time: 9.823ms
+[2m2025-01-25T23:35:15.528208Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Post-processing time: 7.7µs
+[2m2025-01-25T23:35:15.528212Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Processing time: 14.6792ms
+[2m2025-01-25T23:35:15.528216Z[0m [31mERROR[0m [2mblue_onyx_benchmark[0m[2m:[0m No objects detected [3mpredictions[0m[2m=[0mDetectResult { # predictions: [], processing_time: 14.6792ms, decode_image_time: 1.8949ms, resize_image_time: 1.1836ms, pre_processing_time: 4.8293ms, inference_time: 9.823ms, post_processing_time: 7.7µs, device_type: GPU }
+[2m2025-01-25T23:35:15.528236Z[0m [34mDEBUG[0m [2mort::session[0m[2m:[0m dropping SharedSessionInner [3mptr[0m[2m=[0m0x24eee62ab40

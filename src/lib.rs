@@ -30,9 +30,11 @@ pub fn check_model_available(
     object_classes: Option<PathBuf>,
 ) -> anyhow::Result<(PathBuf, PathBuf)> {
     // If model is None then use the default model
+    info!("Model: {:?}", model);
     let model = if let Some(model) = model {
-        model.canonicalize()?
+        model
     } else {
+        info!(DEFAULT_MODEL, "Model path not provided, using default model path");
         std::env::current_exe()
             .map_err(|e| anyhow::anyhow!(e))
             .and_then(|exe_path| {
@@ -43,11 +45,11 @@ pub fn check_model_available(
             })?
     };
 
-    debug!(?model, "Model path");
+    info!(?model, "Model path");
 
     // If object_classes is None then use the models classes
     let object_classes = if let Some(object_classes) = object_classes {
-        object_classes.canonicalize()?
+        object_classes
     } else {
         model.with_extension("yaml")
     };
@@ -70,6 +72,11 @@ pub fn check_model_available(
         download_model(model_path.to_path_buf(), model_file)?;
     }
 
+    let model = model.canonicalize().map_err(|e| anyhow::anyhow!(e))?;
+    info!(?model, "Model path");
+    let object_classes = object_classes.canonicalize().map_err(|e| anyhow::anyhow!(e))?;
+    info!(?object_classes, "Object classes path");
+
     Ok((model, object_classes))
 }
 
@@ -80,7 +87,9 @@ pub fn blue_onyx_service(
     CancellationToken,
     std::thread::JoinHandle<()>,
 )> {
+    info!("Starting Blue Onyx service");
     let (model, object_classes) = check_model_available(args.model, args.object_classes)?;
+    info!("Starting Blue Onyx service");
     let object_detection_model = match args.object_detection_model_type {
         Some(model_type) => model_type,
         None => {
@@ -104,6 +113,8 @@ pub fn blue_onyx_service(
         timeout: args.request_timeout,
         object_detection_model,
     };
+
+    info!(?detector_config, "Detector configuration");
 
     // Run a separate thread for the detector worker
     let (sender, mut detector_worker) =
