@@ -58,11 +58,15 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
 
-    - name: Workaround for curl 8.0 network errors
+    - name: Workaround for curl 8.0 network errors (Linux)
+      if: runner.os == 'Linux'
       run: |
-        if rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then
-          echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV
-        fi
+        echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV
+
+    - name: Workaround for curl 8.0 network errors (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "CARGO_HTTP_MULTIPLEXING=false" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build release blue-onyx
       run: cargo build --release
