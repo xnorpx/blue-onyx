@@ -1,25 +1,27 @@
-use std::{env, fs::File, io::Write, path::Path, process::Command};
+use std::{env, fs::File, io::Read, io::Write, path::Path, process::Command};
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
-    "onnxruntime-1.20.1",
-    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.20.1.zip",
+    "onnxruntime-1.21.0",
+    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.21.0.zip",
 );
 
-const DIRECTML: &str = "https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4";
+const DIRECTML_SOURCE: (&str, &str) = (
+    "Microsoft.AI.DirectML.1.15.4",
+    "https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4",
+);
 
-const ONNX_BUILD_COMMANDS: [&str; 10] = [
-    "--build_shared_lib",
-    "--parallel",
-    "--compile_no_warning_as_error",
-    "--skip_tests",
-    "--disable_exceptions",
-    "--disable_rtti",
-    "--enable_lto",
-    "--disable_contrib_ops",
-    "--cmake_extra_defines",
-    "onnxruntime_BUILD_UNIT_TESTS=OFF",
-];
+macro_rules! build_error {
+    ($($tokens: tt)*) => {
+        println!("cargo::error={}", format!($($tokens)*))
+    }
+}
+
+macro_rules! build_warning {
+    ($($tokens: tt)*) => {
+        println!("cargo::warning={}", format!($($tokens)*))
+    }
+}
 
 fn get_build_config() -> &'static str {
     match env::var("PROFILE").as_deref() {
@@ -30,172 +32,236 @@ fn get_build_config() -> &'static str {
 }
 
 fn main() {
-    let target_dir = env::var("OUT_DIR").unwrap();
+    build_warning!("Starting build script for ONNX Runtime");
+    let target_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
+
     check_and_download_onnx_source(&target_dir);
     if cfg!(windows) {
         check_and_download_directml(&target_dir);
     }
 
-    let build_dir = std::path::Path::new(&target_dir)
-        .join(ONNX_SOURCE.0)
-        .join("build");
+    let build_dir = Path::new(&target_dir).join(ONNX_SOURCE.0).join("build");
 
-    if !build_dir.exists() {
+    let shared_lib_name = if cfg!(windows) {
+        "onnxruntime.dll"
+    } else if cfg!(target_os = "macos") {
+        "libonnxruntime.dylib"
+    } else {
+        "libonnxruntime.so"
+    };
+
+    let expected_binary = build_dir
+        .join(if cfg!(windows) { "Windows" } else { "Linux" })
+        .join(get_build_config())
+        .join(if cfg!(windows) {
+            get_build_config()
+        } else {
+            ""
+        })
+        .join(shared_lib_name);
+
+    if build_dir.exists() && !expected_binary.exists() {
+        build_warning!(
+            "Build directory exists but expected binary missing, cleaning build directory"
+        );
+        std::fs::remove_dir_all(&build_dir).expect("Failed to clean build directory");
+    }
+
+    if !expected_binary.exists() {
         build_onnx(&target_dir);
     }
 
-    let os_dir = if cfg!(windows) { "Windows" } else { "Linux" };
-    let onnx_dir = std::path::Path::new(&target_dir)
-        .join(ONNX_SOURCE.0)
-        .join("build")
-        .join(os_dir)
-        .join(get_build_config());
-    println!("cargo:rustc-env=ORT_LIB_LOCATION={:?}", onnx_dir);
+    if !expected_binary.exists() {
+        build_error!("Expected ONNX Runtime binary not found after build");
+        panic!("Build failed: ONNX Runtime binary missing");
+    }
+
+    let output_dir = Path::new(&target_dir)
+        .ancestors()
+        .nth(3)
+        .expect("Failed to determine output directory");
+    if !output_dir.exists() {
+        std::fs::create_dir_all(output_dir).expect("Failed to create output directory");
+    }
+
+    std::fs::copy(&expected_binary, output_dir.join(shared_lib_name))
+        .expect("Failed to copy ONNX Runtime binary to output directory");
+
+    println!(
+        "cargo:rustc-env=ORT_LIB_LOCATION={:?}",
+        expected_binary.parent().unwrap()
+    );
 }
 
 fn check_and_download_onnx_source(target_dir: &str) {
-    let onnx_dir = std::path::Path::new(target_dir).join(ONNX_SOURCE.0);
-    let zip_path = std::path::Path::new(target_dir).join("onnxruntime.zip");
+    let onnx_dir = Path::new(target_dir).join(ONNX_SOURCE.0);
+    let zip_path = Path::new(target_dir).join("onnxruntime.zip");
 
     if !onnx_dir.exists() {
         if !zip_path.exists() {
-            let response = ureq::get(ONNX_SOURCE.1).call().unwrap();
-            let mut file = File::create(&zip_path).unwrap();
+            build_warning!("Downloading ONNX Runtime source");
+            let response = ureq::get(ONNX_SOURCE.1)
+                .call()
+                .expect("Failed to download ONNX Runtime source");
+            let mut file = File::create(&zip_path).expect("Failed to create ONNX Runtime zip file");
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
-            reader.read_to_end(&mut buffer).unwrap();
-            file.write_all(&buffer).unwrap();
+            reader
+                .read_to_end(&mut buffer)
+                .expect("Failed to read ONNX Runtime source response");
+            file.write_all(&buffer)
+                .expect("Failed to write ONNX Runtime zip file");
         }
 
-        let zip_file = File::open(&zip_path).unwrap();
-        let mut archive = ZipArchive::new(zip_file).unwrap();
-        archive.extract(target_dir).unwrap();
+        build_warning!("Extracting ONNX Runtime source");
+        let zip_file = File::open(&zip_path).expect("Failed to open ONNX Runtime zip file");
+        let mut archive =
+            ZipArchive::new(zip_file).expect("Failed to read ONNX Runtime zip archive");
+        archive
+            .extract(target_dir)
+            .expect("Failed to extract ONNX Runtime source");
     }
 }
 
 fn check_and_download_directml(target_dir: &str) {
-    let directml_dir = std::path::Path::new(target_dir).join("Microsoft.AI.DirectML.1.15.4");
-    let zip_path = std::path::Path::new(target_dir).join("directml.zip");
+    let directml_dir = Path::new(target_dir).join(DIRECTML_SOURCE.0);
+    let zip_path = Path::new(target_dir).join("directml.zip");
+    let directml_for_build_dir = Path::new(target_dir).join("directml");
 
     if !directml_dir.exists() {
         if !zip_path.exists() {
-            let response = ureq::get(DIRECTML).call().unwrap();
-            let mut file = File::create(&zip_path).unwrap();
+            build_warning!("Downloading DirectML");
+            let response = ureq::get(DIRECTML_SOURCE.1)
+                .call()
+                .expect("Failed to download DirectML");
+            let mut file = File::create(&zip_path).expect("Failed to create DirectML zip file");
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
-            reader.read_to_end(&mut buffer).unwrap();
-            file.write_all(&buffer).unwrap();
+            reader
+                .read_to_end(&mut buffer)
+                .expect("Failed to read DirectML response");
+            file.write_all(&buffer)
+                .expect("Failed to write DirectML zip file");
         }
 
-        let zip_file = File::open(&zip_path).unwrap();
-        let mut archive = ZipArchive::new(zip_file).unwrap();
-        archive.extract(directml_dir.clone()).unwrap();
+        build_warning!("Extracting DirectML");
+        let zip_file = File::open(&zip_path).expect("Failed to open DirectML zip file");
+        let mut archive = ZipArchive::new(zip_file).expect("Failed to read DirectML zip archive");
+        archive
+            .extract(&directml_dir)
+            .expect("Failed to extract DirectML");
     }
 
-    let directml_lib = directml_dir
-        .join("bin")
-        .join("x64-win")
-        .join("DirectML.lib");
-    let directml_dll = directml_dir
-        .join("bin")
-        .join("x64-win")
-        .join("DirectML.dll");
-    let directml_header = directml_dir.join("include").join("DirectML.h");
-    let directml_header_config = directml_dir.join("include").join("DirectMLConfig.h");
+    let required_files = [
+        directml_dir.join("bin/x64-win/DirectML.lib"),
+        directml_dir.join("bin/x64-win/DirectML.dll"),
+        directml_dir.join("include/DirectML.h"),
+        directml_dir.join("include/DirectMLConfig.h"),
+    ];
 
-    let directml_library_dir = std::path::Path::new(target_dir).join("directml");
-    if !directml_library_dir.exists() {
-        std::fs::create_dir(&directml_library_dir).unwrap();
+    for file in &required_files {
+        if !file.exists() {
+            build_error!("Required DirectML file missing: {:?}", file);
+            panic!("DirectML setup incomplete");
+        }
     }
-    let directml_library_bin_dir = std::path::Path::new(&directml_library_dir).join("bin");
-    if !directml_library_bin_dir.exists() {
-        std::fs::create_dir(&directml_library_bin_dir).unwrap();
-    }
-    std::fs::copy(&directml_dll, directml_library_bin_dir.join("DirectML.dll")).unwrap();
 
-    let output_dir = Path::new(target_dir).ancestors().nth(3).unwrap();
-    if !output_dir.exists() {
-        std::fs::create_dir_all(output_dir).unwrap();
+    let directml_lib_dir = directml_dir.join("bin/x64-win");
+    let directml_include_dir = directml_dir.join("include");
+    let directml_lib_path = directml_lib_dir.join("DirectML.lib");
+    let directml_dll_path = directml_lib_dir.join("DirectML.dll");
+    let directml_include_path = directml_include_dir.join("DirectML.h");
+    let directml_config_path = directml_include_dir.join("DirectMLConfig.h");
+
+    let bin_dir = directml_for_build_dir.join("bin");
+    let lib_dir = directml_for_build_dir.join("lib");
+    let include_dir = directml_for_build_dir.join("include");
+
+    std::fs::create_dir_all(&directml_for_build_dir)
+        .expect("Failed to create direct ml for bin directory");
+    std::fs::create_dir_all(&bin_dir).expect("Failed to create bin directory");
+    std::fs::create_dir_all(&lib_dir).expect("Failed to create lib directory");
+    std::fs::create_dir_all(&include_dir).expect("Failed to create include directory");
+
+    std::fs::copy(&directml_lib_path, lib_dir.join("DirectML.lib"))
+        .expect("Failed to copy DirectML.lib");
+    std::fs::copy(&directml_dll_path, bin_dir.join("DirectML.dll"))
+        .expect("Failed to copy DirectML.dll");
+    std::fs::copy(&directml_include_path, include_dir.join("DirectML.h"))
+        .expect("Failed to copy DirectML.h");
+    std::fs::copy(&directml_config_path, include_dir.join("DirectMLConfig.h"))
+        .expect("Failed to copy DirectMLConfig.h");
+
+    // Verify files
+    let copied_files = [
+        lib_dir.join("DirectML.lib"),
+        bin_dir.join("DirectML.dll"),
+        include_dir.join("DirectML.h"),
+        include_dir.join("DirectMLConfig.h"),
+    ];
+
+    for file in &copied_files {
+        if !file.exists() {
+            build_error!("Failed to verify copied file: {:?}", file);
+            panic!("DirectML file copy verification failed");
+        }
     }
-    std::fs::copy(&directml_dll, output_dir.join("DirectML.dll")).unwrap();
-    let directml_library_lib_dir = std::path::Path::new(&directml_library_dir).join("lib");
-    if !directml_library_lib_dir.exists() {
-        std::fs::create_dir(&directml_library_lib_dir).unwrap();
-    }
-    std::fs::copy(&directml_lib, directml_library_lib_dir.join("DirectML.lib")).unwrap();
-    let directml_library_include_dir = std::path::Path::new(&directml_library_dir).join("include");
-    if !directml_library_include_dir.exists() {
-        std::fs::create_dir(&directml_library_include_dir).unwrap();
-    }
-    std::fs::copy(
-        &directml_header,
-        directml_library_include_dir.join("DirectML.h"),
-    )
-    .unwrap();
-    std::fs::copy(
-        &directml_header_config,
-        directml_library_include_dir.join("DirectMLConfig.h"),
-    )
-    .unwrap();
+
+    build_warning!("DirectML files copied and verified successfully");
 }
 
 fn build_onnx(target_dir: &str) {
-    let onnx_dir = std::path::Path::new(target_dir).join(ONNX_SOURCE.0);
-
-    let mut build_commands = vec!["--config".to_string(), get_build_config().to_string()];
-
+    let onnx_dir = Path::new(target_dir).join(ONNX_SOURCE.0);
     let build_script = if cfg!(windows) {
-        let directml_dir = std::path::Path::new(target_dir).join("directml");
-        build_commands.push("--enable_msvc_static_runtime".to_string());
-        build_commands.push("--use_dml".to_string());
-        build_commands.push("--dml_path".to_string());
-        build_commands.push(directml_dir.to_str().unwrap().to_string());
         onnx_dir.join("build.bat")
     } else {
         onnx_dir.join("build.sh")
     };
 
-    build_commands.extend(ONNX_BUILD_COMMANDS.iter().map(|&s| s.to_string()));
+    if !build_script.exists() {
+        build_error!("Build script not found: {:?}", build_script);
+        panic!("ONNX Runtime build script missing");
+    }
 
+    let mut build_commands = vec![
+        "--config".to_string(),
+        get_build_config().to_string(),
+        "--build_shared_lib".to_string(),
+        "--parallel".to_string(),
+        "--compile_no_warning_as_error".to_string(),
+        "--skip_tests".to_string(),
+        "--disable_exceptions".to_string(),
+        "--disable_rtti".to_string(),
+        "--enable_lto".to_string(),
+        "--disable_contrib_ops".to_string(),
+        "--cmake_extra_defines".to_string(),
+        "onnxruntime_BUILD_UNIT_TESTS=OFF".to_string(),
+    ];
+
+    if cfg!(windows) {
+        // Enable DirectML on Windows
+        build_commands.extend([
+            "--enable_msvc_static_runtime".to_string(),
+            "--use_dml".to_string(),
+            "--dml_path".to_string(),
+            target_dir.to_string() + "\\directml",
+        ]);
+    } else if cfg!(target_os = "macos") {
+        // Enable Core ML on macOS
+        build_commands.push("--use_coreml".to_string());
+    }
+
+    build_warning!("Running ONNX Runtime build script");
     let status = Command::new(build_script)
         .args(&build_commands)
         .current_dir(&onnx_dir)
         .status()
-        .expect("Failed to execute build script");
+        .expect("Failed to execute ONNX Runtime build script");
 
     if !status.success() {
-        println!("cargo:warning=Build script failed with status: {}", status);
+        build_error!("ONNX Runtime build failed with status: {}", status);
+        panic!("ONNX Runtime build failed");
     } else {
-        println!("cargo:warning=Build script executed successfully");
+        build_warning!("ONNX Runtime build completed successfully");
     }
-
-    let shared_lib_name = if cfg!(windows) {
-        "onnxruntime.dll".to_owned()
-    } else {
-        "libonnxruntime.so".to_owned()
-    };
-
-    let onnx_runtime_shared_lib = if cfg!(windows) {
-        std::path::Path::new(&target_dir)
-            .join(ONNX_SOURCE.0)
-            .join("build")
-            .join("Windows")
-            // ORT does something weird with the build config on Windows
-            .join(get_build_config())
-            .join(get_build_config())
-            .join(shared_lib_name.clone())
-    } else {
-        std::path::Path::new(&target_dir)
-            .join(ONNX_SOURCE.0)
-            .join("build")
-            .join("Linux")
-            .join(get_build_config())
-            .join(shared_lib_name.clone())
-    };
-
-    let output_dir = Path::new(target_dir).ancestors().nth(3).unwrap();
-    if !output_dir.exists() {
-        std::fs::create_dir_all(output_dir).unwrap();
-    }
-    std::fs::copy(&onnx_runtime_shared_lib, output_dir.join(shared_lib_name)).unwrap();
 }
