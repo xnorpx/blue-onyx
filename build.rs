@@ -2,8 +2,8 @@ use std::{env, fs::File, io::Write, path::Path, process::Command};
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
-    "onnxruntime-1.20.1",
-    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.20.1.zip",
+    "onnxruntime-1.21.0",
+    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.21.0.zip",
 );
 
 const DIRECTML: &str = "https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4";
