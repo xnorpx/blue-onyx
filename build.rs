@@ -59,12 +59,17 @@ fn check_and_download_onnx_source(target_dir: &str) {
 
     if !onnx_dir.exists() {
         if !zip_path.exists() {
+            println!("Downloading ONNX source zip...");
             let response = ureq::get(ONNX_SOURCE.1).call().unwrap();
             let mut file = File::create(&zip_path).unwrap();
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer).unwrap();
             file.write_all(&buffer).unwrap();
+        }
+
+        if !zip_path.exists() {
+            println!("Error: ONNX source zip file not found at {:?}", zip_path);
         }
 
         let zip_file = File::open(&zip_path).unwrap();
@@ -79,12 +84,17 @@ fn check_and_download_directml(target_dir: &str) {
 
     if !directml_dir.exists() {
         if !zip_path.exists() {
+            println!("Downloading DirectML zip...");
             let response = ureq::get(DIRECTML).call().unwrap();
             let mut file = File::create(&zip_path).unwrap();
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer).unwrap();
             file.write_all(&buffer).unwrap();
+        }
+
+        if !zip_path.exists() {
+            println!("Error: DirectML zip file not found at {:?}", zip_path);
         }
 
         let zip_file = File::open(&zip_path).unwrap();
@@ -102,6 +112,22 @@ fn check_and_download_directml(target_dir: &str) {
         .join("DirectML.dll");
     let directml_header = directml_dir.join("include").join("DirectML.h");
     let directml_header_config = directml_dir.join("include").join("DirectMLConfig.h");
+
+    if !directml_lib.exists() {
+        println!("Error: DirectML.lib not found at {:?}", directml_lib);
+    }
+    if !directml_dll.exists() {
+        println!("Error: DirectML.dll not found at {:?}", directml_dll);
+    }
+    if !directml_header.exists() {
+        println!("Error: DirectML.h not found at {:?}", directml_header);
+    }
+    if !directml_header_config.exists() {
+        println!(
+            "Error: DirectMLConfig.h not found at {:?}",
+            directml_header_config
+        );
+    }
 
     let directml_library_dir = std::path::Path::new(target_dir).join("directml");
     if !directml_library_dir.exists() {
@@ -155,6 +181,10 @@ fn build_onnx(target_dir: &str) {
         onnx_dir.join("build.sh")
     };
 
+    if !build_script.exists() {
+        println!("Error: Build script not found at {:?}", build_script);
+    }
+
     build_commands.extend(ONNX_BUILD_COMMANDS.iter().map(|&s| s.to_string()));
 
     let status = Command::new(build_script)
@@ -192,6 +222,13 @@ fn build_onnx(target_dir: &str) {
             .join(get_build_config())
             .join(shared_lib_name.clone())
     };
+
+    if !onnx_runtime_shared_lib.exists() {
+        println!(
+            "Error: ONNX runtime shared library not found at {:?}",
+            onnx_runtime_shared_lib
+        );
+    }
 
     let output_dir = Path::new(target_dir).ancestors().nth(3).unwrap();
     if !output_dir.exists() {
