@@ -58,11 +58,21 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: python -m pip install --upgrade pip setuptools wheel
+
+    - name: Install dependencies
+      run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
+
     - name: Build release blue-onyx
       run: cargo build --release
 
   rustfmt:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -75,7 +85,7 @@ jobs:
       run: cargo fmt --all --check
 
   clippy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -88,7 +98,7 @@ jobs:
       run: cargo clippy --all-targets -- -D warnings
 
   docs:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
