@@ -1,0 +1,230 @@
+[2m2025-01-25T23:35:45.584816Z[0m [32m INFO[0m [2mblue_onyx[0m[2m:[0m Logging initialized [3mlog_level[0m[2m=[0mDebug
+[2m2025-01-25T23:35:45.584903Z[0m [32m INFO[0m [2mblue_onyx::system_info[0m[2m:[0m System Information:
+[2m2025-01-25T23:35:45.584926Z[0m [32m INFO[0m [2mblue_onyx::system_info[0m[2m:[0m CPU | GenuineIntel | 12th Gen Intel(R) Core(TM) i7-12700F | 12 Cores | 20 Logical Cores
+[2m2025-01-25T23:35:45.587283Z[0m [32m INFO[0m [2mblue_onyx::system_info[0m[2m:[0m GPU 0 | NVIDIA GeForce RTX 4080 SUPER
+[2m2025-01-25T23:35:45.587413Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Forcing CPU for inference with 11 intra and 11 inter threads
+[2m2025-01-25T23:35:45.591429Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Initializing detector with model: ".\\dfine_n_coco.onnx" and inference running on CPU
+[2m2025-01-25T23:35:45.594442Z[0m [32m INFO[0m [2mort[0m[2m:[0m Loaded ONNX Runtime dylib with version '1.20.1'
+[2m2025-01-25T23:35:45.594464Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Environment not yet initialized, creating a new one
+[2m2025-01-25T23:35:45.602911Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Environment created [3menv_ptr[0m[2m=[0m"0x1f153403cb0"
+[2m2025-01-25T23:35:45.603887Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Session Options {  execution_mode:0 execution_order:DEFAULT enable_profiling:0 optimized_model_filepath: enable_mem_pattern:1 enable_mem_reuse:1 enable_cpu_mem_arena:1 profile_file_prefix:onnxruntime_profile_ session_logid: session_log_severity_level:-1 session_log_verbosity_level:0 max_num_graph_transformation_steps:10 graph_optimization_level:3 intra_op_param:OrtThreadPoolParams { thread_pool_size: 11 auto_set_affinity: 0 allow_spinning: 1 dynamic_block_base_: 0 stack_size: 0 affinity_str:  set_denormal_as_zero: 0 } inter_op_param:OrtThreadPoolParams { thread_pool_size: 11 auto_set_affinity: 0 allow_spinning: 1 dynamic_block_base_: 0 stack_size: 0 affinity_str:  set_denormal_as_zero: 0 } use_per_session_threads:1 thread_pool_allow_spinning:1 use_deterministic_compute:0 config_options: {  } }
+[2m2025-01-25T23:35:45.603908Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Flush-to-zero and denormal-as-zero are off
+[2m2025-01-25T23:35:45.603915Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Creating and using per session threadpools since use_per_session_threads_ is true
+[2m2025-01-25T23:35:45.603931Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Dynamic block base set to 0
+[2m2025-01-25T23:35:45.622535Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Initializing session.
+[2m2025-01-25T23:35:45.622580Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Adding default CPU execution provider.
+[2m2025-01-25T23:35:45.622616Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Creating BFCArena for Cpu with following configs: initial_chunk_size_bytes: 1048576 max_dead_bytes_per_chunk: 134217728 initial_growth_chunk_size_bytes: 2097152 max_power_of_two_extend_bytes: 1073741824 memory limit: 18446744073709551615 arena_extend_strategy: 0
+[2m2025-01-25T23:35:45.624320Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m This model does not have any local functions defined. AOT Inlining is not performed
+[2m2025-01-25T23:35:45.624554Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer EnsureUniqueDQForNodeUnit modified: 0 with status: OK
+[2m2025-01-25T23:35:45.624975Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level1_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.625131Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DoubleQDQPairsRemover modified: 0 with status: OK
+[2m2025-01-25T23:35:45.625758Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ConstantSharing modified: 0 with status: OK
+[2m2025-01-25T23:35:45.626637Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer CommonSubexpressionElimination modified: 0 with status: OK
+[2m2025-01-25T23:35:45.626918Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ConstantFolding modified: 0 with status: OK
+[2m2025-01-25T23:35:45.627113Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer MatMulAddFusion modified: 0 with status: OK
+[2m2025-01-25T23:35:45.627273Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Fused reshape node: /model/encoder/encoder.0/layers.0/self_attn/Reshape_2_output_0
+[2m2025-01-25T23:35:45.627295Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Fused reshape node: /model/decoder/decoder/Reshape_output_0
+[2m2025-01-25T23:35:45.627324Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total fused reshape node count: 2
+[2m2025-01-25T23:35:45.627331Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ReshapeFusion modified: 1 with status: OK
+[2m2025-01-25T23:35:45.632362Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing initializer '/model/encoder/encoder.0/layers.0/self_attn/Constant_4_output_0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.632381Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing initializer '/model/decoder/decoder/Constant_2_output_0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.632387Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing initializer '/model/encoder/encoder.0/layers.0/self_attn/Unsqueeze_2_output_0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.632457Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer FreeDimensionOverrideTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.632466Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer GeluFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:45.632472Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer LayerNormFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:45.632610Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQPropagationTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.632730Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer EnsureUniqueDQForNodeUnit modified: 0 with status: OK
+[2m2025-01-25T23:35:45.632832Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer RocmBlasAltImpl modified: 0 with status: OK
+[2m2025-01-25T23:35:45.634155Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer TransposeOptimizer modified: 1 with status: OK
+[2m2025-01-25T23:35:45.640963Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_1_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.640997Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_9_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641006Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641017Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Gather_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641023Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_2_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641028Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_3_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641032Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_4_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641037Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_5_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641041Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_6_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641046Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_7_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641085Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_8_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641092Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_10_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641096Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Removing NodeArg 'Transpose_token_11_out0'. It is no longer used by any node.
+[2m2025-01-25T23:35:45.641429Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level1_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.641543Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer DoubleQDQPairsRemover modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642067Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer CommonSubexpressionElimination modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642274Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ConstantFolding modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642379Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer MatMulAddFusion modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642492Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer ReshapeFusion modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642499Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer FreeDimensionOverrideTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642504Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer GeluFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642509Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer LayerNormFusionL1 modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642610Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQPropagationTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642703Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer EnsureUniqueDQForNodeUnit modified: 0 with status: OK
+[2m2025-01-25T23:35:45.642790Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer RocmBlasAltImpl modified: 0 with status: OK
+[2m2025-01-25T23:35:45.648206Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer Level2_RuleBasedTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.649066Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer TransposeOptimizer_CPUExecutionProvider modified: 0 with status: OK
+[2m2025-01-25T23:35:45.649166Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer QDQFinalCleanupTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.649637Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer RemoveDuplicateCastTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.649646Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer CastFloat16Transformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.649655Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m GraphTransformer MemcpyTransformer modified: 0 with status: OK
+[2m2025-01-25T23:35:45.655840Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Use DeviceBasedPartition as default
+[2m2025-01-25T23:35:45.682025Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Saving initialized tensors.
+[2m2025-01-25T23:35:45.682119Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extending BFCArena for Cpu. bin_num:10 (requested) num_bytes: 262144 (actual) rounded_bytes:262144
+[2m2025-01-25T23:35:45.682140Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extended allocation by 1048576 bytes.
+[2m2025-01-25T23:35:45.682145Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total allocated bytes: 1048576
+[2m2025-01-25T23:35:45.682150Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Allocated memory at 000001F15819D080 to 000001F15829D080
+[2m2025-01-25T23:35:45.682397Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extending BFCArena for Cpu. bin_num:1 (requested) num_bytes: 512 (actual) rounded_bytes:512
+[2m2025-01-25T23:35:45.682415Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extended allocation by 2097152 bytes.
+[2m2025-01-25T23:35:45.682421Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total allocated bytes: 3145728
+[2m2025-01-25T23:35:45.682425Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Allocated memory at 000001F1582AC080 to 000001F1584AC080
+[2m2025-01-25T23:35:45.683036Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extending BFCArena for Cpu. bin_num:4 (requested) num_bytes: 4096 (actual) rounded_bytes:4096
+[2m2025-01-25T23:35:45.683049Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extended allocation by 4194304 bytes.
+[2m2025-01-25T23:35:45.683053Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total allocated bytes: 7340032
+[2m2025-01-25T23:35:45.683058Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Allocated memory at 000001F1584B1080 to 000001F1588B1080
+[2m2025-01-25T23:35:45.683530Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extending BFCArena for Cpu. bin_num:0 (requested) num_bytes: 64 (actual) rounded_bytes:256
+[2m2025-01-25T23:35:45.683542Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extended allocation by 8388608 bytes.
+[2m2025-01-25T23:35:45.683547Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total allocated bytes: 15728640
+[2m2025-01-25T23:35:45.683551Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Allocated memory at 000001F1588C8080 to 000001F1590C8080
+[2m2025-01-25T23:35:45.686347Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extending BFCArena for Cpu. bin_num:1 (requested) num_bytes: 512 (actual) rounded_bytes:512
+[2m2025-01-25T23:35:45.686362Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extended allocation by 16777216 bytes.
+[2m2025-01-25T23:35:45.686372Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total allocated bytes: 32505856
+[2m2025-01-25T23:35:45.686378Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Allocated memory at 000001F1590D3080 to 000001F15A0D3080
+[2m2025-01-25T23:35:45.687088Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Done saving initialized tensors
+[2m2025-01-25T23:35:45.687765Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.687783Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.687811Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.687840Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.687858Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.687943Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.688034Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688064Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 40960
+[2m2025-01-25T23:35:45.688078Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688105Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688118Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 8192
+[2m2025-01-25T23:35:45.688127Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 4096
+[2m2025-01-25T23:35:45.688133Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 131072
+[2m2025-01-25T23:35:45.688182Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688230Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688243Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688273Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688302Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 98304
+[2m2025-01-25T23:35:45.688339Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 49152
+[2m2025-01-25T23:35:45.688373Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.688446Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.688527Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.688602Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688630Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688656Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 8192
+[2m2025-01-25T23:35:45.688665Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688692Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688719Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 73728
+[2m2025-01-25T23:35:45.688761Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 4096
+[2m2025-01-25T23:35:45.688767Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 131072
+[2m2025-01-25T23:35:45.688818Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688846Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688872Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688902Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.688932Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 98304
+[2m2025-01-25T23:35:45.688962Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 49152
+[2m2025-01-25T23:35:45.688991Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.689073Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.689148Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.689222Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689250Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689277Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 73728
+[2m2025-01-25T23:35:45.689317Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 4096
+[2m2025-01-25T23:35:45.689323Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 131072
+[2m2025-01-25T23:35:45.689389Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689417Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689444Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689474Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689503Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 98304
+[2m2025-01-25T23:35:45.689540Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 49152
+[2m2025-01-25T23:35:45.689568Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.689647Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.689723Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 262144
+[2m2025-01-25T23:35:45.689799Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689827Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 65536
+[2m2025-01-25T23:35:45.689854Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 73728
+[2m2025-01-25T23:35:45.689891Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 40960
+[2m2025-01-25T23:35:45.689904Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 5120
+[2m2025-01-25T23:35:45.689910Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Reserving memory in BFCArena for Cpu size: 4096
+[2m2025-01-25T23:35:45.690249Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Session successfully initialized.
+[2m2025-01-25T23:35:45.690728Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Warming up the detector
+[2m2025-01-25T23:35:45.692904Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Decode image time: 2.1628ms, resolution 768x576
+[2m2025-01-25T23:35:45.692914Z[0m [34mDEBUG[0m [2mblue_onyx::image[0m[2m:[0m Resizing image from 768x576 to 640x640
+[2m2025-01-25T23:35:45.694552Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Resize image time: 1.6381ms
+[2m2025-01-25T23:35:45.696188Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Copy pixels to input time: 1.6293ms
+[2m2025-01-25T23:35:45.696911Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process model input time: 715.4µs
+[2m2025-01-25T23:35:45.696918Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process time: 6.1779ms
+[2m2025-01-25T23:35:45.699619Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extending BFCArena for Cpu. bin_num:13 (requested) num_bytes: 3276800 (actual) rounded_bytes:3276800
+[2m2025-01-25T23:35:45.699661Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Extended allocation by 33554432 bytes.
+[2m2025-01-25T23:35:45.699667Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Total allocated bytes: 71889920
+[2m2025-01-25T23:35:45.699672Z[0m [34mDEBUG[0m [2mort::environment[0m[2m:[0m Allocated memory at 000001F165EE2080 to 000001F167EE2080
+[2m2025-01-25T23:35:45.746227Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Inference time: 49.293ms
+[2m2025-01-25T23:35:45.746313Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 1: Prediction { label: "dog", confidence: 0.9567052 }
+[2m2025-01-25T23:35:45.746328Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 2: Prediction { label: "bicycle", confidence: 0.92657435 }
+[2m2025-01-25T23:35:45.746336Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 3: Prediction { label: "truck", confidence: 0.8265302 }
+[2m2025-01-25T23:35:45.746350Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 4: Prediction { label: "bicycle", confidence: 0.6816175 }
+[2m2025-01-25T23:35:45.746359Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 5: Prediction { label: "tvmonitor", confidence: 0.62614715 }
+[2m2025-01-25T23:35:45.746366Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 6: Prediction { label: "motorbike", confidence: 0.5235093 }
+[2m2025-01-25T23:35:45.746384Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Post-processing time: 85.4µs
+[2m2025-01-25T23:35:45.746392Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Processing time: 55.6436ms
+[2m2025-01-25T23:35:45.746399Z[0m [32m INFO[0m [2mblue_onyx::detector[0m[2m:[0m Detector warmed up in: 55.6662ms
+[2m2025-01-25T23:35:45.746407Z[0m [32m INFO[0m [2mblue_onyx_benchmark[0m[2m:[0m Starting inference benchmark with 1 repetitions
+[2m2025-01-25T23:35:45.746414Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Detecting objects in image: dog_bike_car.jpg
+[2m2025-01-25T23:35:45.750158Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Decode image time: 3.736ms, resolution 768x576
+[2m2025-01-25T23:35:45.750179Z[0m [34mDEBUG[0m [2mblue_onyx::image[0m[2m:[0m Resizing image from 768x576 to 640x640
+[2m2025-01-25T23:35:45.753161Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Resize image time: 2.9811ms
+[2m2025-01-25T23:35:45.755509Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Copy pixels to input time: 2.3287ms
+[2m2025-01-25T23:35:45.756435Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process model input time: 906.9µs
+[2m2025-01-25T23:35:45.756461Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Pre-process time: 10.0402ms
+[2m2025-01-25T23:35:45.795676Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Inference time: 39.2039ms
+[2m2025-01-25T23:35:45.795720Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 1: Prediction { label: "dog", confidence: 0.9567052 }
+[2m2025-01-25T23:35:45.795728Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 2: Prediction { label: "bicycle", confidence: 0.92657435 }
+[2m2025-01-25T23:35:45.795732Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 3: Prediction { label: "truck", confidence: 0.8265302 }
+[2m2025-01-25T23:35:45.795736Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 4: Prediction { label: "bicycle", confidence: 0.6816175 }
+[2m2025-01-25T23:35:45.795740Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 5: Prediction { label: "tvmonitor", confidence: 0.62614715 }
+[2m2025-01-25T23:35:45.795743Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Prediction - 6: Prediction { label: "motorbike", confidence: 0.5235093 }
+[2m2025-01-25T23:35:45.795754Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Post-processing time: 38.8µs
+[2m2025-01-25T23:35:45.795757Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Processing time: 49.3334ms
+[2m2025-01-25T23:35:45.795761Z[0m [34mDEBUG[0m [2mblue_onyx::detector[0m[2m:[0m Detected 6 objects in image Some("dog_bike_car.jpg")
+[2m2025-01-25T23:35:45.795780Z[0m [32m INFO[0m [2mblue_onyx_benchmark[0m[2m:[0m All done predictions: DetectResult {
+    # predictions: [
+        Prediction {
+            label: "dog",
+            confidence: 0.9567052,
+        },
+        Prediction {
+            label: "bicycle",
+            confidence: 0.92657435,
+        },
+        Prediction {
+            label: "truck",
+            confidence: 0.8265302,
+        },
+        Prediction {
+            label: "bicycle",
+            confidence: 0.6816175,
+        },
+        Prediction {
+            label: "tvmonitor",
+            confidence: 0.62614715,
+        },
+        Prediction {
+            label: "motorbike",
+            confidence: 0.5235093,
+        },
+    ],
+    processing_time: 49.3334ms,
+    decode_image_time: 3.736ms,
+    resize_image_time: 2.9811ms,
+    pre_processing_time: 10.0402ms,
+    inference_time: 39.2039ms,
+    post_processing_time: 38.8µs,
+    device_type: CPU,
+} in 49.3641ms
+[2m2025-01-25T23:35:45.795805Z[0m [32m INFO[0m [2mblue_onyx_benchmark[0m[2m:[0m Inference stats for 12th Gen Intel(R) Core(TM) i7-12700F
+[2m2025-01-25T23:35:45.795812Z[0m [32m INFO[0m [2mblue_onyx_benchmark[0m[2m:[0m Model Name,Device Name,Version,Type,Platform,EndpointProvider,Images,Total [s],Min [ms],Max [ms],Average [ms],FPS
+[2m2025-01-25T23:35:45.795821Z[0m [32m INFO[0m [2mblue_onyx_benchmark[0m[2m:[0m .\dfine_n_coco,12th Gen Intel(R) Core(TM) i7-12700F,0.8.0,CPU,Windows,CPU,1,0.0,39.2,39.2,39.2,0.0
+[2m2025-01-25T23:35:45.795826Z[0m [34mDEBUG[0m [2mort::session[0m[2m:[0m dropping SharedSessionInner [3mptr[0m[2m=[0m0x1f1562fdfd0
