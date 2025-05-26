@@ -2,8 +2,8 @@ use std::{env, fs::File, io::Read, io::Write, path::Path, process::Command};
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
-    "onnxruntime-1.21.0",
-    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.21.0.zip",
+    "onnxruntime-1.22.0",
+    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.22.0.zip",
 );
 
 const DIRECTML_SOURCE: (&str, &str) = (
@@ -230,8 +230,6 @@ fn build_onnx(target_dir: &str) {
         "--parallel".to_string(),
         "--compile_no_warning_as_error".to_string(),
         "--skip_tests".to_string(),
-        "--disable_exceptions".to_string(),
-        "--disable_rtti".to_string(),
         "--enable_lto".to_string(),
         "--disable_contrib_ops".to_string(),
         "--cmake_extra_defines".to_string(),
