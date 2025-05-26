@@ -1,4 +1,4 @@
-use std::{env, fs::File, io::Read, io::Write, path::Path, process::Command};
+use std::{env, fs::File, path::Path, process::Command};
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
@@ -113,16 +113,11 @@ fn check_and_download_onnx_source(target_dir: &str) {
     if !onnx_dir.exists() {
         if !zip_path.exists() {
             build_warning!("Downloading ONNX Runtime source");
-            let response = ureq::get(ONNX_SOURCE.1)
-                .call()
+            let mut response = reqwest::blocking::get(ONNX_SOURCE.1)
                 .expect("Failed to download ONNX Runtime source");
             let mut file = File::create(&zip_path).expect("Failed to create ONNX Runtime zip file");
-            let mut reader = response.into_reader();
-            let mut buffer = Vec::new();
-            reader
-                .read_to_end(&mut buffer)
-                .expect("Failed to read ONNX Runtime source response");
-            file.write_all(&buffer)
+            response
+                .copy_to(&mut file)
                 .expect("Failed to write ONNX Runtime zip file");
         }
 
@@ -144,16 +139,11 @@ fn check_and_download_directml(target_dir: &str) {
     if !directml_dir.exists() {
         if !zip_path.exists() {
             build_warning!("Downloading DirectML");
-            let response = ureq::get(DIRECTML_SOURCE.1)
-                .call()
-                .expect("Failed to download DirectML");
+            let mut response =
+                reqwest::blocking::get(DIRECTML_SOURCE.1).expect("Failed to download DirectML");
             let mut file = File::create(&zip_path).expect("Failed to create DirectML zip file");
-            let mut reader = response.into_reader();
-            let mut buffer = Vec::new();
-            reader
-                .read_to_end(&mut buffer)
-                .expect("Failed to read DirectML response");
-            file.write_all(&buffer)
+            response
+                .copy_to(&mut file)
                 .expect("Failed to write DirectML zip file");
         }
 
@@ -241,6 +231,7 @@ fn build_onnx(target_dir: &str) {
         get_build_config().to_string(),
         "--build_shared_lib".to_string(),
         "--parallel".to_string(),
+        num_cpus::get_physical().to_string(),
         "--compile_no_warning_as_error".to_string(),
         "--skip_tests".to_string(),
         "--enable_lto".to_string(),
