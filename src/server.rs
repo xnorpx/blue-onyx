@@ -115,12 +115,22 @@ async fn welcome_handler(State(server_state): State<Arc<ServerState>>) -> impl I
         let metrics_guard = server_state.metrics.lock().await;
         metrics_guard.clone()
     };
-
     let template = WelcomeTemplate { logo_data, metrics };
-    (
-        [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
-        template.into_response(),
-    )
+    match template.render() {
+        Ok(body) => (
+            [
+                (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+                (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
+            ],
+            body,
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template error: {}", e),
+        )
+            .into_response(),
+    }
 }
 
 async fn v1_vision_detection(
@@ -232,18 +242,40 @@ async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl Int
         metrics_guard.clone()
     };
     let template = StatsTemplate { metrics };
-    (
-        [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
-        template.into_response(),
-    )
+    match template.render() {
+        Ok(body) => (
+            [
+                (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+                (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
+            ],
+            body,
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template error: {}", e),
+        )
+            .into_response(),
+    }
 }
 
 async fn show_form() -> impl IntoResponse {
     let template = TestTemplate { image_data: None };
-    (
-        [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
-        template.into_response(),
-    )
+    match template.render() {
+        Ok(body) => (
+            [
+                (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+                (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
+            ],
+            body,
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template error: {}", e),
+        )
+            .into_response(),
+    }
 }
 
 async fn favicon_handler() -> impl IntoResponse {
@@ -417,11 +449,13 @@ async fn handle_upload(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     let request_start_time = Instant::now();
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|_| StatusCode::BAD_REQUEST)?
-    {
+    loop {
+        let field_result = multipart.next_field().await;
+        let field = match field_result {
+            Ok(Some(f)) => f,
+            Ok(None) => break,
+            Err(_) => return (StatusCode::BAD_REQUEST, "Invalid multipart field").into_response(),
+        };
         let name = field.name().unwrap_or("").to_string();
         if name == "image" {
             let content_type = field
@@ -429,10 +463,15 @@ async fn handle_upload(
                 .map(|ct| ct.to_string())
                 .unwrap_or_default();
             if content_type != IMAGE_JPEG.to_string() {
-                return Err(StatusCode::BAD_REQUEST);
+                return (StatusCode::BAD_REQUEST, "Invalid content type").into_response();
             }
 
-            let data: Bytes = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
+            let data: Bytes = match field.bytes().await {
+                Ok(d) => d,
+                Err(_) => {
+                    return (StatusCode::BAD_REQUEST, "Failed to read image bytes").into_response()
+                }
+            };
             let vision_request = VisionDetectionRequest {
                 min_confidence: 0., // This will be set to None and will use server default
                 image_data: data.clone(),
@@ -445,6 +484,8 @@ async fn handle_upload(
                 .send((vision_request, sender, request_start_time))
             {
                 error!(?err, "Failed to send request to detection worker");
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to send request")
+                    .into_response();
             }
             let result = timeout(Duration::from_secs(30), receiver).await;
 
@@ -452,17 +493,28 @@ async fn handle_upload(
                 Ok(Ok(response)) => response,
                 Ok(Err(err)) => {
                     error!("Failed to receive vision detection response: {:?}", err);
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to receive response",
+                    )
+                        .into_response();
                 }
                 Err(_) => {
                     error!("Timeout while waiting for vision detection response");
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Timeout").into_response();
                 }
             };
 
-            let data =
-                draw_boundary_boxes_on_encoded_image(data, vision_response.predictions.as_slice())
-                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let data = match draw_boundary_boxes_on_encoded_image(
+                data,
+                vision_response.predictions.as_slice(),
+            ) {
+                Ok(d) => d,
+                Err(_) => {
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to draw boxes")
+                        .into_response()
+                }
+            };
 
             let encoded = general_purpose::STANDARD.encode(&data);
             let data_url = format!("data:image/jpeg;base64,{}", encoded);
@@ -477,13 +529,28 @@ async fn handle_upload(
                 let mut metrics = server_state.metrics.lock().await;
                 metrics.update_metrics(&vision_response);
             }
-            return Ok((
-                [(CACHE_CONTROL, "no-store, no-cache, must-revalidate")],
-                template.into_response(),
-            ));
+            match template.render() {
+                Ok(body) => {
+                    return (
+                        [
+                            (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+                            (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                        ],
+                        body,
+                    )
+                        .into_response()
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Template error: {}", e),
+                    )
+                        .into_response()
+                }
+            }
         }
     }
-    Err(StatusCode::BAD_REQUEST)
+    (StatusCode::BAD_REQUEST, "No image field found").into_response()
 }
 
 struct BlueOnyxError(anyhow::Error);

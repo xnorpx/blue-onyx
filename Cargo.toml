@@ -7,10 +7,8 @@ edition = "2021"
 
 ab_glyph = "0"
 anyhow = "1"
-askama = {version = "0.12", features = ["with-axum"]}
-askama_axum = "0.4"
-# TODO: Update once askama_axum is updated to support axum 0.8
-axum = { version = "0.7", default-features = false, features = [
+askama = {version = "0.14"}
+axum = { version = "0", default-features = false, features = [
     "http1",
     "json",
     "multipart",
