@@ -30,7 +30,7 @@ jobs:
     name: create-release
     runs-on: ubuntu-latest
     env:
-      VERSION:
+      VERSION: ""
     steps:
       - uses: actions/checkout@v4
       - name: Get the release version from the tag
@@ -80,8 +80,8 @@ jobs:
     needs: ['create-release']
     env:
       RUST_BACKTRACE: 1
-      ASSET:
-      ASSET_SUM:
+      ASSET: ""
+      ASSET_SUM: ""
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

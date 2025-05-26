@@ -87,6 +87,19 @@ fn main() {
     std::fs::copy(&expected_binary, output_dir.join(shared_lib_name))
         .expect("Failed to copy ONNX Runtime binary to output directory");
 
+    // On Windows, also copy DirectML.dll to the output directory if it does not exist
+    if cfg!(windows) {
+        let directml_dll = Path::new(&target_dir)
+            .join(DIRECTML_SOURCE.0)
+            .join("bin/x64-win/DirectML.dll");
+        let output_dll = output_dir.join("DirectML.dll");
+        if !output_dll.exists() {
+            std::fs::copy(&directml_dll, &output_dll)
+                .expect("Failed to copy DirectML.dll to output directory");
+            build_warning!("Copied DirectML.dll to output directory");
+        }
+    }
+
     println!(
         "cargo:rustc-env=ORT_LIB_LOCATION={:?}",
         expected_binary.parent().unwrap()
