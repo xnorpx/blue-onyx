@@ -25,6 +25,7 @@
 //!
 use anyhow::bail;
 use blue_onyx::{
+    check_model_available,
     detector::{
         Detector, DetectorConfig, DeviceType, EndpointProvider, ObjectDetectionModel, OnnxConfig,
     },
@@ -42,7 +43,7 @@ use tracing::{error, info};
 #[command(author = "Marcus Asteborg", version=env!("CARGO_PKG_VERSION"), about = "
 Blue Onyx Benchmark Application
 
-This application benchmarks the inference performance of the rt-detrv2 model across
+This application benchmarks the inference performance of models across
 different device configurations. It records statistics such as total inference time,
 average, minimum, and maximum inference durations, as well as images processed per second.
 The results is logged and can be saved to a file.
@@ -64,8 +65,8 @@ struct Cli {
     pub model: Option<PathBuf>,
     /// Type of model type to use.
     /// Default: rt-detrv2
-    #[clap(long, default_value_t = ObjectDetectionModel::RtDetrv2)]
-    pub object_detection_model_type: ObjectDetectionModel,
+    #[clap(long)]
+    pub object_detection_model_type: Option<ObjectDetectionModel>,
     /// Path to the object classes yaml file
     /// Default: coco_classes.yaml which is the 80 standard COCO classes
     #[clap(long)]
@@ -104,11 +105,6 @@ struct Cli {
     /// Save inference stats to file
     #[clap(long)]
     save_stats_path: Option<PathBuf>,
-    /// Path to download all models to
-    /// This command will only download the models to the specified path
-    /// and then exit
-    #[clap(long)]
-    download_model_path: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -116,26 +112,29 @@ fn main() -> anyhow::Result<()> {
     let _guard = init_logging(args.log_level, &mut None);
     system_info()?;
 
-    if args.download_model_path.is_some() {
-        blue_onyx::download_models::download_models(args.download_model_path.unwrap(), false)?;
-        return Ok(());
-    }
+    let (model, object_classes) = check_model_available(args.model, args.object_classes)?;
+    let object_detection_model = match args.object_detection_model_type {
+        Some(model_type) => model_type,
+        None => {
+            ObjectDetectionModel::try_from(model.file_name().unwrap().to_str().unwrap()).unwrap()
+        }
+    };
 
     let detector_config = DetectorConfig {
         object_detection_onnx_config: OnnxConfig {
-            model: args.model,
+            model,
             force_cpu: args.force_cpu,
             gpu_index: args.gpu_index,
             intra_threads: args.intra_threads,
             inter_threads: args.inter_threads,
         },
-        object_classes: args.object_classes,
+        object_classes,
         object_filter: args.object_filter,
         confidence_threshold: args.confidence_threshold,
         save_image_path: args.save_image_path,
         save_ref_image: args.save_ref_image,
         timeout: Duration::MAX,
-        object_detection_model: args.object_detection_model_type,
+        object_detection_model,
     };
 
     let mut detector = Detector::new(detector_config)?;
