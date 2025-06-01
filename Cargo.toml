@@ -43,7 +43,7 @@ jpeg-encoder = { version = "0", default-features = false, features = [
 mime = { version = "0", default-features = false }
 ndarray = { version = "0", default-features = false }
 num_cpus = { version = "1", default-features = false }
-ort = { version = "2.0.0-rc.9", default-features = false, features = [
+ort = { version = "2.0.0-rc.10", default-features = false, features = [
     "ndarray",
     "load-dynamic",
     "directml",
