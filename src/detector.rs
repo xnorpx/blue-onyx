@@ -144,7 +144,7 @@ fn rt_detrv2_pre_process<'a>(
     )
 }
 
-fn yolo5_pre_process(input: &mut Array<f32, ndarray::Dim<[usize; 4]>>) -> SessionInputs {
+fn yolo5_pre_process(input: &mut Array<f32, ndarray::Dim<[usize; 4]>>) -> SessionInputs<'_, '_> {
     ort::session::SessionInputs::ValueMap(inputs!["images" => input.view()].unwrap())
 }
 
