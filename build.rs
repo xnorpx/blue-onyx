@@ -128,7 +128,30 @@ fn check_and_download_onnx_source(target_dir: &str) {
         archive
             .extract(target_dir)
             .expect("Failed to extract ONNX Runtime source");
+
+        // Apply patch to fix Eigen dependency GitLab issues
+        apply_eigen_patch(&onnx_dir);
     }
+}
+
+// TODO: Remove this patch when upgrading from ONNX Runtime 1.22.0
+// This patch is only needed for version 1.22.0 to fix GitLab Eigen dependency issues
+fn apply_eigen_patch(onnx_dir: &Path) {
+    build_warning!("Applying Eigen dependency patch to fix GitLab issues (ONNX 1.22.0 only)");
+
+    let deps_file = onnx_dir.join("cmake").join("deps.txt");
+    let content = std::fs::read_to_string(&deps_file).expect("Failed to read cmake/deps.txt");
+
+    // Apply the patch: replace GitLab Eigen URL with GitHub mirror
+    // This is specific to ONNX Runtime 1.22.0 and should be removed when upgrading
+    let old_eigen_line = "eigen;https://gitlab.com/libeigen/eigen/-/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip;5ea4d05e62d7f954a46b3213f9b2535bdd866803";
+    let new_eigen_line = "eigen;https://github.com/eigen-mirror/eigen/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip;05b19b49e6fbb91246be711d801160528c135e34";
+
+    let patched_content = content.replace(old_eigen_line, new_eigen_line);
+
+    std::fs::write(&deps_file, patched_content).expect("Failed to write patched cmake/deps.txt");
+
+    build_warning!("Successfully applied Eigen dependency patch");
 }
 
 fn check_and_download_directml(target_dir: &str) {
