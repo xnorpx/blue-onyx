@@ -1,0 +1,26 @@
+{
+    "port": 8080,
+    "request_timeout": 30,
+    "worker_queue_size": 10,
+    "model": "C:\\BlueOnyx\\Models\\rt-detrv2-s.onnx",
+    "object_detection_model_type": "RtDetrv2",
+    "object_classes": "C:\\BlueOnyx\\Config\\coco_classes.yaml",
+    "object_filter": [
+        "person",
+        "car",
+        "bicycle",
+        "dog",
+        "cat"
+    ],
+    "log_level": "Info",
+    "log_path": "C:\\ProgramData\\BlueOnyx\\blue_onyx.log",
+    "confidence_threshold": 0.7,
+    "force_cpu": false,
+    "intra_threads": 4,
+    "inter_threads": 2,
+    "save_image_path": "C:\\Temp\\blue_onyx_processed",
+    "save_ref_image": true,
+    "gpu_index": 0,
+    "save_stats_path": "C:\\ProgramData\\BlueOnyx\\stats.json",
+    "download_model_path": null
+}

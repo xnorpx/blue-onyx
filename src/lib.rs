@@ -173,7 +173,18 @@ fn setup_ansi_support() {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    ValueEnum,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum LogLevel {
     Trace,
     Debug,
