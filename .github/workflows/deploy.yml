@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read         # Read the repository code and documentation
+  pages: write           # Deploy to GitHub Pages
+  id-token: write        # Required for GitHub Pages deployment
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

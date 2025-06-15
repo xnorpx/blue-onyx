@@ -6,6 +6,10 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read      # Read the repository code
+  packages: write     # Push to GitHub Container Registry
+
 jobs:
   build:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
