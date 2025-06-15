@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read         # Read the repository code and documentation
+  contents: write        # Need write access to push to gh-pages branch
   pages: write           # Deploy to GitHub Pages
   id-token: write        # Required for GitHub Pages deployment
 
