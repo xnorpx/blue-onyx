@@ -76,7 +76,7 @@ pub struct OnnxConfig {
     pub model: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Default, clap::ValueEnum)]
+#[derive(Debug, Clone, Default, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum ObjectDetectionModel {
     #[default]
     RtDetrv2,

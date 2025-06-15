@@ -1,10 +1,16 @@
 use crate::{detector::ObjectDetectionModel, LogLevel};
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
 
-#[derive(Parser)]
+#[derive(Parser, Serialize, Deserialize)]
 #[command(author = "Marcus Asteborg", version=env!("CARGO_PKG_VERSION"), about = "TODO")]
+#[serde(default)]
 pub struct Cli {
+    /// Path to configuration file (JSON format)
+    #[arg(long)]
+    #[serde(skip)]
+    pub config: Option<PathBuf>,
     /// The port on which the server will listen for HTTP requests.
     /// Default is 32168. Example usage: --port 1337
     //#[arg(long, default_value_t = 32168)]
@@ -13,6 +19,7 @@ pub struct Cli {
     /// Duration to wait for a response from the detection worker.
     /// Ideally, this should be similar to the client's timeout setting.
     #[arg(long, default_value = "15", value_parser = parse_duration)]
+    #[serde(with = "duration_serde")]
     pub request_timeout: Duration,
     /// Worker queue size.
     /// The number of requests that can be queued before the server starts rejecting them.
@@ -92,6 +99,245 @@ pub struct Cli {
     /// and then exit
     #[clap(long)]
     pub download_model_path: Option<PathBuf>,
+}
+
+impl Default for Cli {
+    fn default() -> Self {
+        Self {
+            config: None,
+            port: 32168,
+            request_timeout: Duration::from_secs(15),
+            worker_queue_size: None,
+            model: None,
+            object_detection_model_type: ObjectDetectionModel::default(),
+            object_classes: None,
+            object_filter: Vec::new(),
+            log_level: LogLevel::Info,
+            log_path: None,
+            confidence_threshold: 0.5,
+            force_cpu: false,
+            #[cfg(target_os = "windows")]
+            intra_threads: 192,
+            #[cfg(not(target_os = "windows"))]
+            intra_threads: 2,
+            #[cfg(target_os = "windows")]
+            inter_threads: 192,
+            #[cfg(not(target_os = "windows"))]
+            inter_threads: 2,
+            save_image_path: None,
+            save_ref_image: false,
+            gpu_index: 0,
+            save_stats_path: None,
+            download_model_path: None,
+        }
+    }
+}
+
+impl Cli {
+    /// Create a new Cli from a combination of config file and command line arguments
+    /// If a config file is specified, it completely overrides CLI defaults
+    pub fn from_config_and_args() -> anyhow::Result<Self> {
+        // First parse CLI to get the config file path
+        let cli_args = Self::parse();
+
+        if let Some(config_path) = &cli_args.config {
+            // If config file is specified, use it entirely (ignore other CLI args)
+            Self::load_config(config_path)
+        } else {
+            // No config file, use CLI arguments
+            Ok(cli_args)
+        }
+    }
+
+    /// Create a Cli from provided arguments with config file support
+    pub fn from_args_with_config(args: Vec<std::ffi::OsString>) -> anyhow::Result<Self> {
+        let cli_args = Self::try_parse_from(args)?;
+
+        if let Some(config_path) = &cli_args.config {
+            // If config file is specified, use it entirely (ignore other CLI args)
+            Self::load_config(config_path)
+        } else {
+            // No config file, use CLI arguments
+            Ok(cli_args)
+        }
+    }
+
+    /// Load configuration from a JSON file
+    pub fn load_config(path: &PathBuf) -> anyhow::Result<Self> {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| anyhow::anyhow!("Failed to read config file {}: {}", path.display(), e))?;
+
+        let config: Self = serde_json::from_str(&content).map_err(|e| {
+            anyhow::anyhow!("Failed to parse config file {}: {}", path.display(), e)
+        })?;
+
+        Ok(config)
+    }
+
+    /// Save current configuration to a JSON file
+    pub fn save_config(&self, path: &PathBuf) -> anyhow::Result<()> {
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize config: {}", e))?;
+
+        std::fs::write(path, content).map_err(|e| {
+            anyhow::anyhow!("Failed to write config file {}: {}", path.display(), e)
+        })?;
+        Ok(())
+    }
+
+    /// Get the default config file path next to the executable
+    pub fn get_default_config_path() -> anyhow::Result<PathBuf> {
+        let exe_path = std::env::current_exe()
+            .map_err(|e| anyhow::anyhow!("Failed to get executable path: {}", e))?;
+
+        let exe_dir = exe_path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get executable directory"))?;
+
+        Ok(exe_dir.join("blue_onyx_config.json"))
+    }
+
+    /// Auto-save current configuration if no config file was used
+    pub fn auto_save_if_no_config(&self) -> anyhow::Result<()> {
+        // Only auto-save if no config file was specified
+        if self.config.is_none() {
+            let config_path = Self::get_default_config_path()?;
+
+            // Don't overwrite if the file already exists (user might have customized it)
+            if !config_path.exists() {
+                self.save_config(&config_path)?;
+                tracing::info!("Saved current configuration to: {}", config_path.display());
+            }
+        }
+        Ok(())
+    }
+    /// Load configuration for service - uses blue_onyx_config_service.json
+    /// Creates default config if file doesn't exist
+    pub fn for_service() -> anyhow::Result<Self> {
+        let exe_dir = std::env::current_exe()?
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine executable directory"))?
+            .to_path_buf();
+
+        let config_path = exe_dir.join("blue_onyx_config_service.json");
+
+        if config_path.exists() {
+            Self::load_config(&config_path)
+        } else {
+            // Create default config
+            let default_config = Self::default();
+            default_config.save_config(&config_path)?;
+            tracing::info!(
+                "Created default service config at: {}",
+                config_path.display()
+            );
+            Ok(default_config)
+        }
+    }
+
+    /// Print the current configuration in a human-readable format
+    pub fn print_config(&self) {
+        tracing::info!("=== Blue Onyx Configuration ===");
+        tracing::info!("Server Configuration:");
+        tracing::info!("  Port: {}", self.port);
+        tracing::info!(
+            "  Request timeout: {} seconds",
+            self.request_timeout.as_secs()
+        );
+
+        if let Some(queue_size) = self.worker_queue_size {
+            tracing::info!("  Worker queue size: {}", queue_size);
+        } else {
+            tracing::info!("  Worker queue size: auto-determined");
+        }
+
+        tracing::info!("Model Configuration:");
+        tracing::info!(
+            "  Detection model type: {}",
+            self.object_detection_model_type
+        );
+
+        if let Some(model_path) = &self.model {
+            tracing::info!("  Custom model path: {}", model_path.display());
+        } else {
+            tracing::info!("  Model: default (rt-detrv2-s.onnx)");
+        }
+
+        if let Some(classes_path) = &self.object_classes {
+            tracing::info!("  Object classes: {}", classes_path.display());
+        } else {
+            tracing::info!("  Object classes: default (coco_classes.yaml)");
+        }
+
+        tracing::info!("Detection Configuration:");
+        tracing::info!("  Confidence threshold: {:.2}", self.confidence_threshold);
+
+        if !self.object_filter.is_empty() {
+            tracing::info!("  Object filter: [{}]", self.object_filter.join(", "));
+        } else {
+            tracing::info!("  Object filter: none (all objects)");
+        }
+
+        tracing::info!("Performance Configuration:");
+        tracing::info!("  Force CPU: {}", if self.force_cpu { "yes" } else { "no" });
+        tracing::info!("  GPU index: {}", self.gpu_index);
+        tracing::info!("  Intra threads: {}", self.intra_threads);
+        tracing::info!("  Inter threads: {}", self.inter_threads);
+
+        tracing::info!("Logging Configuration:");
+        tracing::info!("  Log level: {:?}", self.log_level);
+
+        if let Some(log_path) = &self.log_path {
+            tracing::info!("  Log path: {}", log_path.display());
+        } else {
+            tracing::info!("  Log path: stdout");
+        }
+
+        tracing::info!("Output Configuration:");
+
+        if let Some(save_path) = &self.save_image_path {
+            tracing::info!("  Save processed images: {}", save_path.display());
+            tracing::info!(
+                "  Save reference images: {}",
+                if self.save_ref_image { "yes" } else { "no" }
+            );
+        } else {
+            tracing::info!("  Save processed images: disabled");
+        }
+
+        if let Some(stats_path) = &self.save_stats_path {
+            tracing::info!("  Save statistics: {}", stats_path.display());
+        } else {
+            tracing::info!("  Save statistics: disabled");
+        }
+
+        if let Some(download_path) = &self.download_model_path {
+            tracing::info!("  Download models to: {}", download_path.display());
+        }
+
+        tracing::info!("=== Configuration Complete ===");
+    }
+}
+
+// Custom serde functions for Duration
+mod duration_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::time::Duration;
+
+    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        duration.as_secs().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let secs = u64::deserialize(deserializer)?;
+        Ok(Duration::from_secs(secs))
+    }
 }
 
 fn parse_duration(s: &str) -> anyhow::Result<Duration> {

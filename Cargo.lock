@@ -271,6 +271,7 @@ dependencies = [
  "raw-cpuid",
  "reqwest",
  "serde",
+ "serde_json",
  "serde_yaml",
  "smallvec 1.15.1",
  "tokio",

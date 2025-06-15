@@ -1,12 +1,16 @@
 use blue_onyx::{blue_onyx_service, cli::Cli, init_logging, system_info::system_info};
-use clap::Parser;
 use tracing::info;
 
 fn main() -> anyhow::Result<()> {
-    let parse = Cli::parse();
-    let mut args = parse;
+    let mut args = Cli::from_config_and_args()?;
     let _guard = init_logging(args.log_level, &mut args.log_path);
     system_info()?;
+
+    // Print the configuration being used
+    args.print_config();
+
+    // Auto-save configuration if no config file was used
+    args.auto_save_if_no_config()?;
 
     if args.download_model_path.is_some() {
         blue_onyx::download_models::download_models(args.download_model_path.unwrap(), false)?;
