@@ -1,0 +1,23 @@
+{
+    "port": 32168,
+    "request_timeout": 15,
+    "worker_queue_size": 20,
+    "model": "C:\\BlueOnyx\\Models\\custom-model.onnx",
+    "object_detection_model_type": "RtDetrv2",
+    "object_classes": null,
+    "object_filter": [
+        "person",
+        "car"
+    ],
+    "log_level": "Info",
+    "log_path": null,
+    "confidence_threshold": 0.5,
+    "force_cpu": false,
+    "intra_threads": 2,
+    "inter_threads": 2,
+    "save_image_path": "C:\\ProgramData\\BlueOnyx\\processed_images",
+    "save_ref_image": false,
+    "gpu_index": 0,
+    "save_stats_path": "C:\\ProgramData\\BlueOnyx\\service_stats.json",
+    "download_model_path": null
+}
