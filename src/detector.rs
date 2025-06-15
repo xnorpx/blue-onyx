@@ -13,6 +13,7 @@ use ort::{
     execution_providers::DirectMLExecutionProvider,
     inputs,
     session::{Session, SessionInputs, SessionOutputs},
+    value::Value,
 };
 use smallvec::SmallVec;
 use std::{
@@ -96,16 +97,15 @@ impl ObjectDetectionModel {
         &self,
         input: &'a mut Array<f32, ndarray::Dim<[usize; 4]>>,
         orig_size: &'a Array<i64, ndarray::Dim<[usize; 2]>>,
-    ) -> SessionInputs<'a, 'a> {
+    ) -> anyhow::Result<SessionInputs<'a, 'a>> {
         match self {
             Self::RtDetrv2 => rt_detrv2_pre_process(input, orig_size),
             Self::Yolo5 => yolo5_pre_process(input),
         }
     }
-
     pub fn post_process(
         &self,
-        outputs: SessionOutputs<'_, '_>,
+        outputs: SessionOutputs<'_>,
         confidence_threshold: f32,
         resize_factor_x: f32,
         resize_factor_y: f32,
@@ -136,29 +136,46 @@ impl ObjectDetectionModel {
 
 fn rt_detrv2_pre_process<'a>(
     input: &'a mut Array<f32, ndarray::Dim<[usize; 4]>>,
-
     orig_size: &'a Array<i64, ndarray::Dim<[usize; 2]>>,
-) -> SessionInputs<'a, 'a> {
-    ort::session::SessionInputs::ValueMap(
-        inputs!["images" => input.view(), "orig_target_sizes" => orig_size.view()].unwrap(),
-    )
+) -> anyhow::Result<SessionInputs<'a, 'a>> {
+    Ok(inputs![
+        "images" => Value::from_array(input.clone())?,
+        "orig_target_sizes" => Value::from_array(orig_size.clone())?,
+    ]
+    .into())
 }
 
-fn yolo5_pre_process(input: &mut Array<f32, ndarray::Dim<[usize; 4]>>) -> SessionInputs<'_, '_> {
-    ort::session::SessionInputs::ValueMap(inputs!["images" => input.view()].unwrap())
+fn yolo5_pre_process<'a>(
+    input: &'a mut Array<f32, ndarray::Dim<[usize; 4]>>,
+) -> anyhow::Result<SessionInputs<'a, 'a>> {
+    Ok(inputs![
+        "images" => Value::from_array(input.clone())?,
+    ]
+    .into())
 }
 
 fn rt_detrv2_post_process(
-    outputs: SessionOutputs<'_, '_>,
+    outputs: SessionOutputs<'_>,
     confidence_threshold: f32,
     resize_factor_x: f32,
     resize_factor_y: f32,
     object_filter: &Option<Vec<bool>>,
     object_classes: &[String],
 ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
-    let labels: ArrayView<i64, _> = outputs["labels"].try_extract_tensor::<i64>()?;
-    let bboxes: ArrayView<f32, _> = outputs["boxes"].try_extract_tensor::<f32>()?;
-    let scores: ArrayView<f32, _> = outputs["scores"].try_extract_tensor::<f32>()?;
+    let (labels_shape, labels_data) = outputs["labels"].try_extract_tensor::<i64>()?;
+    let (bboxes_shape, bboxes_data) = outputs["boxes"].try_extract_tensor::<f32>()?;
+    let (scores_shape, scores_data) = outputs["scores"].try_extract_tensor::<f32>()?; // Convert shapes to ndarray dimensions
+    let labels_dims: Vec<usize> = labels_shape.iter().map(|&dim| dim as usize).collect();
+    let labels = ArrayView::from_shape(labels_dims.as_slice(), labels_data)
+        .map_err(|e| anyhow!("Failed to create labels array view: {}", e))?;
+    let bboxes_dims: Vec<usize> = bboxes_shape.iter().map(|&dim| dim as usize).collect();
+    let bboxes = ArrayView::from_shape(bboxes_dims.as_slice(), bboxes_data)
+        .map_err(|e| anyhow!("Failed to create bboxes array view: {}", e))?;
+    let scores_dims: Vec<usize> = scores_shape.iter().map(|&dim| dim as usize).collect();
+    let scores = ArrayView::from_shape(scores_dims.as_slice(), scores_data)
+        .map_err(|e| anyhow!("Failed to create scores array view: {}", e))?;
+
+    // Get the first batch (assuming batch size is 1)
     let labels = labels.index_axis(Axis(0), 0);
     let bboxes = bboxes.index_axis(Axis(0), 0);
     let scores = scores.index_axis(Axis(0), 0);
@@ -193,7 +210,7 @@ fn rt_detrv2_post_process(
 }
 
 fn yolo5_post_process(
-    outputs: SessionOutputs<'_, '_>,
+    outputs: SessionOutputs<'_>,
     confidence_threshold: f32,
     resize_factor_x: f32,
     resize_factor_y: f32,
@@ -201,7 +218,10 @@ fn yolo5_post_process(
     object_classes: &[String],
 ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
     let output = outputs.values().next().ok_or(anyhow!("No outputs"))?;
-    let yolo_output: ArrayView<f32, _> = output.try_extract_tensor::<f32>()?.squeeze();
+    let (shape, data) = output.try_extract_tensor::<f32>()?;
+    let shape_dims: Vec<usize> = shape.iter().map(|&dim| dim as usize).collect();
+    let yolo_output = ArrayView::from_shape(shape_dims.as_slice(), data)
+        .map_err(|e| anyhow!("Failed to create output array view: {}", e))?;
     assert_eq!(
         yolo_output.shape()[1],
         5 + object_classes.len(),
@@ -434,11 +454,10 @@ impl Detector {
             "Copy pixels to input time: {:?}",
             copy_pixels_to_input_start.elapsed()
         );
-
         let pre_process_model_input_start = Instant::now();
         let session_inputs = self
             .object_detection_model
-            .pre_process(&mut self.input, &orig_size);
+            .pre_process(&mut self.input, &orig_size)?;
 
         debug!(
             "Pre-process model input time: {:?}",
