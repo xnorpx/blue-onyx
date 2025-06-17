@@ -7,6 +7,7 @@
 - [Get Started](./get_started.md)
 - [Configuration](./configuration.md)
 - [Models](./models.md)
+- [Custom Model Training](./custom_model_training.md)
 - [Benchmark](./benchmark.md)
 - [Test](./test.md)
 - [Stats](./stats.md)

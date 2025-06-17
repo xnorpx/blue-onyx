@@ -28,6 +28,7 @@ use blue_onyx::{
     detector::{
         Detector, DetectorConfig, DeviceType, EndpointProvider, ObjectDetectionModel, OnnxConfig,
     },
+    download_models::Model,
     image::load_image,
     init_logging,
     system_info::{cpu_model, gpu_model, system_info},
@@ -109,6 +110,9 @@ struct Cli {
     /// and then exit
     #[clap(long)]
     download_model_path: Option<PathBuf>,
+    /// List all available models that can be downloaded
+    #[clap(long)]
+    list_models: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -116,8 +120,21 @@ fn main() -> anyhow::Result<()> {
     let _guard = init_logging(args.log_level, &mut None);
     system_info()?;
 
+    if args.list_models {
+        blue_onyx::download_models::list_models();
+        return Ok(());
+    }
     if args.download_model_path.is_some() {
-        blue_onyx::download_models::download_models(args.download_model_path.unwrap(), false)?;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        rt.block_on(async {
+            blue_onyx::download_models::download_model(
+                args.download_model_path.unwrap(),
+                Model::All,
+            )
+            .await
+        })?;
         return Ok(());
     }
 

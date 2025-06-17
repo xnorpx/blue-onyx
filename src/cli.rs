@@ -91,14 +91,29 @@ pub struct Cli {
     /// Verify through GPU usage to ensure the correct GPU is selected.
     #[clap(long, default_value_t = 0)]
     pub gpu_index: i32,
-    /// Save inference stats to file
-    #[clap(long)]
+    /// Save inference stats to file    #[clap(long)]
     pub save_stats_path: Option<PathBuf>,
     /// Path to download all models to
-    /// This command will only download the models to the specified path
-    /// and then exit
+    /// This command will download models to the specified path and then exit.
+    /// Use --download-rt-detr2 or --download-yolo5 to download specific model types,
+    /// otherwise all models will be downloaded.
     #[clap(long)]
     pub download_model_path: Option<PathBuf>,
+    /// Download only RT-DETR v2 models (use with --download-model-path)
+    /// RT-DETR v2 models include: rt-detrv2-s, rt-detrv2-ms, rt-detrv2-m, rt-detrv2-l, rt-detrv2-x
+    #[clap(long)]
+    pub download_rt_detr2: bool,
+    /// Download only YOLO5 models (use with --download-model-path)
+    /// YOLO5 models include specialized models for delivery, animals, birds, etc.
+    #[clap(long)]
+    pub download_yolo5: bool,
+    /// Download all models of all types (use with --download-model-path)
+    /// This will download both RT-DETR v2 and YOLO5 models
+    #[clap(long)]
+    pub download_all_models: bool,
+    /// List all available models that can be downloaded
+    #[clap(long)]
+    pub list_models: bool,
 }
 
 impl Default for Cli {
@@ -129,6 +144,10 @@ impl Default for Cli {
             gpu_index: 0,
             save_stats_path: None,
             download_model_path: None,
+            download_rt_detr2: false,
+            download_yolo5: false,
+            download_all_models: false,
+            list_models: false,
         }
     }
 }

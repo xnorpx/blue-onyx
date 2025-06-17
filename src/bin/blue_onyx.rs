@@ -1,3 +1,4 @@
+use blue_onyx::download_models::Model;
 use blue_onyx::{blue_onyx_service, cli::Cli, init_logging, system_info::system_info};
 use tracing::info;
 
@@ -7,13 +8,42 @@ fn main() -> anyhow::Result<()> {
     system_info()?;
 
     // Print the configuration being used
-    args.print_config();
-
-    // Auto-save configuration if no config file was used
+    args.print_config(); // Auto-save configuration if no config file was used
     args.auto_save_if_no_config()?;
 
-    if args.download_model_path.is_some() {
-        blue_onyx::download_models::download_models(args.download_model_path.unwrap(), false)?;
+    if args.list_models {
+        blue_onyx::download_models::list_models();
+        return Ok(());
+    }
+    // Check if any download flags are set
+    if args.download_all_models || args.download_rt_detr2 || args.download_yolo5 {
+        // Use specified path or default to current directory
+        let download_path = args.download_model_path.unwrap_or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ".".into()))
+        }); // Determine what to download based on flags
+        let model_type = match (
+            args.download_all_models,
+            args.download_rt_detr2,
+            args.download_yolo5,
+        ) {
+            (true, _, _) => Model::All,
+            (false, true, true) => Model::All,
+            (false, true, false) => Model::AllRtDetr2,
+            (false, false, true) => Model::AllYolo5,
+            (false, false, false) => unreachable!("No download flags set"),
+        };
+
+        // Create async runtime for download operation
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+
+        rt.block_on(async {
+            blue_onyx::download_models::download_model(download_path, model_type).await
+        })?;
         return Ok(());
     }
 

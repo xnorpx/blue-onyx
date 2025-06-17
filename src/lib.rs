@@ -204,3 +204,63 @@ impl From<LogLevel> for Level {
         }
     }
 }
+
+/// Ensures model and yaml files exist, downloading them if needed
+/// Returns the paths to the model and yaml files
+pub fn ensure_model_files(model_name: Option<String>) -> anyhow::Result<(PathBuf, PathBuf)> {
+    // Use default model if none provided
+    let model_filename = model_name.unwrap_or_else(|| SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
+
+    // Get the directory where models are stored (next to the executable)
+    let exe_path = std::env::current_exe()?;
+    let models_dir = exe_path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get parent directory of executable"))?;
+
+    let model_path = models_dir.join(&model_filename);
+    let yaml_filename = model_filename.replace(".onnx", ".yaml");
+    let yaml_path = models_dir.join(&yaml_filename); // Check if model exists, download if not
+    if !model_path.exists() {
+        info!("Model {} not found, downloading...", model_filename);
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        rt.block_on(async {
+            download_models::download_file_to_dir(&model_filename, models_dir).await
+        })?;
+    }
+
+    // Verify model file exists after download
+    if !model_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Model file {} is required but could not be found or downloaded",
+            model_filename
+        ));
+    }
+
+    // Check if yaml exists, download if not (MANDATORY)
+    if !yaml_path.exists() {
+        info!("Yaml file {} not found, downloading...", yaml_filename);
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        rt.block_on(async {
+            download_models::download_file_to_dir(&yaml_filename, models_dir).await
+        })?;
+    }
+
+    // Verify yaml file exists after download
+    if !yaml_path.exists() {
+        return Err(anyhow::anyhow!(
+            "YAML file {} is required but could not be found or downloaded",
+            yaml_filename
+        ));
+    }
+
+    info!(
+        "Model and YAML files ready: {} and {}",
+        model_path.display(),
+        yaml_path.display()
+    );
+    Ok((model_path, yaml_path))
+}

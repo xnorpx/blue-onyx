@@ -48,7 +48,7 @@ Verify it is working by going to http://127.0.0.1:32168/
 
 ```bash
 docker pull ghcr.io/xnorpx/blue_onyx:latest
-docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest --log-level debug --port 32168
+docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest
 ```
 
 ## I don't trust scripts I want to install myself
@@ -57,57 +57,134 @@ docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest --log-level debug -
 - Unzip
 - Run blue_onyx
 
+## Automatic Model Management
+
+Blue Onyx automatically downloads and manages models for you:
+
+- **Default Model**: `rt-detrv2-s.onnx` is used by default
+- **Auto-Download**: Models are downloaded automatically on first use
+- **Multiple Model Types**: RT-DETR v2 (general purpose) and YOLO5 (specialized)
+
+### Manual Model Download
+
+```bash
+# List all available models
+blue_onyx --list-models
+
+# Download all models
+blue_onyx --download-model-path ./models --download-all-models
+
+# Download only RT-DETR v2 models (recommended for general use)
+blue_onyx --download-model-path ./models --download-rt-detr2
+
+# Download only YOLO5 specialized models (IP cameras, delivery detection)
+blue_onyx --download-model-path ./models --download-yolo5
+```
+
+### Available Models
+
+| Model Type | Models | Use Case | Size |
+|------------|--------|----------|------|
+| **RT-DETR v2** | rt-detrv2-s/ms/m/l/x | General object detection (80 COCO classes) | 80MB - 400MB |
+| **YOLO5 Specialized** | delivery, IPcam-animal, ipcam-bird, etc. | IP cameras, delivery detection | ~25MB each |
+
+## Quick Usage Examples
+
+### Basic Usage
+
+```bash
+# Start with default settings (auto-downloads rt-detrv2-s.onnx)
+blue_onyx
+
+# Start with specific model
+blue_onyx --model ./models/rt-detrv2-l.onnx
+
+# Start with specialized model for delivery detection
+blue_onyx --model ./models/delivery.onnx --object-detection-model-type yolo5
+```
+
+### Configuration
+
+```bash
+# Custom port and confidence threshold
+blue_onyx --port 8080 --confidence_threshold 0.7
+
+# Filter for specific objects only
+blue_onyx --object_filter person,car,bicycle
+
+# Force CPU usage (disable GPU)
+blue_onyx --force_cpu
+
+# Enable debug logging
+blue_onyx --log_level Debug
+```
+
 ## Notes on Linux
 
 If you run outside of docker you need to install OpenSSL 3
 
-## Tips
+## Performance Testing
 
-Help:
+### Benchmark GPU
 ```bash
-blue_onyx.exe --help
-```
-
-Download models:
-```bash
-blue_onyx.exe --download-model-path .
-```
-
-Run service with larger model:
-```bash
-blue_onyx.exe --model rt-detrv2-x.onnx
-Initializing detector with model: "rt-detrv2-x.onnx"
-```
-
-Benchmark GPU
-```bash
-blue_onyx_benchmark.exe --repeat 100 --save-stats-path .
+blue_onyx_benchmark --repeat 100 --save-stats-path .
 Device Name,Version,Type,Platform,EndpointProvider,Images,Total [s],Min [ms],Max [ms],Average [ms],FPS
 Intel(R) Iris(R) Xe Graphics,0.1.0,GPU,Windows,DML,100,14.3,116.8,168.3,143.2,7.0
 ```
 
-Benchmark CPU
+### Benchmark CPU
 ```bash
-blue_onyx_benchmark.exe --repeat 100 --save-stats-path . --force-cpu
+blue_onyx_benchmark --repeat 100 --save-stats-path . --force-cpu
 Device Name,Version,Type,Platform,EndpointProvider,Images,Total [s],Min [ms],Max [ms],Average [ms],FPS
 12th Gen Intel(R) Core(TM) i7-1265U,0.1.0,CPU,Windows,CPU,100,28.2,239.6,398.2,281.5,3.6
 ```
 
-Test Service
+## Testing
+
+### Test Service
 ```bash
-blue_onyx.exe
+blue_onyx
 ```
 
-Then run in another terminal do 100 requests with 100 ms interval
+Then run in another terminal to do 100 requests with 100 ms interval:
 ```bash
-test_blue_onyx.exe --number-of-requests 100 --interval 100
+test_blue_onyx --number-of-requests 100 --interval 100
 ```
 
-Test image and save image with boundary box use --image to specify your own image.
+### Test Detection and Save Results
 ```bash
-blue_onyx_benchmark.exe --save-image-path .
+blue_onyx_benchmark --save-image-path .
 ```
 
 <div align="center">
     <img src="assets/dog_bike_car_od.jpg" alt="dog_bike_car_od"/>
 </div>
+
+## API Usage
+
+### Detect Objects in Images
+
+```bash
+# Upload image file
+curl -X POST -F "image=@test.jpg" http://localhost:32168/detect
+
+# Detect from URL
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/image.jpg"}' \
+  http://localhost:32168/detect
+```
+
+### Web Interface
+
+Open your browser and go to: `http://localhost:32168/`
+
+## Documentation
+
+For detailed documentation, visit: [Blue Onyx Documentation](https://xnorpx.github.io/blue-onyx/)
+
+- **[Getting Started](https://xnorpx.github.io/blue-onyx/get_started.html)** - Quick start guide
+- **[Models](https://xnorpx.github.io/blue-onyx/models.html)** - Available models and usage
+- **[Configuration](https://xnorpx.github.io/blue-onyx/configuration.html)** - Detailed configuration options
+- **[Windows Installation](https://xnorpx.github.io/blue-onyx/windows_install.html)** - Windows setup guide
+- **[Linux Installation](https://xnorpx.github.io/blue-onyx/linux_install.html)** - Linux/Docker setup
+- **[FAQ](https://xnorpx.github.io/blue-onyx/faq.html)** - Common questions and troubleshooting

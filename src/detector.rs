@@ -21,7 +21,7 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 pub struct DetectResult {
     pub predictions: SmallVec<[Prediction; 10]>,
@@ -348,7 +348,17 @@ pub struct DetectorConfig {
 
 impl Detector {
     pub fn new(detector_config: DetectorConfig) -> anyhow::Result<Self> {
-        let object_classes = get_object_classes(detector_config.object_classes)?;
+        let (device_type, model_name, session, endpoint_provider, model_yaml_path) =
+            initialize_onnx(&detector_config.object_detection_onnx_config)?; // Prioritize the YAML file that comes with the model over the configured one
+        let yaml_path_to_use = model_yaml_path.or(detector_config.object_classes);
+
+        let object_classes = if let Some(yaml_path) = &yaml_path_to_use {
+            info!("Using object classes from model YAML: {:?}", yaml_path);
+            get_object_classes(Some(yaml_path.clone()))?
+        } else {
+            bail!("No YAML file found with model. A YAML file containing object classes is required for the model.");
+        };
+
         let mut object_filter = None;
         if !detector_config.object_filter.is_empty() {
             let mut object_filter_vector = vec![false; object_classes.len()];
@@ -362,9 +372,6 @@ impl Detector {
             }
             object_filter = Some(object_filter_vector);
         }
-
-        let (device_type, model_name, session, endpoint_provider) =
-            initialize_onnx(&detector_config.object_detection_onnx_config)?;
 
         let mut detector = Self {
             model_name,
@@ -562,7 +569,16 @@ impl Detector {
 
 fn initialize_onnx(
     onnx_config: &OnnxConfig,
-) -> Result<(DeviceType, String, Session, EndpointProvider), anyhow::Error> {
+) -> Result<
+    (
+        DeviceType,
+        String,
+        Session,
+        EndpointProvider,
+        Option<PathBuf>,
+    ),
+    anyhow::Error,
+> {
     let mut providers = Vec::new();
     let mut device_type = DeviceType::CPU;
 
@@ -595,30 +611,21 @@ fn initialize_onnx(
         (onnx_config.intra_threads, onnx_config.inter_threads)
     };
 
-    let (model_bytes, model_name) = if let Some(model) = onnx_config.model.clone() {
-        let model_str = model
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert model path to string"))?
-            .to_string();
-        (std::fs::read(&model)?, model_str)
-    } else {
-        let exe_path: PathBuf = std::env::current_exe()?;
-        let model_path = exe_path
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get parent directory of executable path"))?
-            .join(crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME);
+    // Simple model and yaml file handling
+    let model_filename = onnx_config
+        .model
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_string());
 
-        let Ok(model_bytes) = std::fs::read(&model_path) else {
-            error!("Failed to read model file: {:?} ensure you either specify a model or that {} is in the same directory as binary", model_path, crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
-
-            bail!("Failed to read model file");
-        };
-
-        (
-            model_bytes,
-            crate::SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string(),
-        )
-    };
+    let (model_path, yaml_path) = crate::ensure_model_files(model_filename)?;
+    let model_bytes = std::fs::read(&model_path)?;
+    let model_name = model_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
 
     info!(
         "Initializing detector with model: {:?} and inference running on {}",
@@ -635,8 +642,13 @@ fn initialize_onnx(
         DeviceType::GPU => EndpointProvider::DirectML,
         DeviceType::CPU => EndpointProvider::CPU,
     };
-
-    Ok((device_type, model_name, session, endpoint_provider))
+    Ok((
+        device_type,
+        model_name,
+        session,
+        endpoint_provider,
+        Some(yaml_path),
+    ))
 }
 
 #[derive(Debug, Clone, Copy)]
