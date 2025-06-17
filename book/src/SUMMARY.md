@@ -5,6 +5,7 @@
 - [Linux Install](./linux_install.md)
 - [Binaries](./binaries.md)
 - [Get Started](./get_started.md)
+- [Configuration](./configuration.md)
 - [Models](./models.md)
 - [Benchmark](./benchmark.md)
 - [Test](./test.md)

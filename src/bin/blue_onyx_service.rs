@@ -1,12 +1,10 @@
 //! Blue Onyx service.
 //!
-//! Same CLI arguments as the standalone binary.
-//!
-//! Avoid having spaces in you binpath, keep the space after the `=`:
-//! <https://stackoverflow.com/questions/3663331/when-creating-a-service-with-sc-exe-how-to-pass-in-context-parameters>
+//! This service loads configuration from blue_onyx_config_service.json
+//! If the config file doesn't exist, it creates one with default values.
 //!
 //! Install the service:
-//! `sc.exe create blue_onyx_service binPath= "<path>\blue_onyx_service.exe --port 12345" start= auto displayname= "Blue Onyx Service"`
+//! `sc.exe create blue_onyx_service binPath= "<path>\blue_onyx_service.exe" start= auto displayname= "Blue Onyx Service"`
 //!
 //! Start the service: `net start blue_onyx_service`
 //!
@@ -14,7 +12,7 @@
 //!
 //! Uninstall the service: `sc.exe delete blue_onyx_service`
 //!
-//! You can have several services pointing to the same binary with different names and arguments.
+//! Configuration is managed via the blue_onyx_config_service.json file in the same directory as the executable.
 
 #[cfg(windows)]
 fn main() -> windows_service::Result<()> {
@@ -29,8 +27,7 @@ fn main() {
 #[cfg(windows)]
 mod blue_onyx_service {
     use blue_onyx::{blue_onyx_service, cli::Cli, init_logging};
-    use clap::Parser;
-    use std::{env, ffi::OsString, future::Future, time::Duration};
+    use std::{ffi::OsString, future::Future, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tracing::{error, info};
 
@@ -53,25 +50,34 @@ mod blue_onyx_service {
     define_windows_service!(ffi_service_main, my_service_main);
 
     pub fn my_service_main(service_name: Vec<OsString>) {
-        let arguments: Vec<OsString> = env::args_os().collect();
-        let mut args = Cli::try_parse_from(arguments.clone()).unwrap();
+        // Load configuration from service config file
+        let mut args = match Cli::for_service() {
+            Ok(args) => args,
+            Err(err) => {
+                eprintln!("Failed to load service configuration: {}", err);
+                return;
+            }
+        };
 
-        let default_log_path = std::path::PathBuf::from(format!(
-            "{}\\{}",
-            std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string()),
-            service_name[0].to_string_lossy()
-        ));
+        // Set up default log path for service if not specified in config
+        if args.log_path.is_none() {
+            let default_log_path = std::path::PathBuf::from(format!(
+                "{}\\{}",
+                std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string()),
+                service_name[0].to_string_lossy()
+            ));
+            args.log_path = Some(default_log_path);
+        }
 
-        let log_path = args
-            .log_path
-            .clone()
-            .unwrap_or_else(|| default_log_path.clone());
-
-        args.log_path = Some(log_path.clone());
-
-        println!("Logs will be written to log path: {}", log_path.display());
+        println!(
+            "Logs will be written to log path: {}",
+            args.log_path.as_ref().unwrap().display()
+        );
         let _guard = init_logging(args.log_level, &mut args.log_path);
-        info!("Starting blue onyx service with args: {:#?}", arguments);
+        info!("Starting blue onyx service with config from blue_onyx_config_service.json");
+
+        // Print the configuration being used
+        args.print_config();
 
         let (blue_onyx_service, cancellation_token, thread_handle) = match blue_onyx_service(args) {
             Ok(v) => v,

@@ -1,0 +1,24 @@
+{
+    "port": 8080,
+    "request_timeout": 30,
+    "worker_queue_size": 10,
+    "model": null,
+    "object_detection_model_type": "RtDetrv2",
+    "object_classes": null,
+    "object_filter": [
+        "person",
+        "car",
+        "bicycle"
+    ],
+    "log_level": "Info",
+    "log_path": "/var/log/blue-onyx.log",
+    "confidence_threshold": 0.7,
+    "force_cpu": false,
+    "intra_threads": 4,
+    "inter_threads": 2,
+    "save_image_path": "/tmp/processed_images",
+    "save_ref_image": true,
+    "gpu_index": 0,
+    "save_stats_path": "/var/log/blue-onyx-stats.json",
+    "download_model_path": null
+}
