@@ -1,0 +1,108 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install NSIS
+      run: |
+        Invoke-WebRequest -Uri "https://sourceforge.net/projects/nsis/files/NSIS%203/3.09/nsis-3.09-setup.exe/download" -OutFile "nsis-setup.exe"
+        Start-Process -FilePath "nsis-setup.exe" -ArgumentList "/S" -Wait
+        # Add NSIS to PATH
+        $env:PATH += ";C:\Program Files (x86)\NSIS"
+        echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      shell: powershell
+
+    - name: Verify NSIS installation
+      run: makensis /VERSION
+      shell: cmd
+
+    - name: Install cargo-packager
+      run: cargo install cargo-packager --locked
+
+    - name: Build release binaries
+      run: cargo build --release --bins
+
+    - name: Create Windows installer
+      run: cargo packager --release
+
+    - name: List generated files
+      run: |
+        Get-ChildItem -Path "target\packager\release" -Recurse
+      shell: powershell
+
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: blue-onyx-windows-installer
+        path: target/packager/release/*.exe
+        retention-days: 30
+
+    - name: Upload installer to release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: target/packager/release/*.exe
+        tag_name: ${{ github.ref_name }}
+        name: Blue Onyx ${{ github.ref_name }}
+        body: |
+          ## Blue Onyx Windows Installer
+
+          This release includes a Windows installer that provides:
+          - Complete installation of all Blue Onyx executables
+          - Automatic Windows service installation and startup
+          - AI model download during installation
+          - Desktop and start menu shortcuts
+          - System PATH integration
+
+          ### Installation Instructions
+          1. Download the installer (.exe file)
+          2. Run as Administrator
+          3. Follow the installation wizard
+          4. Access the web interface at http://127.0.0.1:32168
+
+          ### What's Included
+          - blue_onyx.exe - Main server application
+          - blue_onyx_service.exe - Windows service wrapper
+          - blue_onyx_benchmark.exe - Performance benchmarking
+          - blue_onyx_download_models.exe - Model downloader
+          - test_blue_onyx.exe - Server testing utility
+          - AI models and configuration files
+
+          For manual installation or other platforms, see the README.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

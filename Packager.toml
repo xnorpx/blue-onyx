@@ -1,0 +1,265 @@
+# Packager configuration for Blue Onyx Windows installer
+# This file configures cargo-packager to create a Windows installer
+# Run with: cargo packager --release
+
+[package]
+# Product metadata
+product-name = "Blue Onyx"
+version = "0.8.0"
+description = "Object detection service with Blue Iris and Agent DVR support"
+long-description = """
+Blue Onyx is a high-performance object detection service written in Rust with ONNX inference engine.
+It supports RT-DETR-V2 and YOLO models with GPU acceleration on Windows.
+Features include Blue Iris and Agent DVR integration, Windows service support, and web interface.
+"""
+homepage = "https://github.com/xnorpx/blue-onyx"
+authors = ["Blue Onyx Contributors"]
+copyright = "Copyright (c) 2025 Blue Onyx Contributors"
+license-file = "LICENSE"
+
+# Application identifier
+identifier = "com.blue-onyx.detection-service"
+
+# Main binary
+binaries = [
+    { path = "blue_onyx" },
+    { path = "blue_onyx_service" },
+    { path = "blue_onyx_benchmark" },
+    { path = "blue_onyx_download_models" },
+    { path = "test_blue_onyx" }
+]
+
+# Icons - using PNG files that should work
+icons = ["assets/favicon.ico"]
+
+# Resources to include in the installer
+resources = [
+    "models/",
+    "assets/coco_classes.yaml",
+    "assets/object365.yaml",
+    "assets/roboto-mono-stripped.ttf",
+    "README.md",
+    "LICENSE"
+]
+
+# Windows configuration
+[targets.windows]
+formats = ["nsis"]
+
+[targets.windows.nsis]
+# Installer appearance
+installer-icon = "assets/favicon.ico"
+install-mode = "perMachine"
+languages = ["English"]
+display-language-selector = false
+
+# License agreement
+license = "LICENSE"
+
+# Installer sections
+[targets.windows.nsis.sections]
+"Blue Onyx Service" = { description = "Install Blue Onyx as a Windows Service", default = true, mandatory = false }
+"Desktop Shortcuts" = { description = "Create desktop shortcuts", default = true, mandatory = false }
+"Start Menu Shortcuts" = { description = "Create start menu shortcuts", default = true, mandatory = false }
+
+# Custom NSIS installer script
+[targets.windows.nsis.custom-nsis-script]
+# Variables and includes
+includes = '''
+!include "MUI2.nsh"
+!include "Sections.nsh"
+!include "FileFunc.nsh"
+!include "WinVer.nsh"
+!include "x64.nsh"
+
+Var ServiceInstalled
+'''
+
+# Custom installation function
+installer = '''
+; Custom function to install Windows service
+Function InstallService
+    DetailPrint "Installing Blue Onyx Windows Service..."
+
+    ; Stop service if it exists
+    nsExec::ExecToLog 'net stop blue_onyx_service'
+    Pop $0
+
+    ; Delete existing service
+    nsExec::ExecToLog 'sc.exe delete blue_onyx_service'
+    Pop $0
+
+    ; Create the service
+    nsExec::ExecToLog 'sc.exe create blue_onyx_service binPath= "$INSTDIR\\blue_onyx_service.exe --port 32168" start= auto displayname= "Blue Onyx Object Detection Service" depend= Tcpip'
+    Pop $0
+    ${If} $0 == 0
+        DetailPrint "Service created successfully"
+        StrCpy $ServiceInstalled "true"
+
+        ; Start the service
+        DetailPrint "Starting Blue Onyx Service..."
+        nsExec::ExecToLog 'net start blue_onyx_service'
+        Pop $0
+        ${If} $0 == 0
+            DetailPrint "Service started successfully"
+        ${Else}
+            DetailPrint "Warning: Could not start service automatically"
+        ${EndIf}
+    ${Else}
+        DetailPrint "Warning: Could not create service"
+        StrCpy $ServiceInstalled "false"
+    ${EndIf}
+FunctionEnd
+
+; Custom function to download models
+Function DownloadModels
+    DetailPrint "Downloading AI models..."
+    nsExec::ExecToLog '"$INSTDIR\\blue_onyx_download_models.exe"'
+    Pop $0
+    ${If} $0 == 0
+        DetailPrint "Models downloaded successfully"
+    ${Else}
+        DetailPrint "Warning: Could not download models. You can download them manually later."
+    ${EndIf}
+FunctionEnd
+
+; Main installation section
+Section "Blue Onyx Core" SEC_CORE
+    SectionIn RO  ; Read-only, always installed
+
+    ; Set output path
+    SetOutPath "$INSTDIR"
+
+    ; Install files (this will be automatically populated by cargo-packager)
+
+    ; Download models after files are installed
+    Call DownloadModels
+
+    ; Add to PATH
+    DetailPrint "Adding to system PATH..."
+    EnVar::SetHKLM
+    EnVar::AddValue "PATH" "$INSTDIR"
+    Pop $0
+
+    ; Create batch files for convenience
+    DetailPrint "Creating convenience scripts..."
+
+    FileOpen $0 "$INSTDIR\\start_server.bat" w
+    FileWrite $0 "@echo off$\r$\n"
+    FileWrite $0 "echo Starting Blue Onyx Server...$\r$\n"
+    FileWrite $0 "cd /d $\"$INSTDIR$\"$\r$\n"
+    FileWrite $0 "blue_onyx.exe --port 32168$\r$\n"
+    FileWrite $0 "pause$\r$\n"
+    FileClose $0
+
+    FileOpen $0 "$INSTDIR\\benchmark.bat" w
+    FileWrite $0 "@echo off$\r$\n"
+    FileWrite $0 "echo Running Blue Onyx Benchmark...$\r$\n"
+    FileWrite $0 "cd /d $\"$INSTDIR$\"$\r$\n"
+    FileWrite $0 "blue_onyx_benchmark.exe$\r$\n"
+    FileWrite $0 "pause$\r$\n"
+    FileClose $0
+
+    FileOpen $0 "$INSTDIR\\test_server.bat" w
+    FileWrite $0 "@echo off$\r$\n"
+    FileWrite $0 "echo Testing Blue Onyx Server...$\r$\n"
+    FileWrite $0 "cd /d $\"$INSTDIR$\"$\r$\n"
+    FileWrite $0 "test_blue_onyx.exe$\r$\n"
+    FileWrite $0 "pause$\r$\n"
+    FileClose $0
+
+    ; Create uninstaller
+    WriteUninstaller "$INSTDIR\\uninstall.exe"
+
+    ; Register uninstaller in Add/Remove Programs
+    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "DisplayName" "Blue Onyx Object Detection Service"
+    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "UninstallString" "$INSTDIR\\uninstall.exe"
+    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "DisplayIcon" "$INSTDIR\\blue_onyx.exe"
+    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "DisplayVersion" "0.8.0"
+    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "Publisher" "Blue Onyx Contributors"
+    WriteRegDWORD HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "NoModify" 1
+    WriteRegDWORD HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx" "NoRepair" 1
+SectionEnd
+
+; Service installation section
+Section "Blue Onyx Service" SEC_SERVICE
+    Call InstallService
+SectionEnd
+
+; Desktop shortcuts section
+Section "Desktop Shortcuts" SEC_DESKTOP
+    CreateShortCut "$DESKTOP\\Blue Onyx Server.lnk" "$INSTDIR\\start_server.bat" "" "$INSTDIR\\blue_onyx.exe" 0
+    CreateShortCut "$DESKTOP\\Blue Onyx Benchmark.lnk" "$INSTDIR\\benchmark.bat" "" "$INSTDIR\\blue_onyx_benchmark.exe" 0
+SectionEnd
+
+; Start Menu shortcuts section
+Section "Start Menu Shortcuts" SEC_STARTMENU
+    CreateDirectory "$SMPROGRAMS\\Blue Onyx"
+    CreateShortCut "$SMPROGRAMS\\Blue Onyx\\Blue Onyx Server.lnk" "$INSTDIR\\start_server.bat" "" "$INSTDIR\\blue_onyx.exe" 0
+    CreateShortCut "$SMPROGRAMS\\Blue Onyx\\Blue Onyx Service Manager.lnk" "services.msc" "/s" "$INSTDIR\\blue_onyx_service.exe" 0
+    CreateShortCut "$SMPROGRAMS\\Blue Onyx\\Blue Onyx Benchmark.lnk" "$INSTDIR\\benchmark.bat" "" "$INSTDIR\\blue_onyx_benchmark.exe" 0
+    CreateShortCut "$SMPROGRAMS\\Blue Onyx\\Test Blue Onyx.lnk" "$INSTDIR\\test_server.bat" "" "$INSTDIR\\test_blue_onyx.exe" 0
+    CreateShortCut "$SMPROGRAMS\\Blue Onyx\\Web Interface.lnk" "http://127.0.0.1:32168" "" "$INSTDIR\\blue_onyx.exe" 0
+    CreateShortCut "$SMPROGRAMS\\Blue Onyx\\Uninstall.lnk" "$INSTDIR\\uninstall.exe" "" "$INSTDIR\\uninstall.exe" 0
+SectionEnd
+
+; Post-installation function
+Function .onInstSuccess
+    ; Open web browser to the service interface if service was installed
+    ${If} $ServiceInstalled == "true"
+        MessageBox MB_YESNO "Blue Onyx has been installed successfully! The service is now running.$\r$\n$\r$\nWould you like to open the web interface (http://127.0.0.1:32168)?" IDNO skip_browser
+        ExecShell "open" "http://127.0.0.1:32168"
+        skip_browser:
+    ${Else}
+        MessageBox MB_OK "Blue Onyx has been installed successfully!$\r$\n$\r$\nYou can start the server manually using the desktop shortcuts or by running blue_onyx.exe from the installation directory."
+    ${EndIf}
+FunctionEnd
+'''
+
+# Custom uninstaller script
+uninstaller = '''
+; Uninstaller section
+Section "Uninstall"
+    ; Stop and remove service
+    DetailPrint "Stopping Blue Onyx Service..."
+    nsExec::ExecToLog 'net stop blue_onyx_service'
+    Pop $0
+
+    DetailPrint "Removing Blue Onyx Service..."
+    nsExec::ExecToLog 'sc.exe delete blue_onyx_service'
+    Pop $0
+
+    ; Remove from PATH
+    DetailPrint "Removing from system PATH..."
+    EnVar::SetHKLM
+    EnVar::DeleteValue "PATH" "$INSTDIR"
+    Pop $0
+
+    ; Remove shortcuts
+    Delete "$DESKTOP\\Blue Onyx Server.lnk"
+    Delete "$DESKTOP\\Blue Onyx Benchmark.lnk"
+    Delete "$SMPROGRAMS\\Blue Onyx\\*.*"
+    RMDir "$SMPROGRAMS\\Blue Onyx"
+
+    ; Remove registry entries
+    DeleteRegKey HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BlueOnyx"
+
+    ; Remove installation directory (be careful with user data)
+    MessageBox MB_YESNO "Do you want to remove all Blue Onyx files including downloaded models?$\r$\n$\r$\nChoose No to keep your models and configuration." IDNO skip_full_removal
+    RMDir /r "$INSTDIR"
+    Goto done_removal
+
+    skip_full_removal:
+    ; Remove only program files, keep models and config
+    Delete "$INSTDIR\\*.exe"
+    Delete "$INSTDIR\\*.dll"
+    Delete "$INSTDIR\\*.bat"
+    Delete "$INSTDIR\\uninstall.exe"
+    Delete "$INSTDIR\\README.md"
+    Delete "$INSTDIR\\LICENSE"
+
+    done_removal:
+
+    MessageBox MB_OK "Blue Onyx has been uninstalled successfully."
+SectionEnd
+'''

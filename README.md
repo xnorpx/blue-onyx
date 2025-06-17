@@ -26,13 +26,38 @@ Current features:
 | Coral TPU Inference                         | ❌             | ❌          |
 
 
-## Install on Windows with THE one mighty oneliner
+## Install on Windows (Recommended)
 
-```powershell
- powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
-```
+**Download the Windows installer from [Releases](https://github.com/xnorpx/blue-onyx/releases) for the best installation experience.**
 
-## Install as service on Windows
+The Windows installer provides:
+- Complete installation of all executables and dependencies
+- Automatic Windows service installation and startup
+- AI model download during installation
+- Desktop and start menu shortcuts
+- System PATH integration
+- Professional uninstall support
+
+### Installation Steps:
+1. Download the latest `blue-onyx-installer.exe` from [Releases](https://github.com/xnorpx/blue-onyx/releases)
+2. Run the installer as Administrator
+3. Select installation components:
+   - **Blue Onyx Core** (required) - Main executables and dependencies
+   - **Blue Onyx Service** (recommended) - Windows service for automatic startup
+   - **Desktop Shortcuts** - Quick access shortcuts on desktop
+   - **Start Menu Shortcuts** - Program group in start menu
+4. Follow the installation wizard
+5. Access the web interface at http://127.0.0.1:32168
+
+The service will start automatically and run in the background. You can manage it through Windows Services or the provided shortcuts.
+
+See the [Windows Installation](https://xnorpx.github.io/blue-onyx/windows_install.html) chapter in the documentation for detailed installation instructions and troubleshooting.
+
+## Manual Installation on Windows
+
+For advanced users who prefer manual installation:
+
+### Install as service on Windows (Manual)
 
 **Note: You need to run as administrator to register the service and change the install path and command line arguments for your setup.**
 ```powershell

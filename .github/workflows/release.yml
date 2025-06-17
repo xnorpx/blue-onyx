@@ -61,17 +61,11 @@ jobs:
             "linux": "blue_onyx-${{ env.VERSION }}-linux.zip",
             "linux_sha256": "blue_onyx-${{ env.VERSION }}-linux.zip.sha256"
           }
-          EOF
-      - name: Upload version.json
+          EOF      - name: Upload version.json
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ env.VERSION }} version.json
-      - name: Upload install_latest_blue_onyx.ps1
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ env.VERSION }} install_latest_blue_onyx.ps1
     outputs:
       version: ${{ env.VERSION }}
 

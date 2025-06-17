@@ -16,3 +16,10 @@ Cargo.lock
 onnx*
 /target
 /book/book/
+
+# Packager generated files
+*.msi
+*.dmg
+*.deb
+*.rpm
+*.AppImage
