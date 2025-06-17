@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>The Blue Onyx Book</title>
-        <meta name="robots" content="noindex">
+        <title>Configuration - The Blue Onyx Book</title>
 
 
         <!-- Custom HTML head -->
@@ -153,39 +152,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="blue-onyx-object-detection-service"><a class="header" href="#blue-onyx-object-detection-service">Blue Onyx Object Detection Service</a></h1>
-<p>Blue Onyx is a simple and reliable object detection server designed for local use. Built in Rust on top of the <a href="https://github.com/microsoft/onnxruntime">ONNX runtime</a>, it offers a dependable inference engine.</p>
-<div style="display: flex; align-items: center;">
-    <div style="flex: 1;">
-        Blue Onyx was created out of frustration with other open-source object detection services, which often consisted of hastily assembled Python code under HTTPS endpoints.
-    </div>
-    <div style="flex: 1; text-align: center;">
-        <img src="images/tinker.jpg" alt="Tinker" width="150"/>
-    </div>
-</div>
-<p>This led to the question: can this be done in a simpler, more robust way than other solutions?</p>
-<p>To avoid the feature creep that plagues other solutions, Blue Onyx is designed to address specific problems (object detection). Its main goals are stability, ease of upgrade, and decent performance across a wide range of consumer hardware.</p>
-<p>With this philosophy, Blue Onyx is designed with certain limitations. It is unlikely to support:</p>
-<ul>
-<li>Specialized NPU/TPU hardware</li>
-<li>Dynamic switching of multiple models at runtime (instead, run multiple Blue Onyx instances)</li>
-</ul>
-<p>These constraints help maintain the service's simplicity and robustness.</p>
-<p>For example, if you are using an x86 Windows or standard Linux distribution with a consumer CPU/GPU combo and need a stable object detection service that works with new state-of-the-art models, Blue Onyx might be right for you.</p>
-<p>Once, during an all-hands meeting at a company I worked for that had just been acquired by a big tech firm, a Linux engineer asked the CEO of the big tech firm if we would continue to support all the various hardware we currently supported. The CEO responded, "we cannot support all different toasters out there."</p>
-<div style="display: flex; align-items: center;">
-    <div style="flex: 1;">
-        If you are using an unRAID toaster with Coral TPUs and running Docker inside Proxmox and an NVIDIA datacenter Tesla GPU, Blue Onyx might not meet all your requirements.
-    </div>
-    <div style="flex: 1; text-align: center;">
-        <img src="images/toaster.jpg" alt="Toaster" width="150"/>
-    </div>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo"><a class="header" href="#todo">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-1"><a class="header" href="#todo-1">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="binaries"><a class="header" href="#binaries">Binaries</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-2"><a class="header" href="#todo-2">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+                        <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
 <p>Blue Onyx supports both command-line arguments and JSON configuration files, making it easy to manage complex configurations and deploy consistent settings across different environments.</p>
 <h2 id="command-line-vs-configuration-files"><a class="header" href="#command-line-vs-configuration-files">Command Line vs Configuration Files</a></h2>
 <p>Blue Onyx offers two distinct configuration modes:</p>
@@ -394,115 +361,18 @@ blue_onyx --config my_settings.json --port 9090
 <li>Verify that the service has write permissions to create log files</li>
 <li>Test configuration with the standalone binary first</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-3"><a class="header" href="#todo-3">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-4"><a class="header" href="#todo-4">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-5"><a class="header" href="#todo-5">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="statistics-page"><a class="header" href="#statistics-page">Statistics Page</a></h1>
-<p>Statistics are crucial for understanding your server's performance and identifying whether it is operating efficiently or experiencing overload. The statistics on this page can help you assess these aspects.</p>
-<p>You can access the statistics page by default at: <a href="http://127.0.0.1:32168/stats">http://127.0.0.1:32168/stats</a></p>
-<h2 id="stats"><a class="header" href="#stats">Stats</a></h2>
-<p><img src="images/stats.jpg" alt="Statistics Overview" /></p>
-<h3 id="uptime"><a class="header" href="#uptime">Uptime</a></h3>
-<p>The total time elapsed since Blue Onyx was started.</p>
-<h3 id="model-name"><a class="header" href="#model-name">Model Name</a></h3>
-<p>The name of the model, which includes variations such as small (s), medium-small (ms), medium (m), large (l), and extra-large (x). Generally, larger models require more robust hardware and result in slower runtimes but provide higher object detection accuracy. It’s a balance between performance and resource requirements.</p>
-<h3 id="device-name"><a class="header" href="#device-name">Device Name</a></h3>
-<p>The name of the device performing the inference.</p>
-<h3 id="execution-provider"><a class="header" href="#execution-provider">Execution Provider</a></h3>
-<p>This acts as the bridge between the device and the ONNX model processing code. While GPUs typically offer faster performance, CPUs may outperform GPUs in certain scenarios. It's essential to benchmark and test on your specific hardware to determine the optimal choice.</p>
-<h3 id="successful-requests"><a class="header" href="#successful-requests">Successful Requests</a></h3>
-<p>The total number of detection requests made from Blue Iris and the Test page.</p>
-<h3 id="dropped-requests"><a class="header" href="#dropped-requests">Dropped Requests</a></h3>
-<p>The total number of detection requests made from Blue Iris and the Test page that got dropped. Having a few of these is not really a problem, it just means that at some point your service was overloaded. But if this keeps growing then it's an indication that the service cannot handle the amount of request sent to it. So either pace the sending (images from blue iris) or upgrade your hardware.</p>
-<h3 id="timing-statistics"><a class="header" href="#timing-statistics">Timing Statistics</a></h3>
-<p>Lower values are better, as the goal is to process as many images as quickly as possible. Consider it in terms of frames per second (FPS). For example, if you have a video camera operating at 15 FPS, each frame must be processed in under approximately 67 ms to maintain real-time processing.</p>
-<p>This processing is handled by a separate service that manages encoded JPEG images of various sizes. Therefore, processing speed depends on both image size and inference speed. Larger images take more time to decode and resize. For example:</p>
-<ul>
-<li><strong>4K Image:</strong> Decoding takes around 100 ms, and resizing to 640x640 takes an additional 10 ms.</li>
-<li><strong>640x480 Image:</strong> Decoding takes approximately 3-4 ms, and resizing takes about 1 ms.</li>
-</ul>
-<p>It's crucial to monitor the total processing time of input images, not just the inference time. For instance, even if a Coral TPU processes an image in 5 ms, the overall time may still be 110 ms when accounting for decoding and preprocessing.</p>
-<p><strong>Key Points:</strong></p>
-<ul>
-<li>
-<p><strong>Average Analysis Round Time:</strong> The time from when the service receives a request to when it sends a response. If this time closely matches the processing time, it indicates that your server is not overloaded. The inference engine processes one image at a time, managed by a queue.</p>
-<p><strong>Examples:</strong></p>
-<ul>
-<li><strong>1 request every 100 ms with a processing time of 100 ms:</strong> The average round-trip time will be approximately 100 ms.</li>
-<li><strong>2 requests every 100 ms:</strong> One request will be queued, waiting for the first to complete, resulting in a maximum round-trip time of 200 ms.</li>
-</ul>
-<p><strong>Formula:</strong></p>
-<pre><code>Average Analysis Round Time = Queue Time + Processing Time
-</code></pre>
-</li>
-<li>
-<p><strong>Processing Time:</strong> Includes all image processing and inference activities, such as decoding, resizing, and inference.</p>
-</li>
-<li>
-<p><strong>Inference Time:</strong> The duration from when an image has been decoded and resized to 640x640 until the inference engine returns the boundary boxes. This specifically measures the time spent within the inference engine.</p>
-</li>
-</ul>
-<p><strong>Recommendations:</strong></p>
-<ul>
-<li><strong>Optimize Image Resolution:</strong> If your processing time significantly exceeds inference time, consider using lower-resolution streams to reduce decoding and resizing overhead.</li>
-<li><strong>Manage Request Rate:</strong> If your round-trip time is much higher than processing time, try to spread out requests to avoid overloading the server. While the server can handle the load by queuing images in memory, the inference engine might process images more efficiently in bulk once warmed up. Use the test client to stress-test and fine-tune this balance.</li>
-<li><strong>Adjust CPU Threads:</strong> For CPU-based inference, you can control the number of threads used. Even if the queue and services run on a single thread, the actual CPU inference can utilize multiple threads for better performance.</li>
-</ul>
-<p><strong>Performance Goal:</strong>
-An average round-trip request time between <strong>50 - 200 ms</strong> is generally acceptable. However, this can vary based on your specific setup and requirements.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="configure-blue-iris"><a class="header" href="#configure-blue-iris">Configure Blue Iris</a></h1>
-<p>Blue Onyx runs as a service, it has a simple job. It receives a image in jpg format from Blue Iris. It will run it through detection pipeline and it will report if it found any of the objects that the currently used model have if any in the picture. Once Blue Iris get's the response it will act based on this information.</p>
-<p><strong>NOTE: BLUE ONYX DOES NOT SUPPORT RUNNING MULTIPLE MODELS IN ONE SERVER, IT'S ONE SERVER ONE MODEL. SETUP MULTIPLE SERVERS AND DUPLICATE STREAMS IF YOU WANT TO RUN SEPARATE MODELS FOR 1 CAMERA.</strong></p>
-<h2 id="setup"><a class="header" href="#setup">Setup</a></h2>
-<p>See this for general Blue Iris setup: https://youtu.be/jqc1ukrkMmI?si=9cDS3uYp2tQUGbIt&amp;t=1</p>
-<h2 id="ai-setup"><a class="header" href="#ai-setup">AI Setup</a></h2>
-<p>Please refer to the <a href="https://blueirissoftware.com/blueiris.pdf">documentation</a> for more details. For specific Blue Iris questions please reach out to Blue Iris support.</p>
-<p>Press the cogwheel in Blue Iris for settings.</p>
-<p><img src="images/blue_iris_settings.jpg" alt="Blue Iris Settings" /></p>
-<p>Press the AI tab. Replace ip and port as needed.</p>
-<p><img src="images/blue_iris_ai_settings.jpg" alt="Blue Iris AI Settings AI tab" /></p>
-<p>Then go in to each individual camera setting by right click on the camera and then click Camera Settings.</p>
-<p><img src="images/blue_iris_camera_settings.jpg" alt="Blue Iris Camera Settings" /></p>
-<p>Then press alert tab and then AI configuration</p>
-<p><img src="images/blue_iris_camera_settings_alert.jpg" alt="Blue Iris Camera Settings Alert" /></p>
-<p>Here you can override the AI server if you are running multiple instances of Blue Onyx.
-Avoid using main stream as the service will anyway resize the pictures to smaller resolution and it only cost cpu time to decode large jpg images.</p>
-<p><img src="images/blue_iris_camera_ai.jpg" alt="Blue Iris Camera Settings AI" /></p>
-<p>Then go back, right click on the camera again and then press trigger now.</p>
-<p><img src="images/blue_iris_camera_settings.jpg" alt="Blue Iris Camera Settings" /></p>
-<p>If everything is configured correctly you should see succesful request count increase in the stats page.</p>
-<p><img src="images/stats.jpg" alt="Statistics Overview" /></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-6"><a class="header" href="#todo-6">TODO</a></h1>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
-<p>The design of Blue Onyx is very simple. It implements the same HTTP API as other open-source object detection services for compatibility.</p>
-<pre><code class="language-http">/v1/vision/detection
-</code></pre>
-<p>The server is mainly implemented in <a href="https://www.rust-lang.org/">Rust</a> but utilizes <a href="https://onnx.ai/">ONNX</a> for inference which is written in C++. So all code is compiled and native.</p>
-<p>The HTTP server is implemented in <a href="https://github.com/tokio-rs/axum">axum</a> which utilizes <a href="https://tokio.rs/">tokio</a> and runs async in one thread to handle requests. It can handle multiple requests at the same time. Each request is then put on a channel/queue to the worker thread. The worker thread handles the decoding of the image, resizing, and finally running the inference. Once this is done, the results are gathered, and a response is sent back to the task in the main thread that was handling the request.</p>
-<div style="display: flex; align-items: center;">
-    <div style="flex: 1;">
-        Most clients have a timeout limit, which means that if a client sends a request to Blue Onyx, they expect a result within a certain time frame. If this time expires, it indicates that we are either processing too slowly or overwhelming the server with requests.
-        This can be visualized as a glass of water: the incoming water represents the requests, the size of the glass represents the timeout, and the straw represents the rate at which we process the requests.
-    </div>
-    <div style="flex: 1; text-align: center;">
-        <img src="images/flow.jpg" alt="Flow" width="150"/>
-    </div>
-</div>
-<p>To ensure optimal performance, it's crucial to use a model that can handle the system's load efficiently. For instance, processing an image every 1-2 seconds might suffice for a single camera. However, with 20 cameras generating high traffic, the processing speed may need to be as fast as 50 milliseconds per image.</p>
-<p>When setting up Blue Onyx, the queue size is adjusted based on your timeout (the size of the glass) and the processing speed (how fast we can suck out the water). If the system reaches its capacity, Blue Onyx will return errors and log warnings indicating it is over capacity. While the system will recover, it's essential to ensure sufficient resources and fast hardware to manage the system's load effectively.</p>
-<p>Each Blue Onyx instance runs one model. If a user wants to run multiple models on one machine, one can launch multiple Blue Onyx instances running on different ports. The only consideration would be if one run on CPU to assign a subset of cores to each server. For GPU the scheduling is handled by the GPU and multiple processes and threads can share GPU if needed.</p>
-<ul>
-<li>Blue Onyx Server 1 with model 1 on port 32168</li>
-<li>Blue Onyx Server 2 with model 2 on port 32167</li>
-</ul>
-<p>This design allows users to host multiple models and lets the system handle scheduling and resources.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-7"><a class="header" href="#todo-7">TODO</a></h1>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="get_started.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
 
+                            <a rel="next prefetch" href="models.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -510,7 +380,13 @@ Avoid using main stream as the service will anyway resize the pictures to smalle
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="get_started.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
 
+                    <a rel="next prefetch" href="models.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>
@@ -533,11 +409,6 @@ Avoid using main stream as the service will anyway resize the pictures to smalle
 
         <!-- Custom JS scripts -->
 
-        <script>
-        window.addEventListener('load', function() {
-            window.setTimeout(window.print, 100);
-        });
-        </script>
 
     </div>
     </body>
