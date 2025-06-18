@@ -3,7 +3,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
 
-#[derive(Parser, Serialize, Deserialize)]
+#[derive(Parser, Serialize, Deserialize, Clone)]
 #[command(author = "Marcus Asteborg", version=env!("CARGO_PKG_VERSION"), about = "TODO")]
 #[serde(default)]
 pub struct Cli {
@@ -98,21 +98,26 @@ pub struct Cli {
     /// Use --download-rt-detr2 or --download-yolo5 to download specific model types,
     /// otherwise all models will be downloaded.
     #[clap(long)]
+    #[serde(skip)]
     pub download_model_path: Option<PathBuf>,
     /// Download only RT-DETR v2 models (use with --download-model-path)
     /// RT-DETR v2 models include: rt-detrv2-s, rt-detrv2-ms, rt-detrv2-m, rt-detrv2-l, rt-detrv2-x
     #[clap(long)]
+    #[serde(skip)]
     pub download_rt_detr2: bool,
     /// Download only YOLO5 models (use with --download-model-path)
     /// YOLO5 models include specialized models for delivery, animals, birds, etc.
     #[clap(long)]
+    #[serde(skip)]
     pub download_yolo5: bool,
     /// Download all models of all types (use with --download-model-path)
     /// This will download both RT-DETR v2 and YOLO5 models
     #[clap(long)]
+    #[serde(skip)]
     pub download_all_models: bool,
     /// List all available models that can be downloaded
     #[clap(long)]
+    #[serde(skip)]
     pub list_models: bool,
 }
 

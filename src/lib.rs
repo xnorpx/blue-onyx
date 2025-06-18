@@ -28,8 +28,9 @@ struct CocoClasses {
 pub fn blue_onyx_service(
     args: Cli,
 ) -> anyhow::Result<(
-    impl Future<Output = anyhow::Result<()>>,
+    impl Future<Output = anyhow::Result<bool>>, // Return bool for restart indication
     CancellationToken,
+    CancellationToken, // Add restart token
     std::thread::JoinHandle<()>,
 )> {
     let detector_config = detector::DetectorConfig {
@@ -70,7 +71,14 @@ pub fn blue_onyx_service(
         args.log_path,
     );
     let cancel_token = CancellationToken::new();
-    let server_future = run_server(args.port, cancel_token.clone(), sender, metrics);
+    let restart_token = CancellationToken::new();
+    let server_future = run_server(
+        args.port,
+        cancel_token.clone(),
+        restart_token.clone(),
+        sender,
+        metrics,
+    );
 
     let thread_handle = std::thread::spawn(move || {
         #[cfg(windows)]
@@ -93,7 +101,7 @@ pub fn blue_onyx_service(
         detector_worker.run();
     });
 
-    Ok((server_future, cancel_token, thread_handle))
+    Ok((server_future, cancel_token, restart_token, thread_handle))
 }
 
 pub fn get_object_classes(yaml_file: Option<PathBuf>) -> anyhow::Result<Vec<String>> {
