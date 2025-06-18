@@ -152,7 +152,243 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="todo"><a class="header" href="#todo">TODO</a></h1>
+                        <h1 id="windows-installation"><a class="header" href="#windows-installation">Windows Installation</a></h1>
+<p>This guide covers installing Blue Onyx on Windows, including both standalone usage and Windows service installation.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li>Windows 10 or later (x86_64)</li>
+<li>PowerShell (pre-installed on Windows 10+)</li>
+<li>Internet connection for downloading Blue Onyx and models</li>
+</ul>
+<h3 id="optional-gpu-acceleration"><a class="header" href="#optional-gpu-acceleration">Optional: GPU Acceleration</a></h3>
+<p>For GPU acceleration, ensure you have compatible drivers:</p>
+<ul>
+<li><strong>NVIDIA GPU</strong>: Latest GeForce or Quadro drivers</li>
+<li><strong>AMD GPU</strong>: Latest Radeon drivers</li>
+<li><strong>Intel GPU</strong>: Latest Intel Graphics drivers</li>
+</ul>
+<h2 id="installation-methods"><a class="header" href="#installation-methods">Installation Methods</a></h2>
+<h3 id="method-1-one-line-installation-recommended"><a class="header" href="#method-1-one-line-installation-recommended">Method 1: One-Line Installation (Recommended)</a></h3>
+<p>This is the fastest way to get Blue Onyx running:</p>
+<pre><code class="language-powershell">powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
+</code></pre>
+<p>This script will:</p>
+<ul>
+<li>Download the latest Blue Onyx release</li>
+<li>Extract it to <code>%USERPROFILE%\.blue-onyx\</code></li>
+<li>Add the directory to your PATH</li>
+<li>Download default models</li>
+</ul>
+<h3 id="method-2-manual-installation"><a class="header" href="#method-2-manual-installation">Method 2: Manual Installation</a></h3>
+<ol>
+<li>
+<p><strong>Download the Latest Release</strong>:</p>
+<ul>
+<li>Go to <a href="https://github.com/xnorpx/blue-onyx/releases">Blue Onyx Releases</a></li>
+<li>Download <code>blue_onyx-windows-x86_64.zip</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Extract the Archive</strong>:</p>
+<pre><code class="language-powershell"># Extract to a permanent location
+Expand-Archive -Path "blue_onyx-windows-x86_64.zip" -DestinationPath "C:\Program Files\BlueOnyx"
+</code></pre>
+</li>
+<li>
+<p><strong>Add to PATH</strong> (optional):</p>
+<pre><code class="language-powershell"># Add to user PATH
+$env:PATH += ";C:\Program Files\BlueOnyx"
+
+# Or add permanently via System Properties &gt; Environment Variables
+</code></pre>
+</li>
+</ol>
+<h2 id="first-run"><a class="header" href="#first-run">First Run</a></h2>
+<h3 id="download-models"><a class="header" href="#download-models">Download Models</a></h3>
+<p>Before running Blue Onyx, download the required models:</p>
+<pre><code class="language-powershell"># Navigate to installation directory
+cd "C:\Program Files\BlueOnyx"
+
+# Download all models to a models subfolder
+.\blue_onyx.exe --download-model-path .\models --download-all-models
+
+# Or download only the default RT-DETR models
+.\blue_onyx.exe --download-model-path .\models --download-rt-detr2
+</code></pre>
+<h3 id="start-blue-onyx"><a class="header" href="#start-blue-onyx">Start Blue Onyx</a></h3>
+<pre><code class="language-powershell"># Run with default settings
+.\blue_onyx.exe
+
+# Or specify the downloaded models
+.\blue_onyx.exe --model .\models\rt-detrv2-s.onnx
+</code></pre>
+<p>The service will start on <code>http://127.0.0.1:32168</code> by default.</p>
+<h2 id="install-as-windows-service"><a class="header" href="#install-as-windows-service">Install as Windows Service</a></h2>
+<p>For production use, install Blue Onyx as a Windows service to start automatically.</p>
+<h3 id="step-1-run-as-administrator"><a class="header" href="#step-1-run-as-administrator">Step 1: Run as Administrator</a></h3>
+<p>Open PowerShell as Administrator (required for service installation).</p>
+<h3 id="step-2-create-the-service"><a class="header" href="#step-2-create-the-service">Step 2: Create the Service</a></h3>
+<pre><code class="language-powershell"># Navigate to installation directory
+cd "C:\Program Files\BlueOnyx"
+
+# Create service with basic configuration
+sc.exe create blue_onyx_service binPath= "C:\Program Files\BlueOnyx\blue_onyx_service.exe --port 32168" start= auto displayname= "Blue Onyx Service"
+</code></pre>
+<h3 id="step-3-configure-service-optional"><a class="header" href="#step-3-configure-service-optional">Step 3: Configure Service (Optional)</a></h3>
+<p>For custom configuration, create a JSON config file:</p>
+<p><strong>C:\Program Files\BlueOnyx\service_config.json:</strong></p>
+<pre><code class="language-json">{
+  "port": 32168,
+  "model": "C:\\Program Files\\BlueOnyx\\models\\rt-detrv2-s.onnx",
+  "confidence_threshold": 0.5,
+  "log_path": "C:\\ProgramData\\BlueOnyx\\blue-onyx.log",
+  "save_stats_path": "C:\\ProgramData\\BlueOnyx\\blue-onyx-stats.json",
+  "force_cpu": false
+}
+</code></pre>
+<p>Then update the service to use the config:</p>
+<pre><code class="language-powershell"># Update service to use configuration file
+sc.exe config blue_onyx_service binPath= "C:\Program Files\BlueOnyx\blue_onyx_service.exe --config C:\Program Files\BlueOnyx\service_config.json"
+</code></pre>
+<h3 id="step-4-start-the-service"><a class="header" href="#step-4-start-the-service">Step 4: Start the Service</a></h3>
+<pre><code class="language-powershell"># Start the service
+net start blue_onyx_service
+
+# Or use services.msc to manage the service
+services.msc
+</code></pre>
+<h3 id="step-5-verify-installation"><a class="header" href="#step-5-verify-installation">Step 5: Verify Installation</a></h3>
+<ol>
+<li>Open your browser and go to: <code>http://127.0.0.1:32168/</code></li>
+<li>You should see the Blue Onyx web interface</li>
+<li>Check Windows Event Viewer for any service errors</li>
+</ol>
+<h2 id="service-management"><a class="header" href="#service-management">Service Management</a></h2>
+<h3 id="common-service-commands"><a class="header" href="#common-service-commands">Common Service Commands</a></h3>
+<pre><code class="language-powershell"># Start service
+net start blue_onyx_service
+
+# Stop service
+net stop blue_onyx_service
+
+# Restart service
+net stop blue_onyx_service &amp;&amp; net start blue_onyx_service
+
+# Delete service (if needed)
+net stop blue_onyx_service
+sc.exe delete blue_onyx_service
+</code></pre>
+<h3 id="view-service-logs"><a class="header" href="#view-service-logs">View Service Logs</a></h3>
+<p>If logging to file is configured, check the log files:</p>
+<pre><code class="language-powershell"># View recent logs
+Get-Content "C:\ProgramData\BlueOnyx\blue-onyx.log" -Tail 50
+
+# Monitor logs in real-time
+Get-Content "C:\ProgramData\BlueOnyx\blue-onyx.log" -Wait -Tail 10
+</code></pre>
+<h2 id="configuration-examples"><a class="header" href="#configuration-examples">Configuration Examples</a></h2>
+<h3 id="basic-home-security-setup"><a class="header" href="#basic-home-security-setup">Basic Home Security Setup</a></h3>
+<pre><code class="language-json">{
+  "port": 32168,
+  "model": "C:\\Program Files\\BlueOnyx\\models\\rt-detrv2-s.onnx",
+  "confidence_threshold": 0.6,
+  "object_filter": ["person", "car", "bicycle", "motorcycle"],
+  "log_level": "Info",
+  "force_cpu": false
+}
+</code></pre>
+<h3 id="high-performance-setup-gpu-required"><a class="header" href="#high-performance-setup-gpu-required">High-Performance Setup (GPU Required)</a></h3>
+<pre><code class="language-json">{
+  "port": 32168,
+  "model": "C:\\Program Files\\BlueOnyx\\models\\rt-detrv2-l.onnx",
+  "confidence_threshold": 0.5,
+  "force_cpu": false,
+  "gpu_index": 0,
+  "intra_threads": 4,
+  "inter_threads": 2,
+  "save_image_path": "C:\\ProgramData\\BlueOnyx\\processed_images",
+  "save_stats_path": "C:\\ProgramData\\BlueOnyx\\blue-onyx-stats.json"
+}
+</code></pre>
+<h3 id="delivery-detection-setup"><a class="header" href="#delivery-detection-setup">Delivery Detection Setup</a></h3>
+<pre><code class="language-json">{
+  "port": 32168,
+  "model": "C:\\Program Files\\BlueOnyx\\models\\delivery.onnx",
+  "object_detection_model_type": "Yolo5",
+  "confidence_threshold": 0.7,
+  "log_level": "Info"
+}
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="installation-issues"><a class="header" href="#installation-issues">Installation Issues</a></h3>
+<p><strong>PowerShell Execution Policy Error:</strong></p>
+<pre><code class="language-powershell"># Fix execution policy
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+</code></pre>
+<p><strong>Download Failures:</strong></p>
+<ul>
+<li>Check internet connectivity</li>
+<li>Try running PowerShell as Administrator</li>
+<li>Disable antivirus temporarily during installation</li>
+</ul>
+<h3 id="service-issues"><a class="header" href="#service-issues">Service Issues</a></h3>
+<p><strong>Service Won't Start:</strong></p>
+<ol>
+<li>Check Windows Event Viewer (Windows Logs &gt; Application)</li>
+<li>Verify file paths in service configuration</li>
+<li>Ensure models are downloaded correctly</li>
+<li>Check port availability</li>
+</ol>
+<p><strong>Port Already in Use:</strong></p>
+<pre><code class="language-powershell"># Find what's using port 32168
+netstat -ano | findstr :32168
+
+# Kill the process if needed (replace PID)
+taskkill /PID 1234 /F
+</code></pre>
+<h3 id="performance-issues"><a class="header" href="#performance-issues">Performance Issues</a></h3>
+<p><strong>GPU Not Being Used:</strong></p>
+<ol>
+<li>Check GPU drivers are up to date</li>
+<li>Verify GPU supports required compute capabilities</li>
+<li>Try different <code>gpu_index</code> values</li>
+<li>Check Windows Device Manager for GPU status</li>
+</ol>
+<p><strong>High CPU Usage:</strong></p>
+<ol>
+<li>Try a smaller model (rt-detrv2-s instead of rt-detrv2-l)</li>
+<li>Reduce <code>intra_threads</code> and <code>inter_threads</code></li>
+<li>Consider using <code>force_cpu: false</code> to enable GPU</li>
+</ol>
+<h2 id="uninstallation"><a class="header" href="#uninstallation">Uninstallation</a></h2>
+<h3 id="remove-service"><a class="header" href="#remove-service">Remove Service</a></h3>
+<pre><code class="language-powershell"># Stop and delete service
+net stop blue_onyx_service
+sc.exe delete blue_onyx_service
+</code></pre>
+<h3 id="remove-files"><a class="header" href="#remove-files">Remove Files</a></h3>
+<pre><code class="language-powershell"># Remove installation directory
+Remove-Item -Recurse -Force "C:\Program Files\BlueOnyx"
+
+# Remove user data (optional)
+Remove-Item -Recurse -Force "$env:USERPROFILE\.blue-onyx"
+
+# Remove program data (optional)
+Remove-Item -Recurse -Force "C:\ProgramData\BlueOnyx"
+</code></pre>
+<h3 id="remove-from-path"><a class="header" href="#remove-from-path">Remove from PATH</a></h3>
+<p>Remove the Blue Onyx directory from your PATH environment variable via:</p>
+<ul>
+<li>System Properties &gt; Environment Variables, or</li>
+<li>Edit the PATH variable directly</li>
+</ul>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="get_started.html">Getting Started</a></strong> - Basic usage and testing</li>
+<li><strong><a href="configuration.html">Configuration</a></strong> - Detailed configuration options</li>
+<li><strong><a href="models.html">Models</a></strong> - Choose the right model for your use case</li>
+<li><strong><a href="configure_blue_iris_5.html">Blue Iris Integration</a></strong> - Integrate with Blue Iris 5</li>
+</ul>
 
                     </main>
 

@@ -152,7 +152,135 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="todo"><a class="header" href="#todo">TODO</a></h1>
+                        <h1 id="models"><a class="header" href="#models">Models</a></h1>
+<p>Blue Onyx supports multiple object detection models from different sources. You can download and use various pre-trained models depending on your specific use case.</p>
+<h2 id="automatic-model-management"><a class="header" href="#automatic-model-management">Automatic Model Management</a></h2>
+<p>Blue Onyx automatically manages models with the following behavior:</p>
+<ol>
+<li><strong>Default Model</strong>: If no model is specified, <code>rt-detrv2-s.onnx</code> is used as the default</li>
+<li><strong>Auto-Download</strong>: Missing models and their corresponding YAML files are automatically downloaded when needed</li>
+<li><strong>YAML Validation</strong>: Both model (.onnx) and metadata (.yaml) files are required and verified before use</li>
+<li><strong>Error Handling</strong>: Clear error messages if models cannot be downloaded or loaded</li>
+<li><strong>First Run</strong>: On first startup, Blue Onyx will automatically download the default model if not present</li>
+</ol>
+<p>This means you can start using Blue Onyx immediately without manually downloading models - the system will handle it automatically.</p>
+<h2 id="available-model-types"><a class="header" href="#available-model-types">Available Model Types</a></h2>
+<p>Blue Onyx supports two main categories of models:</p>
+<ol>
+<li><strong>RT-DETR v2 Models</strong> - General-purpose object detection models</li>
+<li><strong>YOLO5 Specialized Models</strong> - IP camera and delivery-focused models</li>
+</ol>
+<h2 id="downloading-models"><a class="header" href="#downloading-models">Downloading Models</a></h2>
+<h3 id="cli-download-options"><a class="header" href="#cli-download-options">CLI Download Options</a></h3>
+<p>You can download models using the following CLI commands:</p>
+<pre><code class="language-bash"># List all available models
+blue_onyx --list-models
+
+# Download all models to binary directory (simplest)
+blue_onyx --download-all-models
+
+# Download only RT-DETR v2 models to binary directory
+blue_onyx --download-rt-detr2
+
+# Download only YOLO5 specialized models to binary directory
+blue_onyx --download-yolo5
+
+# Download to a specific directory
+blue_onyx --download-all-models --download-model-path ./models
+blue_onyx --download-rt-detr2 --download-model-path ./models
+blue_onyx --download-yolo5 --download-model-path ./models
+
+# Download both RT-DETR and YOLO5 (equivalent to --download-all-models)
+blue_onyx --download-rt-detr2 --download-yolo5
+</code></pre>
+<p><strong>Note</strong>: <code>--download-model-path</code> is <strong>optional</strong> and specifies where to download. If not provided, models are downloaded to the directory where the Blue Onyx binary is located.</p>
+<h3 id="download-behavior"><a class="header" href="#download-behavior">Download Behavior</a></h3>
+<p>The download logic works as follows:</p>
+<ol>
+<li><strong><code>--download-all-models</code></strong> - Downloads all available models (RT-DETR v2 + YOLO5)</li>
+<li><strong><code>--download-rt-detr2 --download-yolo5</code></strong> - Downloads all models (same as above)</li>
+<li><strong><code>--download-rt-detr2</code></strong> - Downloads only RT-DETR v2 models</li>
+<li><strong><code>--download-yolo5</code></strong> - Downloads only YOLO5 specialized models</li>
+<li><strong><code>--download-model-path</code> alone</strong> - Does <strong>nothing</strong> (you must specify what to download)</li>
+</ol>
+<p><strong>Default Location</strong>: If no <code>--download-model-path</code> is specified, models are downloaded to the same directory as the Blue Onyx binary.</p>
+<h2 id="model-details"><a class="header" href="#model-details">Model Details</a></h2>
+<h3 id="rt-detr-v2-models"><a class="header" href="#rt-detr-v2-models">RT-DETR v2 Models</a></h3>
+<p>RT-DETR v2 (Real-Time Detection Transformer) models are general-purpose object detection models trained on the COCO dataset. These models offer excellent performance for detecting common objects.</p>
+<div class="table-wrapper"><table><thead><tr><th>Model Name</th><th>Size</th><th>Description</th><th>Classes</th><th>Source</th></tr></thead><tbody>
+<tr><td>rt-detrv2-s</td><td>~80MB</td><td>Small variant - fastest inference</td><td>80 COCO classes</td><td><a href="https://github.com/lyuwenyu/RT-DETR">RT-DETR</a></td></tr>
+<tr><td>rt-detrv2-ms</td><td>~120MB</td><td>Medium-small variant - balanced speed/accuracy</td><td>80 COCO classes</td><td><a href="https://github.com/lyuwenyu/RT-DETR">RT-DETR</a></td></tr>
+<tr><td>rt-detrv2-m</td><td>~200MB</td><td>Medium variant - good balance</td><td>80 COCO classes</td><td><a href="https://github.com/lyuwenyu/RT-DETR">RT-DETR</a></td></tr>
+<tr><td>rt-detrv2-l</td><td>~300MB</td><td>Large variant - higher accuracy</td><td>80 COCO classes</td><td><a href="https://github.com/lyuwenyu/RT-DETR">RT-DETR</a></td></tr>
+<tr><td>rt-detrv2-x</td><td>~400MB</td><td>Extra large variant - highest accuracy</td><td>80 COCO classes</td><td><a href="https://github.com/lyuwenyu/RT-DETR">RT-DETR</a></td></tr>
+</tbody></table>
+</div>
+<p><strong>Default Model</strong>: <code>rt-detrv2-s.onnx</code> is used as the default model when no specific model is specified.</p>
+<h3 id="yolo5-specialized-models"><a class="header" href="#yolo5-specialized-models">YOLO5 Specialized Models</a></h3>
+<p>These are specialized YOLO5 models designed for specific use cases, particularly IP cameras and delivery scenarios.</p>
+<div class="table-wrapper"><table><thead><tr><th>Model Name</th><th>Size</th><th>Description</th><th>Specialized For</th><th>Source</th></tr></thead><tbody>
+<tr><td>delivery</td><td>~25MB</td><td>Package and delivery detection</td><td>Delivery trucks, packages, postal workers</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+<tr><td>IPcam-animal</td><td>~25MB</td><td>Animal detection for IP cameras</td><td>Animals, pets, wildlife</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+<tr><td>ipcam-bird</td><td>~25MB</td><td>Bird detection for IP cameras</td><td>Birds, flying objects</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+<tr><td>IPcam-combined</td><td>~25MB</td><td>Combined detection for IP cameras</td><td>Multiple object types optimized for cameras</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+<tr><td>IPcam-dark</td><td>~25MB</td><td>Low-light detection for IP cameras</td><td>Objects in dark/night conditions</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+<tr><td>IPcam-general</td><td>~25MB</td><td>General purpose IP camera detection</td><td>General objects optimized for IP cameras</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+<tr><td>package</td><td>~25MB</td><td>Package detection</td><td>Packages, boxes, deliveries</td><td><a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">CodeProject.AI Custom IPcam Models</a></td></tr>
+</tbody></table>
+</div>
+<h2 id="model-sources-and-references"><a class="header" href="#model-sources-and-references">Model Sources and References</a></h2>
+<h3 id="rt-detr"><a class="header" href="#rt-detr">RT-DETR</a></h3>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/lyuwenyu/RT-DETR">lyuwenyu/RT-DETR</a></li>
+<li><strong>Download Source</strong>: <a href="https://huggingface.co/xnorpx/rt-detr2-onnx">xnorpx/rt-detr2-onnx</a></li>
+<li><strong>Paper</strong>: "DETRs Beat YOLOs on Real-time Object Detection"</li>
+<li><strong>License</strong>: Apache 2.0</li>
+<li><strong>Description</strong>: RT-DETR is a real-time object detector that efficiently processes images by eliminating NMS (Non-Maximum Suppression) and using transformer architecture.</li>
+</ul>
+<h3 id="yolo5-specialized-models-1"><a class="header" href="#yolo5-specialized-models-1">YOLO5 Specialized Models</a></h3>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/MikeLud/CodeProject.AI-Custom-IPcam-Models">MikeLud/CodeProject.AI-Custom-IPcam-Models</a></li>
+<li><strong>Base Framework</strong>: <a href="https://github.com/ultralytics/yolov5">ultralytics/yolov5</a></li>
+<li><strong>Download Source</strong>: <a href="https://huggingface.co/xnorpx/blue-onyx-yolo5">xnorpx/blue-onyx-yolo5</a></li>
+<li><strong>License</strong>: AGPL-3.0</li>
+<li><strong>Description</strong>: Custom trained YOLO5 models specifically optimized for IP camera scenarios and delivery detection.</li>
+</ul>
+<blockquote>
+<p><strong>⚠️ IMPORTANT LICENSING NOTE</strong>: YOLO5 models are licensed under AGPL-3.0, which <strong>prohibits commercial use</strong> without proper licensing. If your use case does not satisfy the AGPL-3.0 license requirements (e.g., commercial/proprietary applications), you must obtain a commercial license from <a href="https://ultralytics.com/license">Ultralytics</a>. For commercial applications, consider using RT-DETR models instead, which are licensed under Apache 2.0.</p>
+</blockquote>
+<h2 id="using-models"><a class="header" href="#using-models">Using Models</a></h2>
+<h3 id="specifying-a-model"><a class="header" href="#specifying-a-model">Specifying a Model</a></h3>
+<p>You can specify which model to use with the <code>--model</code> parameter:</p>
+<pre><code class="language-bash"># Use a specific RT-DETR model
+blue_onyx --model ./models/rt-detrv2-l.onnx
+
+# Use a specialized YOLO5 model
+blue_onyx --model ./models/delivery.onnx --object-detection-model-type yolo5
+</code></pre>
+<h3 id="model-requirements"><a class="header" href="#model-requirements">Model Requirements</a></h3>
+<p>Each model requires two files:</p>
+<ul>
+<li><strong><code>.onnx</code> file</strong>: The actual model weights and architecture</li>
+<li><strong><code>.yaml</code> file</strong>: Model metadata including class names and configuration</li>
+</ul>
+<p>Both files are automatically downloaded when using the download commands.</p>
+<h3 id="performance-considerations"><a class="header" href="#performance-considerations">Performance Considerations</a></h3>
+<ul>
+<li><strong>RT-DETR Models</strong>: Better for general object detection, more accurate on diverse scenes</li>
+<li><strong>YOLO5 Specialized Models</strong>: Faster inference, optimized for specific scenarios</li>
+<li><strong>Size vs. Accuracy</strong>: Larger models generally provide better accuracy but slower inference</li>
+<li><strong>Hardware</strong>: GPU acceleration is recommended for larger models</li>
+</ul>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h3>
+<ul>
+<li><strong>404 Errors</strong>: Some model files may have naming inconsistencies in the repository</li>
+<li><strong>Network Issues</strong>: Download failures due to connectivity problems</li>
+<li><strong>Disk Space</strong>: Ensure sufficient disk space for model downloads</li>
+<li><strong>Permissions</strong>: Verify write permissions in the target directory</li>
+</ul>
+<h3 id="verification"><a class="header" href="#verification">Verification</a></h3>
+<p>You can verify downloaded models by checking the file sizes match the expected values in the table above.</p>
 
                     </main>
 
@@ -162,7 +290,7 @@
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="benchmark.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="custom_model_training.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -176,7 +304,7 @@
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="benchmark.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="custom_model_training.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

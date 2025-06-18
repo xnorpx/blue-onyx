@@ -152,7 +152,371 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="todo"><a class="header" href="#todo">TODO</a></h1>
+                        <h1 id="linux-installation"><a class="header" href="#linux-installation">Linux Installation</a></h1>
+<p>This guide covers installing Blue Onyx on Linux using Docker, which is the recommended method for Linux deployment.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li>Linux distribution with Docker support</li>
+<li>Docker Engine 20.10+ and Docker Compose (optional)</li>
+<li>Internet connection for downloading images and models</li>
+</ul>
+<h2 id="docker-installation-recommended"><a class="header" href="#docker-installation-recommended">Docker Installation (Recommended)</a></h2>
+<h3 id="quick-start-with-docker"><a class="header" href="#quick-start-with-docker">Quick Start with Docker</a></h3>
+<pre><code class="language-bash"># Pull the latest image
+docker pull ghcr.io/xnorpx/blue_onyx:latest
+
+# Run with default settings
+docker run -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<p>The service will be available at <code>http://localhost:32168</code>.</p>
+<h3 id="docker-run-with-volume-mounts"><a class="header" href="#docker-run-with-volume-mounts">Docker Run with Volume Mounts</a></h3>
+<p>For persistent model storage and configuration:</p>
+<pre><code class="language-bash"># Create directories for data persistence
+mkdir -p ~/blue-onyx/{models,config,logs}
+
+# Download models first (optional)
+docker run --rm -v ~/blue-onyx/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --download-model-path /app/models --download-rt-detr2
+
+# Run with persistent volumes
+docker run -d \
+  --name blue-onyx \
+  -p 32168:32168 \
+  -v ~/blue-onyx/models:/app/models \
+  -v ~/blue-onyx/config:/app/config \
+  -v ~/blue-onyx/logs:/app/logs \
+  --restart unless-stopped \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --model /app/models/rt-detrv2-s.onnx \
+  --log_path /app/logs/blue-onyx.log
+</code></pre>
+<h3 id="docker-compose-recommended-for-production"><a class="header" href="#docker-compose-recommended-for-production">Docker Compose (Recommended for Production)</a></h3>
+<p>Create a <code>docker-compose.yml</code> file:</p>
+<pre><code class="language-yaml">version: '3.8'
+
+services:
+  blue-onyx:
+    image: ghcr.io/xnorpx/blue_onyx:latest
+    container_name: blue-onyx
+    ports:
+      - "32168:32168"
+    volumes:
+      - ./models:/app/models
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./processed_images:/app/processed_images
+    environment:
+      - RUST_LOG=info
+    command: &gt;
+      --config /app/config/blue_onyx_config.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:32168/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: blue-onyx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - blue-onyx
+    restart: unless-stopped
+</code></pre>
+<p><strong>Configuration file (config/blue_onyx_config.json):</strong></p>
+<pre><code class="language-json">{
+  "port": 32168,
+  "model": "/app/models/rt-detrv2-s.onnx",
+  "confidence_threshold": 0.5,
+  "log_level": "Info",
+  "log_path": "/app/logs/blue-onyx.log",
+  "save_image_path": "/app/processed_images",
+  "save_stats_path": "/app/logs/blue-onyx-stats.json",
+  "force_cpu": false,
+  "request_timeout": 30,
+  "intra_threads": 2,
+  "inter_threads": 2
+}
+</code></pre>
+<p><strong>Start the services:</strong></p>
+<pre><code class="language-bash"># Start services
+docker-compose up -d
+
+# Download models
+docker-compose exec blue-onyx blue_onyx --download-model-path /app/models --download-rt-detr2
+
+# View logs
+docker-compose logs -f blue-onyx
+</code></pre>
+<h2 id="model-management"><a class="header" href="#model-management">Model Management</a></h2>
+<h3 id="download-models-with-docker"><a class="header" href="#download-models-with-docker">Download Models with Docker</a></h3>
+<pre><code class="language-bash"># Download all models
+docker run --rm -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --download-model-path /app/models --download-all-models
+
+# Download only RT-DETR models
+docker run --rm -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --download-model-path /app/models --download-rt-detr2
+
+# Download only YOLO5 specialized models
+docker run --rm -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --download-model-path /app/models --download-yolo5
+
+# List available models
+docker run --rm ghcr.io/xnorpx/blue_onyx:latest --list-models
+</code></pre>
+<h3 id="using-different-models"><a class="header" href="#using-different-models">Using Different Models</a></h3>
+<pre><code class="language-bash"># Use a larger RT-DETR model
+docker run -p 32168:32168 \
+  -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --model /app/models/rt-detrv2-l.onnx
+
+# Use a YOLO5 specialized model
+docker run -p 32168:32168 \
+  -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --model /app/models/delivery.onnx \
+  --object-detection-model-type yolo5
+</code></pre>
+<h2 id="advanced-configuration"><a class="header" href="#advanced-configuration">Advanced Configuration</a></h2>
+<h3 id="gpu-support-experimental"><a class="header" href="#gpu-support-experimental">GPU Support (Experimental)</a></h3>
+<p>GPU support in Docker requires additional setup:</p>
+<pre><code class="language-bash"># Install nvidia-docker2 (NVIDIA GPUs only)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update &amp;&amp; sudo apt-get install -y nvidia-docker2
+sudo systemctl restart docker
+
+# Run with GPU support
+docker run --gpus all -p 32168:32168 \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --gpu_index 0
+</code></pre>
+<h3 id="reverse-proxy-with-ssl"><a class="header" href="#reverse-proxy-with-ssl">Reverse Proxy with SSL</a></h3>
+<p><strong>nginx.conf example:</strong></p>
+<pre><code class="language-nginx">events {
+    worker_connections 1024;
+}
+
+http {
+    upstream blue-onyx {
+        server blue-onyx:32168;
+    }
+
+    server {
+        listen 80;
+        server_name your-domain.com;
+        return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name your-domain.com;
+
+        ssl_certificate /etc/nginx/ssl/cert.pem;
+        ssl_certificate_key /etc/nginx/ssl/key.pem;
+
+        location / {
+            proxy_pass http://blue-onyx;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Increase timeouts for large image uploads
+            proxy_connect_timeout       60s;
+            proxy_send_timeout          60s;
+            proxy_read_timeout          60s;
+            client_max_body_size        50M;
+        }
+    }
+}
+</code></pre>
+<h3 id="systemd-service-alternative-to-docker"><a class="header" href="#systemd-service-alternative-to-docker">Systemd Service (Alternative to Docker)</a></h3>
+<p>If you prefer not to use Docker, you can run Blue Onyx as a systemd service:</p>
+<p><strong>blue-onyx.service:</strong></p>
+<pre><code class="language-ini">[Unit]
+Description=Blue Onyx Object Detection Service
+After=network.target
+
+[Service]
+Type=simple
+User=blue-onyx
+Group=blue-onyx
+WorkingDirectory=/opt/blue-onyx
+ExecStart=/opt/blue-onyx/blue_onyx --config /etc/blue-onyx/config.json
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<pre><code class="language-bash"># Create user and directories
+sudo useradd -r -s /bin/false blue-onyx
+sudo mkdir -p /opt/blue-onyx /etc/blue-onyx /var/log/blue-onyx
+sudo chown blue-onyx:blue-onyx /opt/blue-onyx /var/log/blue-onyx
+
+# Download and install binary (you'll need to build from source)
+# Copy binary to /opt/blue-onyx/blue_onyx
+
+# Install and start service
+sudo cp blue-onyx.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable blue-onyx
+sudo systemctl start blue-onyx
+</code></pre>
+<h2 id="docker-management"><a class="header" href="#docker-management">Docker Management</a></h2>
+<h3 id="container-management"><a class="header" href="#container-management">Container Management</a></h3>
+<pre><code class="language-bash"># View running containers
+docker ps
+
+# Stop Blue Onyx
+docker stop blue-onyx
+
+# Start Blue Onyx
+docker start blue-onyx
+
+# View logs
+docker logs -f blue-onyx
+
+# Execute commands in container
+docker exec -it blue-onyx /bin/sh
+
+# Remove container
+docker rm blue-onyx
+
+# Remove image
+docker rmi ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<h3 id="updates"><a class="header" href="#updates">Updates</a></h3>
+<pre><code class="language-bash"># Pull latest image
+docker pull ghcr.io/xnorpx/blue_onyx:latest
+
+# Stop and remove old container
+docker stop blue-onyx
+docker rm blue-onyx
+
+# Run new container
+docker run -d --name blue-onyx -p 32168:32168 \
+  -v ~/blue-onyx/models:/app/models \
+  -v ~/blue-onyx/config:/app/config \
+  --restart unless-stopped \
+  ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<h3 id="with-docker-compose"><a class="header" href="#with-docker-compose">With Docker Compose</a></h3>
+<pre><code class="language-bash"># Update and restart
+docker-compose pull
+docker-compose up -d
+</code></pre>
+<h2 id="monitoring-and-logging"><a class="header" href="#monitoring-and-logging">Monitoring and Logging</a></h2>
+<h3 id="view-logs"><a class="header" href="#view-logs">View Logs</a></h3>
+<pre><code class="language-bash"># Docker logs
+docker logs -f blue-onyx
+
+# Docker Compose logs
+docker-compose logs -f blue-onyx
+
+# Log files (if mounted)
+tail -f logs/blue-onyx.log
+</code></pre>
+<h3 id="health-checks"><a class="header" href="#health-checks">Health Checks</a></h3>
+<pre><code class="language-bash"># Check if service is responding
+curl -f http://localhost:32168/
+
+# Check detailed stats
+curl http://localhost:32168/stats
+
+# Test detection
+curl -X POST -F "image=@test.jpg" http://localhost:32168/detect
+</code></pre>
+<h3 id="performance-monitoring"><a class="header" href="#performance-monitoring">Performance Monitoring</a></h3>
+<pre><code class="language-bash"># Monitor container resources
+docker stats blue-onyx
+
+# Monitor with htop/top inside container
+docker exec -it blue-onyx top
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h3>
+<p><strong>Container Won't Start:</strong></p>
+<pre><code class="language-bash"># Check logs for errors
+docker logs blue-onyx
+
+# Check if port is in use
+sudo netstat -tlpn | grep :32168
+
+# Check file permissions
+ls -la ~/blue-onyx/
+</code></pre>
+<p><strong>Model Download Failures:</strong></p>
+<pre><code class="language-bash"># Manual model download
+docker run --rm -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --download-model-path /app/models --download-rt-detr2
+
+# Check network connectivity
+docker run --rm ghcr.io/xnorpx/blue_onyx:latest ping -c 3 huggingface.co
+</code></pre>
+<p><strong>Performance Issues:</strong></p>
+<pre><code class="language-bash"># Check CPU/memory usage
+docker stats blue-onyx
+
+# Use smaller model
+docker run -p 32168:32168 \
+  -v $(pwd)/models:/app/models \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --model /app/models/rt-detrv2-s.onnx \
+  --force_cpu
+</code></pre>
+<h3 id="debug-mode"><a class="header" href="#debug-mode">Debug Mode</a></h3>
+<pre><code class="language-bash"># Run with debug logging
+docker run -p 32168:32168 \
+  -e RUST_LOG=debug \
+  ghcr.io/xnorpx/blue_onyx:latest \
+  --log_level Debug
+</code></pre>
+<h2 id="security-considerations"><a class="header" href="#security-considerations">Security Considerations</a></h2>
+<h3 id="network-security"><a class="header" href="#network-security">Network Security</a></h3>
+<ul>
+<li>Run Blue Onyx behind a reverse proxy with SSL</li>
+<li>Use firewall rules to restrict access</li>
+<li>Consider VPN access for remote use</li>
+</ul>
+<h3 id="container-security"><a class="header" href="#container-security">Container Security</a></h3>
+<pre><code class="language-bash"># Run with non-root user
+docker run --user 1000:1000 \
+  -p 32168:32168 \
+  ghcr.io/xnorpx/blue_onyx:latest
+
+# Use read-only filesystem
+docker run --read-only \
+  --tmpfs /tmp \
+  -p 32168:32168 \
+  ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="get_started.html">Getting Started</a></strong> - Basic usage and testing</li>
+<li><strong><a href="configuration.html">Configuration</a></strong> - Detailed configuration options</li>
+<li><strong><a href="models.html">Models</a></strong> - Choose the right model for your use case</li>
+<li><strong><a href="configure_blue_iris_5.html">Blue Iris Integration</a></strong> - Integrate with Blue Iris 5</li>
+</ul>
 
                     </main>
 

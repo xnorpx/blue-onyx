@@ -234,18 +234,49 @@ blue_onyx --config my_settings.json --port 9090
 <tr><td><code>port</code></td><td>number</td><td>32168</td><td>HTTP server port</td></tr>
 <tr><td><code>request_timeout</code></td><td>number</td><td>15</td><td>Timeout in seconds for detection requests</td></tr>
 <tr><td><code>worker_queue_size</code></td><td>number</td><td>auto</td><td>Queue size for detection workers</td></tr>
+<tr><td><code>model</code></td><td>string</td><td>auto</td><td>Path to ONNX model file (auto-downloads rt-detrv2-s.onnx if not specified)</td></tr>
+<tr><td><code>object_detection_model_type</code></td><td>string</td><td>"RtDetrv2"</td><td>Model type: "RtDetrv2" or "Yolo5"</td></tr>
+<tr><td><code>object_classes</code></td><td>string</td><td>auto</td><td>Path to YAML file with object classes (auto-downloaded with model)</td></tr>
 <tr><td><code>confidence_threshold</code></td><td>number</td><td>0.5</td><td>Minimum confidence for detections</td></tr>
 <tr><td><code>object_filter</code></td><td>array</td><td>[]</td><td>Filter results to specific object types</td></tr>
 <tr><td><code>log_level</code></td><td>string</td><td>"Info"</td><td>Logging level: Trace, Debug, Info, Warn, Error</td></tr>
+<tr><td><code>log_path</code></td><td>string</td><td>null</td><td>Path to log file (if not set, logs to stdout)</td></tr>
 <tr><td><code>force_cpu</code></td><td>boolean</td><td>false</td><td>Force CPU inference (disable GPU)</td></tr>
 <tr><td><code>gpu_index</code></td><td>number</td><td>0</td><td>GPU device index to use</td></tr>
+<tr><td><code>intra_threads</code></td><td>number</td><td>192/2</td><td>Intra-op thread count (Windows: 192, Linux: 2)</td></tr>
+<tr><td><code>inter_threads</code></td><td>number</td><td>192/2</td><td>Inter-op thread count (Windows: 192, Linux: 2)</td></tr>
+<tr><td><code>save_image_path</code></td><td>string</td><td>null</td><td>Directory to save processed images</td></tr>
+<tr><td><code>save_ref_image</code></td><td>boolean</td><td>false</td><td>Save reference images alongside processed ones</td></tr>
+<tr><td><code>save_stats_path</code></td><td>string</td><td>null</td><td>Path to save inference statistics</td></tr>
 </tbody></table>
 </div>
-<h2 id="environment-specific-configurations"><a class="header" href="#environment-specific-configurations">Environment-Specific Configurations</a></h2>
-<h3 id="development-configuration"><a class="header" href="#development-configuration">Development Configuration</a></h3>
-<p>Perfect for local development and debugging:</p>
-<p><strong>Windows:</strong></p>
-<pre><code class="language-json">{
+<h2 id="model-download-options-cli-only"><a class="header" href="#model-download-options-cli-only">Model Download Options (CLI Only)</a></h2>
+<p>These options are only available via command line and are used for model management:</p>
+<div class="table-wrapper"><table><thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--list-models</code></td><td>boolean</td><td>List all available models and exit</td></tr>
+</tbody></table>
+</div>
+<p><strong>Example:</strong></p>
+<pre><code class="language-bash"># List available models
+blue_onyx --list-models
+</code></pre>
+<p><strong>Note</strong>: For model download options, see the <a href="models.html">Models</a> section which covers downloading and managing models in detail.
+blue_onyx --download-model-path ./models --download-all-models</p>
+<h1 id="download-only-rt-detr-models"><a class="header" href="#download-only-rt-detr-models">Download only RT-DETR models</a></h1>
+<p>blue_onyx --download-model-path ./models --download-rt-detr2</p>
+<h1 id="list-available-models"><a class="header" href="#list-available-models">List available models</a></h1>
+<p>blue_onyx --list-models</p>
+<pre><code>
+**Note**: Download operations exit after completion and do not start the server.
+
+## Environment-Specific Configurations
+
+### Development Configuration
+Perfect for local development and debugging:
+
+**Windows:**
+```json
+{
   "port": 3000,
   "log_level": "Debug",
   "save_image_path": "C:\\Temp\\debug_images",

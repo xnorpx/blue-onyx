@@ -153,6 +153,285 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="binaries"><a class="header" href="#binaries">Binaries</a></h1>
+<p>Blue Onyx provides several different binaries for different use cases. Each binary is designed for specific scenarios and usage patterns.</p>
+<h2 id="available-binaries"><a class="header" href="#available-binaries">Available Binaries</a></h2>
+<h3 id="blue_onyxexe--blue_onyx"><a class="header" href="#blue_onyxexe--blue_onyx">blue_onyx.exe / blue_onyx</a></h3>
+<p>The main Blue Onyx server application.</p>
+<p><strong>Purpose</strong>: Primary HTTP server for object detection
+<strong>Use Case</strong>: Development, testing, and standalone deployment
+<strong>Platform</strong>: Windows (.exe) and Linux</p>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>HTTP API server for object detection</li>
+<li>Model management and automatic downloading</li>
+<li>Web interface for testing</li>
+<li>Configuration via CLI or JSON file</li>
+<li>Real-time object detection via REST API</li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-bash"># Start with default settings
+blue_onyx
+
+# Start with custom configuration
+blue_onyx --port 8080 --confidence_threshold 0.7
+
+# Download models before starting
+blue_onyx --download-model-path ./models --download-rt-detr2
+</code></pre>
+<h3 id="blue_onyx_serviceexe"><a class="header" href="#blue_onyx_serviceexe">blue_onyx_service.exe</a></h3>
+<p>Windows service-specific binary.</p>
+<p><strong>Purpose</strong>: Run Blue Onyx as a Windows service
+<strong>Use Case</strong>: Production deployments on Windows servers
+<strong>Platform</strong>: Windows only</p>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Designed to run as a Windows service</li>
+<li>Automatic startup on boot</li>
+<li>Service management integration</li>
+<li>Background operation without user session</li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-powershell"># Install as Windows service
+sc.exe create blue_onyx_service binPath= "C:\Program Files\BlueOnyx\blue_onyx_service.exe --port 32168" start= auto displayname= "Blue Onyx Service"
+
+# Start the service
+net start blue_onyx_service
+</code></pre>
+<h3 id="blue_onyx_benchmarkexe--blue_onyx_benchmark"><a class="header" href="#blue_onyx_benchmarkexe--blue_onyx_benchmark">blue_onyx_benchmark.exe / blue_onyx_benchmark</a></h3>
+<p>Performance benchmarking tool.</p>
+<p><strong>Purpose</strong>: Benchmark model performance and system capabilities
+<strong>Use Case</strong>: Performance testing, model comparison, hardware evaluation
+<strong>Platform</strong>: Windows (.exe) and Linux</p>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Model performance benchmarking</li>
+<li>Hardware utilization testing</li>
+<li>Inference speed measurement</li>
+<li>Memory usage analysis</li>
+<li>GPU vs CPU performance comparison</li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-bash"># Benchmark default model
+blue_onyx_benchmark
+
+# Benchmark specific model
+blue_onyx_benchmark --model ./models/rt-detrv2-l.onnx
+
+# Benchmark with specific settings
+blue_onyx_benchmark --model ./models/rt-detrv2-s.onnx --force_cpu
+</code></pre>
+<h3 id="test_blue_onyxexe--test_blue_onyx"><a class="header" href="#test_blue_onyxexe--test_blue_onyx">test_blue_onyx.exe / test_blue_onyx</a></h3>
+<p>Testing and validation utility.</p>
+<p><strong>Purpose</strong>: Validate Blue Onyx installation and functionality
+<strong>Use Case</strong>: Installation verification, debugging, CI/CD testing
+<strong>Platform</strong>: Windows (.exe) and Linux</p>
+<p><strong>Prerequisites</strong>: <strong>Requires a running Blue Onyx instance</strong> to test against (starts blue_onyx server first)</p>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Installation validation</li>
+<li>Model loading tests</li>
+<li>API endpoint testing (tests live HTTP endpoints)</li>
+<li>Configuration validation</li>
+<li>System requirements checking</li>
+<li>Performance testing with live requests</li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-bash"># Start Blue Onyx server first
+blue_onyx &amp;
+
+# Then run all tests against the running instance
+test_blue_onyx
+
+# Test specific functionality
+test_blue_onyx --test model_loading
+
+# Test with custom configuration (server must be running with same config)
+test_blue_onyx --config ./test_config.json
+</code></pre>
+<h2 id="binary-comparison"><a class="header" href="#binary-comparison">Binary Comparison</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Binary</th><th>Purpose</th><th>Use Case</th><th>Web UI</th><th>Service Mode</th><th>Benchmarking</th></tr></thead><tbody>
+<tr><td>blue_onyx</td><td>Main server</td><td>Development/Standalone</td><td>✅</td><td>❌</td><td>❌</td></tr>
+<tr><td>blue_onyx_service</td><td>Windows service</td><td>Production (Windows)</td><td>✅</td><td>✅</td><td>❌</td></tr>
+<tr><td>blue_onyx_benchmark</td><td>Performance testing</td><td>Benchmarking</td><td>❌</td><td>❌</td><td>✅</td></tr>
+<tr><td>test_blue_onyx</td><td>Testing/validation</td><td>Debugging/CI</td><td>❌</td><td>❌</td><td>❌</td></tr>
+</tbody></table>
+</div>
+<h2 id="download-and-installation"><a class="header" href="#download-and-installation">Download and Installation</a></h2>
+<h3 id="pre-built-binaries"><a class="header" href="#pre-built-binaries">Pre-built Binaries</a></h3>
+<p>Download pre-built binaries from the <a href="https://github.com/xnorpx/blue-onyx/releases">releases page</a>:</p>
+<p><strong>Windows (x86_64)</strong>:</p>
+<ul>
+<li><code>blue_onyx-windows-x86_64.zip</code> - Contains all Windows binaries</li>
+</ul>
+<p><strong>Linux (Docker)</strong>:</p>
+<ul>
+<li>Use the Docker image: <code>ghcr.io/xnorpx/blue_onyx:latest</code></li>
+</ul>
+<h3 id="building-from-source"><a class="header" href="#building-from-source">Building from Source</a></h3>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/xnorpx/blue-onyx.git
+cd blue-onyx
+
+# Build all binaries
+cargo build --release
+
+# Build specific binary
+cargo build --release --bin blue_onyx
+cargo build --release --bin blue_onyx_service
+cargo build --release --bin blue_onyx_benchmark
+cargo build --release --bin test_blue_onyx
+</code></pre>
+<p>Binaries will be available in <code>target/release/</code>.</p>
+<h2 id="usage-scenarios"><a class="header" href="#usage-scenarios">Usage Scenarios</a></h2>
+<h3 id="development-and-testing"><a class="header" href="#development-and-testing">Development and Testing</a></h3>
+<p>For development, debugging, and testing:</p>
+<pre><code class="language-bash"># Start main server for development
+blue_onyx --port 8080 --log_level Debug
+
+# In another terminal, run tests against the running server
+test_blue_onyx
+
+# Benchmark performance during development
+blue_onyx_benchmark --model ./models/rt-detrv2-s.onnx
+</code></pre>
+<h3 id="production-deployment-windows"><a class="header" href="#production-deployment-windows">Production Deployment (Windows)</a></h3>
+<p>For production Windows servers:</p>
+<pre><code class="language-powershell"># Install as service
+sc.exe create blue_onyx_service binPath= "C:\Program Files\BlueOnyx\blue_onyx_service.exe --config C:\Program Files\BlueOnyx\production.json" start= auto displayname= "Blue Onyx Service"
+
+# Start service
+net start blue_onyx_service
+
+# Verify with test tool
+test_blue_onyx --config C:\Program Files\BlueOnyx\production.json
+</code></pre>
+<h3 id="production-deployment-linux"><a class="header" href="#production-deployment-linux">Production Deployment (Linux)</a></h3>
+<p>For production Linux servers (using Docker):</p>
+<pre><code class="language-bash"># Deploy with Docker Compose
+docker-compose up -d
+
+# Test the deployment
+docker run --rm --network host ghcr.io/xnorpx/blue_onyx:latest test_blue_onyx
+</code></pre>
+<h3 id="performance-evaluation"><a class="header" href="#performance-evaluation">Performance Evaluation</a></h3>
+<p>For evaluating different models and hardware configurations:</p>
+<pre><code class="language-bash"># Compare model performance
+blue_onyx_benchmark --model ./models/rt-detrv2-s.onnx &gt; benchmark_small.txt
+blue_onyx_benchmark --model ./models/rt-detrv2-l.onnx &gt; benchmark_large.txt
+
+# Test GPU vs CPU performance
+blue_onyx_benchmark --model ./models/rt-detrv2-m.onnx --force_cpu &gt; benchmark_cpu.txt
+blue_onyx_benchmark --model ./models/rt-detrv2-m.onnx &gt; benchmark_gpu.txt
+</code></pre>
+<h2 id="command-line-options"><a class="header" href="#command-line-options">Command Line Options</a></h2>
+<h3 id="common-options-all-binaries"><a class="header" href="#common-options-all-binaries">Common Options (All Binaries)</a></h3>
+<p>Most binaries support these common options:</p>
+<pre><code class="language-bash">--help                    # Display help information
+--version                 # Display version information
+--config &lt;file&gt;           # Use JSON configuration file
+--log_level &lt;level&gt;       # Set logging level (Error, Warn, Info, Debug, Trace)
+--model &lt;path&gt;            # Specify model file path
+</code></pre>
+<h3 id="server-specific-options-blue_onyx-blue_onyx_service"><a class="header" href="#server-specific-options-blue_onyx-blue_onyx_service">Server-Specific Options (blue_onyx, blue_onyx_service)</a></h3>
+<pre><code class="language-bash">--port &lt;port&gt;             # HTTP server port (default: 32168)
+--confidence_threshold    # Detection confidence threshold (default: 0.5)
+--force_cpu              # Disable GPU acceleration
+--request_timeout        # API request timeout
+--worker_queue_size      # Worker queue size
+</code></pre>
+<h3 id="download-options-blue_onyx"><a class="header" href="#download-options-blue_onyx">Download Options (blue_onyx)</a></h3>
+<pre><code class="language-bash">--download-model-path &lt;dir&gt;    # Download models to directory
+--download-all-models          # Download all available models
+--download-rt-detr2           # Download RT-DETR v2 models
+--download-yolo5              # Download YOLO5 specialized models
+--list-models                 # List all available models
+</code></pre>
+<h3 id="benchmark-options-blue_onyx_benchmark"><a class="header" href="#benchmark-options-blue_onyx_benchmark">Benchmark Options (blue_onyx_benchmark)</a></h3>
+<pre><code class="language-bash">--iterations &lt;n&gt;          # Number of benchmark iterations
+--warmup &lt;n&gt;             # Number of warmup iterations
+--output &lt;file&gt;          # Save benchmark results to file
+--detailed               # Show detailed per-iteration results
+</code></pre>
+<h2 id="file-locations"><a class="header" href="#file-locations">File Locations</a></h2>
+<h3 id="windows"><a class="header" href="#windows">Windows</a></h3>
+<p>Default installation paths for Windows:</p>
+<pre><code>C:\Program Files\BlueOnyx\
+├── blue_onyx.exe
+├── blue_onyx_service.exe
+├── blue_onyx_benchmark.exe
+├── test_blue_onyx.exe
+├── models\
+├── config\
+└── logs\
+</code></pre>
+<p>User-specific paths:</p>
+<pre><code>%USERPROFILE%\.blue-onyx\
+├── models\
+├── config\
+└── cache\
+</code></pre>
+<h3 id="linux-docker"><a class="header" href="#linux-docker">Linux (Docker)</a></h3>
+<p>Container paths:</p>
+<pre><code>/app/
+├── blue_onyx
+├── blue_onyx_benchmark
+├── test_blue_onyx
+├── models/
+├── config/
+└── logs/
+</code></pre>
+<p>Host-mounted volumes:</p>
+<pre><code>~/blue-onyx/
+├── models/
+├── config/
+├── logs/
+└── processed_images/
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="binary-wont-start"><a class="header" href="#binary-wont-start">Binary Won't Start</a></h3>
+<p><strong>Check dependencies</strong>:</p>
+<pre><code class="language-bash"># Windows: Check for missing DLLs
+dumpbin /dependents blue_onyx.exe
+
+# Linux: Check shared libraries
+ldd blue_onyx
+</code></pre>
+<p><strong>Verify file permissions</strong>:</p>
+<pre><code class="language-bash"># Ensure executable permissions
+chmod +x blue_onyx
+</code></pre>
+<h3 id="performance-issues"><a class="header" href="#performance-issues">Performance Issues</a></h3>
+<p><strong>Use benchmark tool</strong>:</p>
+<pre><code class="language-bash"># Identify performance bottlenecks
+blue_onyx_benchmark --detailed --model ./models/rt-detrv2-s.onnx
+</code></pre>
+<p><strong>Check resource usage</strong>:</p>
+<pre><code class="language-bash"># Monitor while running
+top -p $(pgrep blue_onyx)
+</code></pre>
+<h3 id="service-issues-windows"><a class="header" href="#service-issues-windows">Service Issues (Windows)</a></h3>
+<p><strong>Check service status</strong>:</p>
+<pre><code class="language-powershell"># View service details
+sc.exe query blue_onyx_service
+
+# Check service logs
+Get-EventLog -LogName Application -Source "blue_onyx_service"
+</code></pre>
+<h3 id="validation-issues"><a class="header" href="#validation-issues">Validation Issues</a></h3>
+<p><strong>Run tests</strong>:</p>
+<pre><code class="language-bash"># Validate installation
+test_blue_onyx --verbose
+
+# Test specific configuration
+test_blue_onyx --config ./test_config.json
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="get_started.html">Getting Started</a></strong> - Learn how to use the main blue_onyx binary</li>
+<li><strong><a href="windows_service.html">Windows Service</a></strong> - Set up blue_onyx_service for production</li>
+<li><strong><a href="benchmark.html">Benchmark</a></strong> - Use blue_onyx_benchmark for performance testing</li>
+<li><strong><a href="configuration.html">Configuration</a></strong> - Configure binaries for your use case</li>
+</ul>
 
                     </main>
 

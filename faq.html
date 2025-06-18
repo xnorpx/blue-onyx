@@ -152,7 +152,301 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="todo"><a class="header" href="#todo">TODO</a></h1>
+                        <h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
+<h2 id="general-questions"><a class="header" href="#general-questions">General Questions</a></h2>
+<h3 id="what-is-blue-onyx"><a class="header" href="#what-is-blue-onyx">What is Blue Onyx?</a></h3>
+<p>Blue Onyx is a reliable object detection service written in Rust using the ONNX runtime. It's designed to be simple, robust, and performant for local object detection needs, particularly for security cameras and automated monitoring systems.</p>
+<h3 id="what-makes-blue-onyx-different-from-other-object-detection-services"><a class="header" href="#what-makes-blue-onyx-different-from-other-object-detection-services">What makes Blue Onyx different from other object detection services?</a></h3>
+<ul>
+<li><strong>Rust-based</strong>: Built for reliability and performance</li>
+<li><strong>ONNX Runtime</strong>: Industry-standard inference engine</li>
+<li><strong>Automatic Model Management</strong>: Downloads and manages models automatically</li>
+<li><strong>Multiple Model Support</strong>: RT-DETR v2 and specialized YOLO5 models</li>
+<li><strong>Simple Design</strong>: Focused on object detection without feature creep</li>
+<li><strong>Cross-platform</strong>: Windows and Linux support</li>
+</ul>
+<h3 id="is-blue-onyx-free-to-use"><a class="header" href="#is-blue-onyx-free-to-use">Is Blue Onyx free to use?</a></h3>
+<p>Yes, Blue Onyx is open source and free to use. It's licensed under <a href="https://github.com/xnorpx/blue-onyx/blob/main/LICENSE">Apache 2.0</a>.</p>
+<h2 id="installation-and-setup"><a class="header" href="#installation-and-setup">Installation and Setup</a></h2>
+<h3 id="how-do-i-install-blue-onyx"><a class="header" href="#how-do-i-install-blue-onyx">How do I install Blue Onyx?</a></h3>
+<p><strong>Windows</strong>: Use the one-line PowerShell installer:</p>
+<pre><code class="language-powershell">powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
+</code></pre>
+<p><strong>Linux</strong>: Use Docker:</p>
+<pre><code class="language-bash">docker pull ghcr.io/xnorpx/blue_onyx:latest
+docker run -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<h3 id="what-are-the-system-requirements"><a class="header" href="#what-are-the-system-requirements">What are the system requirements?</a></h3>
+<p><strong>Minimum</strong>:</p>
+<ul>
+<li>Windows 10 x64 or Linux x64</li>
+<li>4GB RAM</li>
+<li>2GB disk space (for models)</li>
+<li>Internet connection (for model downloads)</li>
+</ul>
+<p><strong>Recommended</strong>:</p>
+<ul>
+<li>8GB+ RAM</li>
+<li>Dedicated GPU (NVIDIA, AMD, or Intel)</li>
+<li>SSD storage</li>
+<li>Multi-core CPU</li>
+</ul>
+<h3 id="do-i-need-to-download-models-manually"><a class="header" href="#do-i-need-to-download-models-manually">Do I need to download models manually?</a></h3>
+<p>No! Blue Onyx automatically downloads models when needed. However, you can pre-download them:</p>
+<pre><code class="language-bash"># Download all models
+blue_onyx --download-model-path ./models --download-all-models
+
+# Download only RT-DETR models
+blue_onyx --download-model-path ./models --download-rt-detr2
+</code></pre>
+<h2 id="models-and-performance"><a class="header" href="#models-and-performance">Models and Performance</a></h2>
+<h3 id="which-model-should-i-use"><a class="header" href="#which-model-should-i-use">Which model should I use?</a></h3>
+<p><strong>For general use</strong>: <code>rt-detrv2-s.onnx</code> (default) - good balance of speed and accuracy</p>
+<p><strong>For higher accuracy</strong>: <code>rt-detrv2-l.onnx</code> or <code>rt-detrv2-x.onnx</code> - slower but more accurate</p>
+<p><strong>For specialized scenarios</strong>:</p>
+<ul>
+<li><code>delivery.onnx</code> - package and delivery detection</li>
+<li><code>IPcam-animal.onnx</code> - animal detection</li>
+<li><code>IPcam-dark.onnx</code> - low-light conditions</li>
+</ul>
+<h3 id="how-do-i-check-available-models"><a class="header" href="#how-do-i-check-available-models">How do I check available models?</a></h3>
+<pre><code class="language-bash">blue_onyx --list-models
+</code></pre>
+<h3 id="my-gpu-isnt-being-used-how-do-i-fix-this"><a class="header" href="#my-gpu-isnt-being-used-how-do-i-fix-this">My GPU isn't being used. How do I fix this?</a></h3>
+<ol>
+<li><strong>Check GPU drivers</strong> are up to date</li>
+<li><strong>Verify GPU support</strong>: Not all GPUs support ONNX acceleration</li>
+<li><strong>Try different GPU index</strong>: <code>--gpu_index 1</code> (if multiple GPUs)</li>
+<li><strong>Check compute capability</strong>: NVIDIA GPUs need compute capability 6.0+</li>
+<li><strong>Force CPU if needed</strong>: <code>--force_cpu</code> for troubleshooting</li>
+</ol>
+<h3 id="how-do-i-improve-detection-performance"><a class="header" href="#how-do-i-improve-detection-performance">How do I improve detection performance?</a></h3>
+<p><strong>For speed</strong>:</p>
+<ul>
+<li>Use smaller models (<code>rt-detrv2-s.onnx</code>)</li>
+<li>Enable GPU acceleration</li>
+<li>Reduce image resolution before sending</li>
+<li>Lower confidence threshold if getting too few detections</li>
+</ul>
+<p><strong>For accuracy</strong>:</p>
+<ul>
+<li>Use larger models (<code>rt-detrv2-l.onnx</code>, <code>rt-detrv2-x.onnx</code>)</li>
+<li>Increase confidence threshold</li>
+<li>Use appropriate specialized models for your use case</li>
+</ul>
+<h2 id="configuration-and-usage"><a class="header" href="#configuration-and-usage">Configuration and Usage</a></h2>
+<h3 id="how-do-i-change-the-default-port"><a class="header" href="#how-do-i-change-the-default-port">How do I change the default port?</a></h3>
+<pre><code class="language-bash"># Command line
+blue_onyx --port 8080
+
+# Configuration file
+{
+  "port": 8080
+}
+</code></pre>
+<h3 id="can-i-filter-for-specific-objects-only"><a class="header" href="#can-i-filter-for-specific-objects-only">Can I filter for specific objects only?</a></h3>
+<p>Yes, use the <code>object_filter</code> parameter:</p>
+<pre><code class="language-bash"># Command line
+blue_onyx --object_filter person,car,bicycle
+
+# Configuration file
+{
+  "object_filter": ["person", "car", "bicycle"]
+}
+</code></pre>
+<h3 id="how-do-i-save-processed-images"><a class="header" href="#how-do-i-save-processed-images">How do I save processed images?</a></h3>
+<pre><code class="language-bash">blue_onyx --save_image_path ./processed_images --save_ref_image
+</code></pre>
+<h3 id="can-i-use-blue-onyx-with-blue-iris"><a class="header" href="#can-i-use-blue-onyx-with-blue-iris">Can I use Blue Onyx with Blue Iris?</a></h3>
+<p>Yes! See the <a href="configure_blue_iris_5.html">Blue Iris Integration Guide</a> for detailed setup instructions.</p>
+<h3 id="how-do-i-run-blue-onyx-as-a-windows-service"><a class="header" href="#how-do-i-run-blue-onyx-as-a-windows-service">How do I run Blue Onyx as a Windows service?</a></h3>
+<pre><code class="language-powershell"># Create service
+sc.exe create blue_onyx_service binPath= "C:\Program Files\BlueOnyx\blue_onyx_service.exe --port 32168" start= auto displayname= "Blue Onyx Service"
+
+# Start service
+net start blue_onyx_service
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="blue-onyx-wont-start"><a class="header" href="#blue-onyx-wont-start">Blue Onyx won't start</a></h3>
+<p><strong>Check port availability</strong>:</p>
+<pre><code class="language-bash"># Windows
+netstat -ano | findstr :32168
+
+# Linux
+sudo netstat -tlpn | grep :32168
+</code></pre>
+<p><strong>Check logs</strong>:</p>
+<pre><code class="language-bash">blue_onyx --log_level Debug
+</code></pre>
+<p><strong>Verify model files</strong>:</p>
+<pre><code class="language-bash">blue_onyx --list-models
+</code></pre>
+<h3 id="getting-404-errors-during-model-download"><a class="header" href="#getting-404-errors-during-model-download">Getting 404 errors during model download</a></h3>
+<p>Some model files may have naming inconsistencies in the repository. The download will continue with available files. You can:</p>
+<ol>
+<li>Try downloading again later</li>
+<li>Use alternative models</li>
+<li>Check the <a href="models.html">models page</a> for known issues</li>
+</ol>
+<h3 id="object-detection-is-slow"><a class="header" href="#object-detection-is-slow">Object detection is slow</a></h3>
+<p><strong>Check system resources</strong>:</p>
+<ul>
+<li>Monitor CPU/GPU usage</li>
+<li>Ensure sufficient RAM</li>
+<li>Check if GPU acceleration is working</li>
+</ul>
+<p><strong>Optimize settings</strong>:</p>
+<ul>
+<li>Use a smaller model</li>
+<li>Reduce thread counts on Linux: <code>--intra_threads 2 --inter_threads 2</code></li>
+<li>Enable GPU if available</li>
+</ul>
+<h3 id="getting-poor-detection-results"><a class="header" href="#getting-poor-detection-results">Getting poor detection results</a></h3>
+<p><strong>Adjust confidence threshold</strong>:</p>
+<pre><code class="language-bash"># Lower for more detections (may include false positives)
+blue_onyx --confidence_threshold 0.3
+
+# Higher for fewer, more confident detections
+blue_onyx --confidence_threshold 0.7
+</code></pre>
+<p><strong>Try a different model</strong>:</p>
+<ul>
+<li>Larger RT-DETR models for better accuracy</li>
+<li>Specialized YOLO5 models for specific scenarios</li>
+</ul>
+<p><strong>Check image quality</strong>:</p>
+<ul>
+<li>Ensure images are clear and well-lit</li>
+<li>Avoid heavily compressed images</li>
+<li>Consider image preprocessing</li>
+</ul>
+<h3 id="docker-container-issues"><a class="header" href="#docker-container-issues">Docker container issues</a></h3>
+<p><strong>Container won't start</strong>:</p>
+<pre><code class="language-bash"># Check logs
+docker logs blue-onyx
+
+# Check if port is in use
+sudo netstat -tlpn | grep :32168
+</code></pre>
+<p><strong>Volume mount issues</strong>:</p>
+<pre><code class="language-bash"># Check permissions
+ls -la ~/blue-onyx/
+
+# Fix permissions
+sudo chown -R 1000:1000 ~/blue-onyx/
+</code></pre>
+<h3 id="high-memory-usage"><a class="header" href="#high-memory-usage">High memory usage</a></h3>
+<p><strong>Normal behavior</strong>: Model loading requires significant memory (2-8GB depending on model)</p>
+<p><strong>Reduce memory usage</strong>:</p>
+<ul>
+<li>Use smaller models</li>
+<li>Close other applications</li>
+<li>Monitor with <code>top</code> or Task Manager</li>
+</ul>
+<h3 id="windows-service-wont-start"><a class="header" href="#windows-service-wont-start">Windows service won't start</a></h3>
+<p><strong>Check service configuration</strong>:</p>
+<pre><code class="language-powershell">sc.exe query blue_onyx_service
+</code></pre>
+<p><strong>Check event logs</strong>:</p>
+<pre><code class="language-powershell">Get-EventLog -LogName Application -Source "blue_onyx_service"
+</code></pre>
+<p><strong>Verify file paths</strong>: Ensure all paths in service configuration are absolute and accessible</p>
+<h2 id="api-and-integration"><a class="header" href="#api-and-integration">API and Integration</a></h2>
+<h3 id="what-api-endpoints-are-available"><a class="header" href="#what-api-endpoints-are-available">What API endpoints are available?</a></h3>
+<ul>
+<li><code>POST /detect</code> - Detect objects in images</li>
+<li><code>GET /</code> - Web interface</li>
+<li><code>GET /stats</code> - Service statistics</li>
+<li><code>GET /test</code> - Test endpoint</li>
+</ul>
+<h3 id="how-do-i-send-images-for-detection"><a class="header" href="#how-do-i-send-images-for-detection">How do I send images for detection?</a></h3>
+<p><strong>Upload file</strong>:</p>
+<pre><code class="language-bash">curl -X POST -F "image=@photo.jpg" http://localhost:32168/detect
+</code></pre>
+<p><strong>Send URL</strong>:</p>
+<pre><code class="language-bash">curl -X POST -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/image.jpg"}' \
+  http://localhost:32168/detect
+</code></pre>
+<h3 id="what-response-format-does-the-api-use"><a class="header" href="#what-response-format-does-the-api-use">What response format does the API use?</a></h3>
+<p>JSON format with detected objects:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "predictions": [
+    {
+      "label": "person",
+      "confidence": 0.95,
+      "x_min": 100,
+      "y_min": 50,
+      "x_max": 200,
+      "y_max": 300
+    }
+  ],
+  "inference_time": 45.2,
+  "image_id": "abc123"
+}
+</code></pre>
+<h3 id="can-i-integrate-with-other-systems"><a class="header" href="#can-i-integrate-with-other-systems">Can I integrate with other systems?</a></h3>
+<p>Yes, Blue Onyx provides a standard REST API that can integrate with:</p>
+<ul>
+<li>Security camera systems (Blue Iris, Agent DVR)</li>
+<li>Home automation systems (Home Assistant)</li>
+<li>Custom applications</li>
+<li>Monitoring systems</li>
+</ul>
+<h2 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h2>
+<h3 id="can-i-train-custom-models"><a class="header" href="#can-i-train-custom-models">Can I train custom models?</a></h3>
+<p>Blue Onyx uses pre-trained ONNX models. To use custom models:</p>
+<ol>
+<li>Train your model in a supported framework (PyTorch, TensorFlow)</li>
+<li>Convert to ONNX format</li>
+<li>Create a corresponding YAML file with class names</li>
+<li>Use with <code>--model</code> parameter</li>
+</ol>
+<h3 id="how-do-i-benchmark-performance"><a class="header" href="#how-do-i-benchmark-performance">How do I benchmark performance?</a></h3>
+<p>Use the benchmark tool:</p>
+<pre><code class="language-bash">blue_onyx_benchmark --model ./models/rt-detrv2-s.onnx --iterations 100
+</code></pre>
+<h3 id="can-i-run-multiple-instances"><a class="header" href="#can-i-run-multiple-instances">Can I run multiple instances?</a></h3>
+<p>Yes, run on different ports:</p>
+<pre><code class="language-bash"># Instance 1
+blue_onyx --port 32168 --model ./models/rt-detrv2-s.onnx
+
+# Instance 2
+blue_onyx --port 32169 --model ./models/delivery.onnx
+</code></pre>
+<h3 id="how-do-i-update-blue-onyx"><a class="header" href="#how-do-i-update-blue-onyx">How do I update Blue Onyx?</a></h3>
+<p><strong>Windows</strong>: Re-run the installation script</p>
+<p><strong>Linux</strong>: Pull the latest Docker image:</p>
+<pre><code class="language-bash">docker pull ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<h3 id="is-there-a-roadmap-for-future-features"><a class="header" href="#is-there-a-roadmap-for-future-features">Is there a roadmap for future features?</a></h3>
+<p>Check the <a href="https://github.com/xnorpx/blue-onyx">GitHub repository</a> for:</p>
+<ul>
+<li>Current issues and feature requests</li>
+<li>Development roadmap</li>
+<li>Contribution guidelines</li>
+</ul>
+<h2 id="support-and-community"><a class="header" href="#support-and-community">Support and Community</a></h2>
+<h3 id="where-can-i-get-help"><a class="header" href="#where-can-i-get-help">Where can I get help?</a></h3>
+<ul>
+<li><strong>Documentation</strong>: This book covers most common scenarios</li>
+<li><strong>GitHub Issues</strong>: <a href="https://github.com/xnorpx/blue-onyx/issues">Report bugs or request features</a></li>
+<li><strong>Discussions</strong>: Community discussions on GitHub</li>
+</ul>
+<h3 id="how-can-i-contribute"><a class="header" href="#how-can-i-contribute">How can I contribute?</a></h3>
+<ul>
+<li>Report bugs or suggest features</li>
+<li>Contribute to documentation</li>
+<li>Submit pull requests for improvements</li>
+<li>Share your use cases and configurations</li>
+</ul>
+<h3 id="where-are-the-source-code-and-releases"><a class="header" href="#where-are-the-source-code-and-releases">Where are the source code and releases?</a></h3>
+<ul>
+<li><strong>Source</strong>: <a href="https://github.com/xnorpx/blue-onyx">GitHub Repository</a></li>
+<li><strong>Releases</strong>: <a href="https://github.com/xnorpx/blue-onyx/releases">GitHub Releases</a></li>
+<li><strong>Docker Images</strong>: <a href="https://ghcr.io/xnorpx/blue_onyx">GitHub Container Registry</a></li>
+</ul>
 
                     </main>
 

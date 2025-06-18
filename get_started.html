@@ -152,7 +152,145 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="todo"><a class="header" href="#todo">TODO</a></h1>
+                        <h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<p>This guide will help you get Blue Onyx up and running quickly with automatic model downloads.</p>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h2>
+<h3 id="windows"><a class="header" href="#windows">Windows</a></h3>
+<ol>
+<li>
+<p><strong>Download and Install</strong> (one-liner):</p>
+<pre><code class="language-powershell">powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
+</code></pre>
+</li>
+<li>
+<p><strong>Run Blue Onyx</strong>:</p>
+<pre><code class="language-powershell">blue_onyx
+</code></pre>
+<p>On first run, Blue Onyx will automatically download the default model (<code>rt-detrv2-s.onnx</code>) and start the service on port 32168.</p>
+</li>
+<li>
+<p><strong>Test the Service</strong>:
+Open your browser and go to: <code>http://127.0.0.1:32168/</code></p>
+</li>
+</ol>
+<h3 id="linux-docker"><a class="header" href="#linux-docker">Linux (Docker)</a></h3>
+<pre><code class="language-bash"># Pull and run the Docker container
+docker pull ghcr.io/xnorpx/blue_onyx:latest
+docker run -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest
+</code></pre>
+<h2 id="model-management"><a class="header" href="#model-management">Model Management</a></h2>
+<p>Blue Onyx automatically manages models for you, but you can also download them manually for better control.</p>
+<h3 id="automatic-model-download"><a class="header" href="#automatic-model-download">Automatic Model Download</a></h3>
+<p>By default, Blue Onyx will:</p>
+<ul>
+<li>Use <code>rt-detrv2-s.onnx</code> as the default model</li>
+<li>Automatically download the model and its YAML file on first run</li>
+<li>Download to the current working directory or specify with <code>--model</code></li>
+</ul>
+<h3 id="manual-model-download"><a class="header" href="#manual-model-download">Manual Model Download</a></h3>
+<p>To download models ahead of time or to a specific location:</p>
+<pre><code class="language-bash"># Download all available models to binary directory (simplest)
+blue_onyx --download-all-models
+
+# Download only RT-DETR v2 models to binary directory (recommended for general use)
+blue_onyx --download-rt-detr2
+
+# Download only YOLO5 specialized models to binary directory (for IP cameras/delivery)
+blue_onyx --download-yolo5
+
+# Download to a specific directory
+blue_onyx --download-all-models --download-model-path ./models
+blue_onyx --download-rt-detr2 --download-model-path ./models
+
+# List all available models
+blue_onyx --list-models
+</code></pre>
+<h3 id="using-a-specific-model"><a class="header" href="#using-a-specific-model">Using a Specific Model</a></h3>
+<pre><code class="language-bash"># Use a larger RT-DETR model for better accuracy
+blue_onyx --model ./models/rt-detrv2-l.onnx
+
+# Use a specialized YOLO5 model for delivery detection
+blue_onyx --model ./models/delivery.onnx --object-detection-model-type yolo5
+</code></pre>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<h3 id="basic-configuration"><a class="header" href="#basic-configuration">Basic Configuration</a></h3>
+<pre><code class="language-bash"># Run on a different port
+blue_onyx --port 8080
+
+# Increase confidence threshold (fewer, more confident detections)
+blue_onyx --confidence_threshold 0.7
+
+# Force CPU usage (disable GPU acceleration)
+blue_onyx --force_cpu
+
+# Enable debug logging
+blue_onyx --log_level Debug
+</code></pre>
+<h3 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h3>
+<p>For complex setups, use a JSON configuration file:</p>
+<p><strong>config.json:</strong></p>
+<pre><code class="language-json">{
+  "port": 8080,
+  "confidence_threshold": 0.7,
+  "model": "./models/rt-detrv2-l.onnx",
+  "log_level": "Info",
+  "force_cpu": false,
+  "object_filter": ["person", "car", "bicycle"]
+}
+</code></pre>
+<p><strong>Run with config:</strong></p>
+<pre><code class="language-bash">blue_onyx --config config.json
+</code></pre>
+<h2 id="testing-object-detection"><a class="header" href="#testing-object-detection">Testing Object Detection</a></h2>
+<h3 id="using-the-web-interface"><a class="header" href="#using-the-web-interface">Using the Web Interface</a></h3>
+<ol>
+<li>Open <code>http://127.0.0.1:32168/</code> in your browser</li>
+<li>Upload an image or use the test endpoint</li>
+<li>View detection results with bounding boxes</li>
+</ol>
+<h3 id="using-curl"><a class="header" href="#using-curl">Using curl</a></h3>
+<pre><code class="language-bash"># Test with an image file
+curl -X POST -F "image=@test_image.jpg" http://127.0.0.1:32168/detect
+
+# Test with a URL
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/image.jpg"}' \
+  http://127.0.0.1:32168/detect
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><strong><a href="models.html">Models</a></strong> - Learn about available models and their use cases</li>
+<li><strong><a href="configuration.html">Configuration</a></strong> - Detailed configuration options</li>
+<li><strong><a href="windows_service.html">Windows Service</a></strong> - Run Blue Onyx as a Windows service</li>
+<li><strong><a href="configure_blue_iris_5.html">Integration</a></strong> - Integrate with Blue Iris 5</li>
+</ul>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<h3 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h3>
+<p><strong>Service won't start:</strong></p>
+<ul>
+<li>Check if the port (32168) is already in use</li>
+<li>Verify the model files are downloaded correctly</li>
+<li>Check the logs for error messages</li>
+</ul>
+<p><strong>Poor detection performance:</strong></p>
+<ul>
+<li>Try a larger model (e.g., <code>rt-detrv2-l.onnx</code>)</li>
+<li>Adjust the confidence threshold</li>
+<li>Ensure GPU acceleration is working if available</li>
+</ul>
+<p><strong>Model download failures:</strong></p>
+<ul>
+<li>Check internet connectivity</li>
+<li>Verify disk space is available</li>
+<li>Try downloading to a different directory</li>
+</ul>
+<p><strong>GPU not being used:</strong></p>
+<ul>
+<li>Check that GPU drivers are installed</li>
+<li>Verify that the GPU supports the required compute capabilities</li>
+<li>Try setting <code>--gpu_index</code> to a different value if multiple GPUs are present</li>
+</ul>
+<p>For more detailed troubleshooting, see the <a href="faq.html">FAQ</a>.</p>
 
                     </main>
 
