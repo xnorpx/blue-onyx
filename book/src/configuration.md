@@ -108,11 +108,46 @@ Blue Onyx includes platform-specific example configuration files:
 | `port` | number | 32168 | HTTP server port |
 | `request_timeout` | number | 15 | Timeout in seconds for detection requests |
 | `worker_queue_size` | number | auto | Queue size for detection workers |
+| `model` | string | auto | Path to ONNX model file (auto-downloads rt-detrv2-s.onnx if not specified) |
+| `object_detection_model_type` | string | "RtDetrv2" | Model type: "RtDetrv2" or "Yolo5" |
+| `object_classes` | string | auto | Path to YAML file with object classes (auto-downloaded with model) |
 | `confidence_threshold` | number | 0.5 | Minimum confidence for detections |
 | `object_filter` | array | [] | Filter results to specific object types |
 | `log_level` | string | "Info" | Logging level: Trace, Debug, Info, Warn, Error |
+| `log_path` | string | null | Path to log file (if not set, logs to stdout) |
 | `force_cpu` | boolean | false | Force CPU inference (disable GPU) |
 | `gpu_index` | number | 0 | GPU device index to use |
+| `intra_threads` | number | 192/2 | Intra-op thread count (Windows: 192, Linux: 2) |
+| `inter_threads` | number | 192/2 | Inter-op thread count (Windows: 192, Linux: 2) |
+| `save_image_path` | string | null | Directory to save processed images |
+| `save_ref_image` | boolean | false | Save reference images alongside processed ones |
+| `save_stats_path` | string | null | Path to save inference statistics |
+
+## Model Download Options (CLI Only)
+
+These options are only available via command line and are used for model management:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `--list-models` | boolean | List all available models and exit |
+
+**Example:**
+```bash
+# List available models
+blue_onyx --list-models
+```
+
+**Note**: For model download options, see the [Models](models.md) section which covers downloading and managing models in detail.
+blue_onyx --download-model-path ./models --download-all-models
+
+# Download only RT-DETR models
+blue_onyx --download-model-path ./models --download-rt-detr2
+
+# List available models
+blue_onyx --list-models
+```
+
+**Note**: Download operations exit after completion and do not start the server.
 
 ## Environment-Specific Configurations
 

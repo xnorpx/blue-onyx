@@ -27,12 +27,6 @@ jobs:
       - name: Build blue_onyx binaries
         run: |
           cargo build --release --bin blue_onyx
-          cargo build --release --bin blue_onyx_download_models
-
-      - name: Download models
-        run: |
-          ./target/release/blue_onyx_download_models /tmp/models
-          ./target/release/blue_onyx_download_models /tmp/models custom-model
 
       - name: Prepare Docker context
         run: |
