@@ -79,15 +79,16 @@ mod blue_onyx_service {
         // Print the configuration being used
         args.print_config();
 
-        let (blue_onyx_service, cancellation_token, thread_handle) = match blue_onyx_service(args) {
-            Ok(v) => v,
-            Err(err) => {
-                error!(?err, "Failed to init blue onyx service");
-                return;
-            }
-        };
+        let (blue_onyx_service, cancellation_token, restart_token, thread_handle) =
+            match blue_onyx_service(args) {
+                Ok(v) => v,
+                Err(err) => {
+                    error!(?err, "Failed to init blue onyx service");
+                    return;
+                }
+            };
 
-        if let Err(err) = run_service(blue_onyx_service, cancellation_token) {
+        if let Err(err) = run_service(blue_onyx_service, cancellation_token, restart_token) {
             error!(?err, "Blue onyx service failed");
         }
 
@@ -95,10 +96,10 @@ mod blue_onyx_service {
             .join()
             .expect("Failed to join detector worker thread");
     }
-
     pub fn run_service(
-        blue_onyx_service: impl Future<Output = anyhow::Result<()>>,
+        blue_onyx_service: impl Future<Output = anyhow::Result<bool>>,
         cancellation_token: CancellationToken,
+        _restart_token: CancellationToken,
     ) -> anyhow::Result<()> {
         let event_handler = move |control_event| -> ServiceControlHandlerResult {
             match control_event {
