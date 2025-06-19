@@ -174,6 +174,31 @@ pub fn init_logging(
     }
 }
 
+#[cfg(target_os = "windows")]
+pub fn init_service_logging(log_level: LogLevel, _log_path: &mut Option<PathBuf>) {
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    // Create Windows Event Log layer only - no file or stdout logging
+    let eventlog_layer = tracing_layer_win_eventlog::EventLogLayer::new("Blue Onyx Service")
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to create Windows Event Log layer: {}", e);
+            panic!("Could not initialize Windows Event Log");
+        });
+
+    // Initialize with Event Log only
+    tracing_subscriber::registry()
+        .with(eventlog_layer)
+        .with(tracing_subscriber::filter::LevelFilter::from(Level::from(
+            log_level,
+        )))
+        .init();
+    info!(
+        ?log_level,
+        "Service logging initialized with Windows Event Log only"
+    );
+}
+
 fn setup_ansi_support() {
     #[cfg(target_os = "windows")]
     if let Err(e) = ansi_term::enable_ansi_support() {
