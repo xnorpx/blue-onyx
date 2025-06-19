@@ -33,6 +33,9 @@ pub fn blue_onyx_service(
     CancellationToken, // Add restart token
     std::thread::JoinHandle<()>,
 )> {
+    // Get the config path for the server
+    let config_path = args.get_current_config_path()?;
+
     let detector_config = detector::DetectorConfig {
         object_detection_onnx_config: OnnxConfig {
             force_cpu: args.force_cpu,
@@ -78,6 +81,7 @@ pub fn blue_onyx_service(
         restart_token.clone(),
         sender,
         metrics,
+        config_path,
     );
 
     let thread_handle = std::thread::spawn(move || {
@@ -129,13 +133,41 @@ pub fn direct_ml_available() -> bool {
     }
 }
 
+use std::sync::OnceLock;
+
+// Global reload handle for regular blue_onyx binary
+static REGULAR_LOG_RELOAD_HANDLE: OnceLock<
+    tracing_subscriber::reload::Handle<tracing_subscriber::EnvFilter, tracing_subscriber::Registry>,
+> = OnceLock::new();
+
+#[cfg(target_os = "windows")]
+// Global reload handle for service binary
+static SERVICE_LOG_RELOAD_HANDLE: OnceLock<
+    tracing_subscriber::reload::Handle<tracing_subscriber::EnvFilter, tracing_subscriber::Registry>,
+> = OnceLock::new();
+
 pub fn init_logging(
     log_level: LogLevel,
     log_path: &mut Option<PathBuf>,
-) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+) -> anyhow::Result<Option<tracing_appender::non_blocking::WorkerGuard>> {
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::{reload, EnvFilter};
+
     setup_ansi_support();
 
-    let guard = log_path.clone().map(|path| {
+    // Create a reloadable env filter
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(level_to_filter_string(log_level)));
+
+    let (env_filter, reload_handle) = reload::Layer::new(env_filter);
+
+    // Store the reload handle globally for later use
+    REGULAR_LOG_RELOAD_HANDLE
+        .set(reload_handle)
+        .map_err(|_| anyhow::anyhow!("Failed to set log reload handle"))?;
+
+    let guard = if let Some(path) = log_path.clone() {
         let log_directory = if path.starts_with(".") {
             let stripped = path.strip_prefix(".").unwrap_or(&path).to_path_buf();
             std::env::current_exe()
@@ -154,49 +186,111 @@ pub fn init_logging(
         let file_appender = tracing_appender::rolling::daily(&log_directory, "blue_onyx.log");
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
-        tracing_subscriber::fmt()
+        let file_layer = tracing_subscriber::fmt::layer()
             .with_writer(non_blocking)
-            .with_max_level(Level::from(log_level))
-            .with_ansi(false)
-            .init();
+            .with_ansi(false);
 
-        guard
-    });
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(file_layer)
+            .try_init()
+            .map_err(|_| anyhow::anyhow!("Logging already initialized"))?;
 
-    if guard.is_some() {
-        guard
+        Some(guard)
     } else {
-        tracing_subscriber::fmt()
-            .with_max_level(Level::from(log_level))
-            .init();
-        info!(?log_level, "Logging initialized");
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(tracing_subscriber::fmt::layer())
+            .try_init()
+            .map_err(|_| anyhow::anyhow!("Logging already initialized"))?;
+
         None
+    };
+
+    info!(
+        ?log_level,
+        "Logging initialized with dynamic filtering support"
+    );
+    Ok(guard)
+}
+
+pub fn update_log_level(new_log_level: LogLevel) -> anyhow::Result<()> {
+    use tracing_subscriber::EnvFilter;
+
+    if let Some(reload_handle) = REGULAR_LOG_RELOAD_HANDLE.get() {
+        let new_filter = EnvFilter::new(level_to_filter_string(new_log_level));
+        reload_handle
+            .reload(new_filter)
+            .map_err(|e| anyhow::anyhow!("Failed to reload log filter: {}", e))?;
+
+        info!(?new_log_level, "Log level updated dynamically");
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Log reload handle not available"))
     }
 }
 
 #[cfg(target_os = "windows")]
-pub fn init_service_logging(log_level: LogLevel, _log_path: &mut Option<PathBuf>) {
+pub fn init_service_logging(log_level: LogLevel) -> anyhow::Result<()> {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::{reload, EnvFilter};
+
+    // Create a reloadable env filter
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(level_to_filter_string(log_level)));
+
+    let (env_filter, reload_handle) = reload::Layer::new(env_filter);
+
+    // Store the reload handle globally for later use
+    SERVICE_LOG_RELOAD_HANDLE
+        .set(reload_handle)
+        .map_err(|_| anyhow::anyhow!("Failed to set log reload handle"))?;
 
     // Create Windows Event Log layer only - no file or stdout logging
     let eventlog_layer = tracing_layer_win_eventlog::EventLogLayer::new("Blue Onyx Service")
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to create Windows Event Log layer: {}", e);
-            panic!("Could not initialize Windows Event Log");
-        });
+        .map_err(|e| anyhow::anyhow!("Failed to create Windows Event Log layer: {}", e))?;
 
-    // Initialize with Event Log only
+    // Try to initialize with Event Log and reloadable filter
     tracing_subscriber::registry()
+        .with(env_filter)
         .with(eventlog_layer)
-        .with(tracing_subscriber::filter::LevelFilter::from(Level::from(
-            log_level,
-        )))
-        .init();
+        .try_init()
+        .map_err(|_| anyhow::anyhow!("Logging already initialized"))?;
+
     info!(
         ?log_level,
-        "Service logging initialized with Windows Event Log only"
+        "Service logging initialized with Windows Event Log and dynamic filtering"
     );
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+pub fn update_service_log_level(new_log_level: LogLevel) -> anyhow::Result<()> {
+    use tracing_subscriber::EnvFilter;
+
+    if let Some(reload_handle) = SERVICE_LOG_RELOAD_HANDLE.get() {
+        let new_filter = EnvFilter::new(level_to_filter_string(new_log_level));
+        reload_handle
+            .reload(new_filter)
+            .map_err(|e| anyhow::anyhow!("Failed to reload log filter: {}", e))?;
+
+        info!(?new_log_level, "Log level updated dynamically");
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Log reload handle not available"))
+    }
+}
+
+fn level_to_filter_string(log_level: LogLevel) -> String {
+    match log_level {
+        LogLevel::Trace => "trace",
+        LogLevel::Debug => "debug",
+        LogLevel::Info => "info",
+        LogLevel::Warn => "warn",
+        LogLevel::Error => "error",
+    }
+    .to_string()
 }
 
 fn setup_ansi_support() {

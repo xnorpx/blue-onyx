@@ -23,7 +23,7 @@ use reqwest;
 use serde::Deserialize;
 use std::{
     net::{Ipv4Addr, SocketAddr},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
 };
@@ -45,6 +45,7 @@ struct ServerState {
     )>,
     metrics: Mutex<Metrics>,
     restart_token: CancellationToken,
+    config_path: PathBuf,
 }
 
 pub async fn run_server(
@@ -57,12 +58,14 @@ pub async fn run_server(
         Instant,
     )>,
     metrics: Metrics,
+    config_path: PathBuf,
 ) -> anyhow::Result<bool> {
     // Return bool to indicate if restart was requested
     let server_state = Arc::new(ServerState {
         sender,
         metrics: Mutex::new(metrics),
         restart_token: restart_token.clone(),
+        config_path,
     });
     let blue_onyx = Router::new()
         .route("/", get(welcome_handler))
@@ -76,7 +79,12 @@ pub async fn run_server(
         .route("/test", get(show_form).post(handle_upload))
         .route("/config", get(config_get_handler).post(config_post_handler))
         .route("/config/restart", post(config_restart_handler))
+        .route("/config/loglevel", post(config_loglevel_handler))
         .route("/favicon.ico", get(favicon_handler))
+        .route(
+            "/static/css/bootstrap-icons.css",
+            get(bootstrap_icons_css_handler),
+        )
         .fallback(fallback_handler)
         .with_state(server_state.clone())
         .layer(DefaultBodyLimit::max(THIRTY_MEGABYTES));
@@ -328,11 +336,14 @@ struct ConfigTemplateData {
     is_windows: bool,
 }
 
-async fn config_get_handler() -> impl IntoResponse {
-    show_config_form("".to_string(), "".to_string()).await
+async fn config_get_handler(State(state): State<Arc<ServerState>>) -> impl IntoResponse {
+    show_config_form("".to_string(), "".to_string(), &state.config_path).await
 }
 
-async fn config_post_handler(mut multipart: Multipart) -> impl IntoResponse {
+async fn config_post_handler(
+    State(state): State<Arc<ServerState>>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
     // Parse form data
     let mut form_data = std::collections::HashMap::new();
 
@@ -345,166 +356,21 @@ async fn config_post_handler(mut multipart: Multipart) -> impl IntoResponse {
         }
     }
 
-    // Load current configuration
-    let current_config_path = match crate::cli::Cli::get_default_config_path() {
-        Ok(path) => path,
-        Err(e) => {
-            return show_config_form("".to_string(), format!("Failed to get config path: {}", e))
-                .await;
-        }
-    };
+    // Use the config path from server state
+    let current_config_path = &state.config_path;
 
-    let mut config = crate::cli::Cli::load_config(&current_config_path).unwrap_or_default(); // Update configuration from form data
-    if let Some(port_str) = form_data.get("port") {
-        if let Ok(port) = port_str.parse::<u16>() {
-            config.port = port;
-        }
-    }
+    let mut config = crate::cli::Cli::load_config(current_config_path).unwrap_or_default();
 
-    if let Some(timeout_str) = form_data.get("request_timeout") {
-        if let Ok(timeout) = timeout_str.parse::<u64>() {
-            config.request_timeout = std::time::Duration::from_secs(timeout);
-        }
-    }
+    // Update configuration from form data
+    update_config_from_form_data(&mut config, &form_data);
 
-    if let Some(queue_str) = form_data.get("worker_queue_size") {
-        config.worker_queue_size = if queue_str.is_empty() {
-            None
-        } else {
-            queue_str.parse::<usize>().ok()
-        };
-    }
-
-    // Handle model selection
-    if let Some(model_selection_type) = form_data.get("model_selection_type") {
-        match model_selection_type.as_str() {
-            "builtin" => {
-                if let Some(builtin_model) = form_data.get("builtin_model") {
-                    if !builtin_model.is_empty() {
-                        // Set the model path to just the filename (will be found in the executable directory)
-                        config.model = Some(PathBuf::from(builtin_model));
-
-                        // Determine model type and set object classes based on the model
-                        if builtin_model.starts_with("rt-detr") {
-                            config.object_detection_model_type =
-                                crate::detector::ObjectDetectionModel::RtDetrv2;
-                        } else {
-                            config.object_detection_model_type =
-                                crate::detector::ObjectDetectionModel::Yolo5;
-                        }
-
-                        // Set corresponding YAML file
-                        let yaml_file = builtin_model.replace(".onnx", ".yaml");
-                        config.object_classes = Some(PathBuf::from(yaml_file));
-                    }
-                }
-            }
-            "custom" => {
-                // Handle custom model configuration
-                if let Some(custom_model_path) = form_data.get("custom_model_path") {
-                    config.model = if custom_model_path.is_empty() {
-                        None
-                    } else {
-                        Some(PathBuf::from(custom_model_path))
-                    };
-                }
-
-                if let Some(custom_model_type) = form_data.get("custom_model_type") {
-                    config.object_detection_model_type = match custom_model_type.as_str() {
-                        "Yolo5" => crate::detector::ObjectDetectionModel::Yolo5,
-                        _ => crate::detector::ObjectDetectionModel::RtDetrv2,
-                    };
-                }
-
-                if let Some(custom_classes_str) = form_data.get("custom_object_classes") {
-                    config.object_classes = if custom_classes_str.is_empty() {
-                        None
-                    } else {
-                        Some(PathBuf::from(custom_classes_str))
-                    };
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if let Some(filter_str) = form_data.get("object_filter") {
-        config.object_filter = if filter_str.is_empty() {
-            Vec::new()
-        } else {
-            filter_str
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .collect()
-        };
-    }
-
-    if let Some(confidence_str) = form_data.get("confidence_threshold") {
-        if let Ok(confidence) = confidence_str.parse::<f32>() {
-            config.confidence_threshold = confidence;
-        }
-    }
-
-    if let Some(log_level) = form_data.get("log_level") {
-        config.log_level = match log_level.as_str() {
-            "Trace" => crate::LogLevel::Trace,
-            "Debug" => crate::LogLevel::Debug,
-            "Warn" => crate::LogLevel::Warn,
-            "Error" => crate::LogLevel::Error,
-            _ => crate::LogLevel::Info,
-        };
-    }
-
-    if let Some(log_path_str) = form_data.get("log_path") {
-        config.log_path = if log_path_str.is_empty() {
-            None
-        } else {
-            Some(PathBuf::from(log_path_str))
-        };
-    }
-
-    config.force_cpu = form_data.contains_key("force_cpu");
-
-    if let Some(gpu_str) = form_data.get("gpu_index") {
-        if let Ok(gpu_index) = gpu_str.parse::<i32>() {
-            config.gpu_index = gpu_index;
-        }
-    }
-
-    if let Some(intra_str) = form_data.get("intra_threads") {
-        if let Ok(intra_threads) = intra_str.parse::<usize>() {
-            config.intra_threads = intra_threads;
-        }
-    }
-
-    if let Some(inter_str) = form_data.get("inter_threads") {
-        if let Ok(inter_threads) = inter_str.parse::<usize>() {
-            config.inter_threads = inter_threads;
-        }
-    }
-
-    if let Some(save_image_str) = form_data.get("save_image_path") {
-        config.save_image_path = if save_image_str.is_empty() {
-            None
-        } else {
-            Some(PathBuf::from(save_image_str))
-        };
-    }
-
-    config.save_ref_image = form_data.contains_key("save_ref_image");
-
-    if let Some(save_stats_str) = form_data.get("save_stats_path") {
-        config.save_stats_path = if save_stats_str.is_empty() {
-            None
-        } else {
-            Some(PathBuf::from(save_stats_str))
-        };
-    } // Save the updated configuration
-    match config.save_config(&current_config_path) {
+    // Save the updated configuration
+    match config.save_config(current_config_path) {
         Ok(()) => {
             show_config_form(
                 "Configuration saved successfully!".to_string(),
                 "".to_string(),
+                current_config_path,
             )
             .await
         }
@@ -512,6 +378,7 @@ async fn config_post_handler(mut multipart: Multipart) -> impl IntoResponse {
             show_config_form(
                 "".to_string(),
                 format!("Failed to save configuration: {}", e),
+                current_config_path,
             )
             .await
         }
@@ -535,29 +402,14 @@ async fn config_restart_handler(
     }
 
     // Load and update configuration
-    let current_config_path = match crate::cli::Cli::get_default_config_path() {
-        Ok(path) => path,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to get config path: {}", e),
-            )
-                .into_response();
-        }
-    };
+    let current_config_path = &state.config_path;
+    let mut config = crate::cli::Cli::load_config(current_config_path).unwrap_or_default();
 
-    let mut config = crate::cli::Cli::load_config(&current_config_path).unwrap_or_default();
-
-    // Apply all form updates (abbreviated version - you'd include all the parsing logic from config_post_handler)
-    if let Some(port_str) = form_data.get("port") {
-        if let Ok(port) = port_str.parse::<u16>() {
-            config.port = port;
-        }
-    }
-    // ... (include all other field parsing logic from config_post_handler)
+    // Apply all form updates (complete parsing logic from config_post_handler)
+    update_config_from_form_data(&mut config, &form_data);
 
     // Save configuration
-    match config.save_config(&current_config_path) {
+    match config.save_config(current_config_path) {
         Ok(()) => {
             info!("Configuration saved, triggering server restart...");
             // Trigger restart by cancelling the restart token
@@ -579,44 +431,50 @@ async fn config_restart_handler(
     }
 }
 
-async fn show_config_form(success_message: String, error_message: String) -> impl IntoResponse {
+#[derive(Deserialize)]
+struct LogLevelRequest {
+    log_level: crate::LogLevel,
+}
+
+async fn config_loglevel_handler(Json(payload): Json<LogLevelRequest>) -> impl IntoResponse {
+    match crate::update_log_level(payload.log_level) {
+        Ok(()) => {
+            info!(?payload.log_level, "Log level updated successfully via API");
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true,
+                    "message": format!("Log level updated to {:?}", payload.log_level),
+                    "new_level": format!("{:?}", payload.log_level)
+                })),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            error!("Failed to update log level: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "message": format!("Failed to update log level: {}", e)
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn show_config_form(
+    success_message: String,
+    error_message: String,
+    config_path: &Path,
+) -> impl IntoResponse {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
-    let logo_data = format!("data:image/png;base64,{}", encoded_logo); // Load current configuration
-    let current_config_path = match crate::cli::Cli::get_default_config_path() {
-        Ok(path) => path,
-        Err(e) => {
-            let template = ConfigTemplate {
-                logo_data,
-                config: ConfigTemplateData {
-                    port: 32168,
-                    request_timeout: 15,
-                    worker_queue_size: "".to_string(),
-                    model_selection_type: "builtin".to_string(),
-                    builtin_model: "rt-detrv2-s.onnx".to_string(),
-                    custom_model_path: String::new(),
-                    custom_model_type: "RtDetrv2".to_string(),
-                    custom_object_classes: String::new(),
-                    object_filter_str: String::new(),
-                    confidence_threshold: 0.5,
-                    log_level: "Info".to_string(),
-                    log_path: String::new(),
-                    force_cpu: false,
-                    gpu_index: 0,
-                    intra_threads: 192,
-                    inter_threads: 192,
-                    save_image_path: String::new(),
-                    save_ref_image: false,
-                    save_stats_path: String::new(),
-                    is_windows: cfg!(target_os = "windows"),
-                },
-                config_path: format!("Error: {}", e),
-                success_message,
-                error_message,
-            };
-            return render_config_template(template);
-        }
-    };
+    let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+
+    // Use the provided config path instead of trying to get the default
+    let current_config_path = config_path.to_path_buf();
     let config = crate::cli::Cli::load_config(&current_config_path).unwrap_or_default();
 
     // Determine if using builtin or custom model
@@ -1036,5 +894,181 @@ where
 {
     fn from(err: E) -> Self {
         Self(err.into())
+    }
+}
+
+async fn bootstrap_icons_css_handler() -> impl IntoResponse {
+    // Return minimal CSS to prevent 404 errors
+    // This could be replaced with actual Bootstrap Icons CSS if needed
+    const MINIMAL_CSS: &str = r#"
+/* Minimal Bootstrap Icons CSS placeholder */
+/* Add actual Bootstrap Icons CSS here if needed */
+.icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+}
+"#;
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/css")],
+        MINIMAL_CSS,
+    )
+        .into_response()
+}
+
+/// Helper function to parse form data and update configuration
+fn update_config_from_form_data(
+    config: &mut crate::cli::Cli,
+    form_data: &std::collections::HashMap<String, String>,
+) {
+    // Basic server configuration
+    if let Some(port_str) = form_data.get("port") {
+        if let Ok(port) = port_str.parse::<u16>() {
+            config.port = port;
+        }
+    }
+
+    if let Some(timeout_str) = form_data.get("request_timeout") {
+        if let Ok(timeout) = timeout_str.parse::<u64>() {
+            config.request_timeout = std::time::Duration::from_secs(timeout);
+        }
+    }
+
+    if let Some(queue_str) = form_data.get("worker_queue_size") {
+        config.worker_queue_size = if queue_str.is_empty() {
+            None
+        } else {
+            queue_str.parse::<usize>().ok()
+        };
+    }
+
+    // Model configuration
+    if let Some(model_selection_type) = form_data.get("model_selection_type") {
+        match model_selection_type.as_str() {
+            "builtin" => {
+                if let Some(builtin_model) = form_data.get("builtin_model") {
+                    if !builtin_model.is_empty() {
+                        // Set the model path to just the filename (will be found in the executable directory)
+                        config.model = Some(PathBuf::from(builtin_model));
+
+                        // Determine model type and set object classes based on the model
+                        if builtin_model.starts_with("rt-detr") {
+                            config.object_detection_model_type =
+                                crate::detector::ObjectDetectionModel::RtDetrv2;
+                        } else {
+                            config.object_detection_model_type =
+                                crate::detector::ObjectDetectionModel::Yolo5;
+                        }
+
+                        // Set corresponding YAML file
+                        let yaml_file = builtin_model.replace(".onnx", ".yaml");
+                        config.object_classes = Some(PathBuf::from(yaml_file));
+                    }
+                }
+            }
+            "custom" => {
+                // Handle custom model configuration
+                if let Some(custom_model_path) = form_data.get("custom_model_path") {
+                    config.model = if custom_model_path.is_empty() {
+                        None
+                    } else {
+                        Some(PathBuf::from(custom_model_path))
+                    };
+                }
+
+                if let Some(custom_model_type) = form_data.get("custom_model_type") {
+                    config.object_detection_model_type = match custom_model_type.as_str() {
+                        "Yolo5" => crate::detector::ObjectDetectionModel::Yolo5,
+                        _ => crate::detector::ObjectDetectionModel::RtDetrv2,
+                    };
+                }
+
+                if let Some(custom_classes_str) = form_data.get("custom_object_classes") {
+                    config.object_classes = if custom_classes_str.is_empty() {
+                        None
+                    } else {
+                        Some(PathBuf::from(custom_classes_str))
+                    };
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Detection configuration
+    if let Some(filter_str) = form_data.get("object_filter") {
+        config.object_filter = if filter_str.is_empty() {
+            Vec::new()
+        } else {
+            filter_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
+        };
+    }
+
+    if let Some(confidence_str) = form_data.get("confidence_threshold") {
+        if let Ok(confidence) = confidence_str.parse::<f32>() {
+            config.confidence_threshold = confidence;
+        }
+    }
+
+    // Logging configuration
+    if let Some(log_level) = form_data.get("log_level") {
+        config.log_level = match log_level.as_str() {
+            "Trace" => crate::LogLevel::Trace,
+            "Debug" => crate::LogLevel::Debug,
+            "Warn" => crate::LogLevel::Warn,
+            "Error" => crate::LogLevel::Error,
+            _ => crate::LogLevel::Info,
+        };
+    }
+
+    if let Some(log_path_str) = form_data.get("log_path") {
+        config.log_path = if log_path_str.is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(log_path_str))
+        };
+    }
+
+    // Performance configuration
+    config.force_cpu = form_data.contains_key("force_cpu");
+
+    if let Some(gpu_str) = form_data.get("gpu_index") {
+        if let Ok(gpu_index) = gpu_str.parse::<i32>() {
+            config.gpu_index = gpu_index;
+        }
+    }
+
+    if let Some(intra_str) = form_data.get("intra_threads") {
+        if let Ok(intra_threads) = intra_str.parse::<usize>() {
+            config.intra_threads = intra_threads;
+        }
+    }
+
+    if let Some(inter_str) = form_data.get("inter_threads") {
+        if let Ok(inter_threads) = inter_str.parse::<usize>() {
+            config.inter_threads = inter_threads;
+        }
+    }
+
+    // Output configuration
+    if let Some(save_image_str) = form_data.get("save_image_path") {
+        config.save_image_path = if save_image_str.is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(save_image_str))
+        };
+    }
+
+    config.save_ref_image = form_data.contains_key("save_ref_image");
+
+    if let Some(save_stats_str) = form_data.get("save_stats_path") {
+        config.save_stats_path = if save_stats_str.is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(save_stats_str))
+        };
     }
 }
