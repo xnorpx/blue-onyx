@@ -1725,7 +1725,154 @@ Avoid using main stream as the service will anyway resize the pictures to smalle
 <p><img src="images/blue_iris_camera_settings.jpg" alt="Blue Iris Camera Settings" /></p>
 <p>If everything is configured correctly you should see succesful request count increase in the stats page.</p>
 <p><img src="images/stats.jpg" alt="Statistics Overview" /></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="todo-2"><a class="header" href="#todo-2">TODO</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="windows-service-configuration-for-gpu-access"><a class="header" href="#windows-service-configuration-for-gpu-access">Windows Service Configuration for GPU Access</a></h1>
+<p>This guide covers the proper configuration of Blue Onyx as a Windows service with optimal GPU/DirectX 12/DirectML access.</p>
+<h2 id="quick-installation"><a class="header" href="#quick-installation">Quick Installation</a></h2>
+<p>Use the provided PowerShell script for automatic installation:</p>
+<pre><code class="language-powershell"># Run as Administrator
+.\install_service_with_gpu.ps1
+</code></pre>
+<h2 id="manual-installation"><a class="header" href="#manual-installation">Manual Installation</a></h2>
+<h3 id="basic-service-installation"><a class="header" href="#basic-service-installation">Basic Service Installation</a></h3>
+<pre><code class="language-cmd"># Create the service with NetworkService account (recommended for GPU access)
+sc.exe create blue_onyx_service binPath= "C:\BlueOnyx\blue_onyx_service.exe" start= auto displayname= "Blue Onyx Service" obj= "NT AUTHORITY\NetworkService"
+
+# Configure for desktop interaction (helps with GPU access)
+sc.exe config blue_onyx_service type= own type= interact
+
+# Set service description
+sc.exe description blue_onyx_service "Blue Onyx AI Object Detection Service with DirectML GPU acceleration"
+
+# Configure failure recovery
+sc.exe failure blue_onyx_service reset= 86400 actions= restart/30000/restart/60000/restart/120000
+
+# Set required privileges for GPU access
+sc.exe privs blue_onyx_service SeIncreaseQuotaPrivilege/SeAssignPrimaryTokenPrivilege/SeServiceLogonRight/SeCreateGlobalPrivilege
+
+# Start the service
+net start blue_onyx_service
+</code></pre>
+<h2 id="service-account-options"><a class="header" href="#service-account-options">Service Account Options</a></h2>
+<h3 id="networkservice-recommended"><a class="header" href="#networkservice-recommended">NetworkService (Recommended)</a></h3>
+<ul>
+<li><strong>Best for</strong>: Most installations with GPU access requirements</li>
+<li><strong>Pros</strong>: Good GPU access, network capabilities, moderate security</li>
+<li><strong>Account</strong>: <code>NT AUTHORITY\NetworkService</code></li>
+</ul>
+<h3 id="localsystem"><a class="header" href="#localsystem">LocalSystem</a></h3>
+<ul>
+<li><strong>Best for</strong>: Maximum compatibility but reduced security</li>
+<li><strong>Pros</strong>: Full system access, best compatibility</li>
+<li><strong>Cons</strong>: Runs with highest privileges, security risk</li>
+<li><strong>Account</strong>: <code>LocalSystem</code></li>
+</ul>
+<h3 id="localservice"><a class="header" href="#localservice">LocalService</a></h3>
+<ul>
+<li><strong>Best for</strong>: Highest security, local-only operations</li>
+<li><strong>Pros</strong>: Limited privileges, good security</li>
+<li><strong>Cons</strong>: Limited GPU access</li>
+<li><strong>Account</strong>: <code>NT AUTHORITY\LocalService</code></li>
+</ul>
+<h2 id="gpu-access-considerations"><a class="header" href="#gpu-access-considerations">GPU Access Considerations</a></h2>
+<h3 id="session-0-isolation"><a class="header" href="#session-0-isolation">Session 0 Isolation</a></h3>
+<p>Windows services run in Session 0, which has limited access to graphics subsystems. The service includes:</p>
+<ul>
+<li><strong>DirectML Detection</strong>: Validates DirectML.dll availability</li>
+<li><strong>DirectX 12 Validation</strong>: Checks for GPU adapters and DirectX support</li>
+<li><strong>Environment Variables</strong>: Sets optimal DirectML configuration</li>
+</ul>
+<h3 id="required-files"><a class="header" href="#required-files">Required Files</a></h3>
+<p>Ensure these files are in the service executable directory:</p>
+<ul>
+<li><code>blue_onyx_service.exe</code></li>
+<li><code>DirectML.dll</code></li>
+<li>Service configuration file</li>
+</ul>
+<h3 id="gpu-monitoring"><a class="header" href="#gpu-monitoring">GPU Monitoring</a></h3>
+<p>Monitor GPU usage to verify DirectML acceleration:</p>
+<ol>
+<li>Open Task Manager → Performance → GPU</li>
+<li>Look for "DirectML" or "Compute" activity</li>
+<li>Check service logs for GPU detection messages</li>
+</ol>
+<h2 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h2>
+<h3 id="service-configuration-file-1"><a class="header" href="#service-configuration-file-1">Service Configuration File</a></h3>
+<p>Create <code>blue_onyx_config_service.json</code> in the same directory:</p>
+<pre><code class="language-json">{
+    "port": 32168,
+    "force_cpu": false,
+    "gpu_index": 0,
+    "log_level": "Info",
+    "confidence_threshold": 0.5,
+    "model": "C:\\BlueOnyx\\Models\\custom-model.onnx",
+    "save_stats_path": "C:\\ProgramData\\BlueOnyx\\service_stats.json"
+}
+</code></pre>
+<h3 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h3>
+<p>The service automatically sets:</p>
+<ul>
+<li><code>DIRECTML_DEBUG=0</code>: Disable DirectML debug output</li>
+<li><code>D3D12_EXPERIMENTAL_SHADER_MODELS=1</code>: Enable experimental DirectX features</li>
+</ul>
+<h2 id="troubleshooting-6"><a class="header" href="#troubleshooting-6">Troubleshooting</a></h2>
+<h3 id="gpu-not-detected"><a class="header" href="#gpu-not-detected">GPU Not Detected</a></h3>
+<ol>
+<li>Verify DirectML.dll is present</li>
+<li>Check Windows Event Logs for DirectX errors</li>
+<li>Update GPU drivers</li>
+<li>Try different service account (NetworkService vs LocalSystem)</li>
+</ol>
+<h3 id="service-wont-start"><a class="header" href="#service-wont-start">Service Won't Start</a></h3>
+<ol>
+<li>Check file permissions on service directory</li>
+<li>Verify service account has required privileges</li>
+<li>Review service logs in Event Viewer</li>
+<li>Ensure configuration file is valid JSON</li>
+</ol>
+<h3 id="poor-performance"><a class="header" href="#poor-performance">Poor Performance</a></h3>
+<ol>
+<li>Verify GPU is being used (Task Manager)</li>
+<li>Check <code>force_cpu</code> setting in configuration</li>
+<li>Monitor service logs for DirectML initialization</li>
+<li>Consider increasing <code>gpu_index</code> if multiple GPUs present</li>
+</ol>
+<h2 id="service-management-1"><a class="header" href="#service-management-1">Service Management</a></h2>
+<pre><code class="language-cmd"># Start service
+net start blue_onyx_service
+
+# Stop service
+net stop blue_onyx_service
+
+# Check status
+sc.exe query blue_onyx_service
+
+# View service configuration
+sc.exe qc blue_onyx_service
+
+# Remove service
+sc.exe delete blue_onyx_service
+</code></pre>
+<h2 id="event-logging"><a class="header" href="#event-logging">Event Logging</a></h2>
+<p>The service logs important events to:</p>
+<ul>
+<li><strong>Application Event Log</strong>: Service start/stop events</li>
+<li><strong>Service Logs</strong>: DirectML and GPU detection (if log_path configured)</li>
+</ul>
+<p>Check Event Viewer → Windows Logs → Application for service events.</p>
+<h2 id="security-considerations-2"><a class="header" href="#security-considerations-2">Security Considerations</a></h2>
+<ol>
+<li><strong>Service Account</strong>: Use NetworkService for balanced security and functionality</li>
+<li><strong>File Permissions</strong>: Ensure service account has read access to model files</li>
+<li><strong>Network Access</strong>: Configure firewall rules for the service port</li>
+<li><strong>Privileges</strong>: Service runs with minimal required privileges for GPU access</li>
+</ol>
+<h2 id="performance-optimization"><a class="header" href="#performance-optimization">Performance Optimization</a></h2>
+<ol>
+<li><strong>GPU Selection</strong>: Use <code>gpu_index</code> to select optimal GPU in multi-GPU systems</li>
+<li><strong>Thread Configuration</strong>: Adjust <code>intra_threads</code> and <code>inter_threads</code> for CPU fallback</li>
+<li><strong>Model Placement</strong>: Store models on fast storage (SSD)</li>
+<li><strong>Memory Management</strong>: Monitor memory usage, especially with large models</li>
+</ol>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
 <p>The design of Blue Onyx is very simple. It implements the same HTTP API as other open-source object detection services for compatibility.</p>
 <pre><code class="language-http">/v1/vision/detection
@@ -1863,7 +2010,7 @@ sc.exe create blue_onyx_service binPath= "C:\Program Files\BlueOnyx\blue_onyx_se
 # Start service
 net start blue_onyx_service
 </code></pre>
-<h2 id="troubleshooting-6"><a class="header" href="#troubleshooting-6">Troubleshooting</a></h2>
+<h2 id="troubleshooting-7"><a class="header" href="#troubleshooting-7">Troubleshooting</a></h2>
 <h3 id="blue-onyx-wont-start"><a class="header" href="#blue-onyx-wont-start">Blue Onyx won't start</a></h3>
 <p><strong>Check port availability</strong>:</p>
 <pre><code class="language-bash"># Windows
