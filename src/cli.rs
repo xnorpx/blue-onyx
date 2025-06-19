@@ -160,6 +160,7 @@ impl Default for Cli {
 impl Cli {
     /// Create a new Cli from a combination of config file and command line arguments
     /// If a config file is specified, it completely overrides CLI defaults
+    /// If no config file is specified, create one from CLI args and make it the ground truth
     pub fn from_config_and_args() -> anyhow::Result<Self> {
         // First parse CLI to get the config file path
         let cli_args = Self::parse();
@@ -168,12 +169,24 @@ impl Cli {
             // If config file is specified, use it entirely (ignore other CLI args)
             Self::load_config(config_path)
         } else {
-            // No config file, use CLI arguments
-            Ok(cli_args)
+            // No config file specified, create one from CLI arguments and save it
+            let default_config_path = Self::get_default_config_path()?;
+
+            // Save the current CLI args as the new config file
+            cli_args.save_config(&default_config_path)?;
+            tracing::info!(
+                "Created config file from CLI arguments: {}",
+                default_config_path.display()
+            );
+
+            // Now load it back with the config path set
+            let mut config = cli_args;
+            config.config = Some(default_config_path);
+            Ok(config)
         }
     }
-
     /// Create a Cli from provided arguments with config file support
+    /// If no config file is specified, create one from CLI args and make it the ground truth
     pub fn from_args_with_config(args: Vec<std::ffi::OsString>) -> anyhow::Result<Self> {
         let cli_args = Self::try_parse_from(args)?;
 
@@ -181,8 +194,20 @@ impl Cli {
             // If config file is specified, use it entirely (ignore other CLI args)
             Self::load_config(config_path)
         } else {
-            // No config file, use CLI arguments
-            Ok(cli_args)
+            // No config file specified, create one from CLI arguments and save it
+            let default_config_path = Self::get_default_config_path()?;
+
+            // Save the current CLI args as the new config file
+            cli_args.save_config(&default_config_path)?;
+            tracing::info!(
+                "Created config file from CLI arguments: {}",
+                default_config_path.display()
+            );
+
+            // Now load it back with the config path set
+            let mut config = cli_args;
+            config.config = Some(default_config_path);
+            Ok(config)
         }
     }
 
@@ -220,6 +245,14 @@ impl Cli {
 
         Ok(exe_dir.join("blue_onyx_config.json"))
     }
+    /// Get the current config file path (either specified or default)
+    pub fn get_current_config_path(&self) -> anyhow::Result<PathBuf> {
+        if let Some(config_path) = &self.config {
+            Ok(config_path.clone())
+        } else {
+            Self::get_default_config_path()
+        }
+    }
 
     /// Auto-save current configuration if no config file was used
     pub fn auto_save_if_no_config(&self) -> anyhow::Result<()> {
@@ -246,16 +279,23 @@ impl Cli {
         let config_path = exe_dir.join("blue_onyx_config_service.json");
 
         if config_path.exists() {
-            Self::load_config(&config_path)
+            let mut config = Self::load_config(&config_path)?;
+            config.config = Some(config_path);
+            Ok(config)
         } else {
-            // Create default config
-            let default_config = Self::default();
+            // Create default config for service with Debug log level
+            let default_config = Self {
+                log_level: LogLevel::Debug,
+                ..Default::default()
+            };
             default_config.save_config(&config_path)?;
             tracing::info!(
                 "Created default service config at: {}",
                 config_path.display()
             );
-            Ok(default_config)
+            let mut config = default_config;
+            config.config = Some(config_path);
+            Ok(config)
         }
     }
 

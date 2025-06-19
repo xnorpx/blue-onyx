@@ -1,17 +1,15 @@
 use blue_onyx::download_models::Model;
 use blue_onyx::{
-    blue_onyx_service as create_blue_onyx_service, cli::Cli, init_logging, system_info::system_info,
+    blue_onyx_service as create_blue_onyx_service, cli::Cli, init_logging,
+    system_info::system_info, update_log_level,
 };
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 fn main() -> anyhow::Result<()> {
     let mut args = Cli::from_config_and_args()?;
-    let _guard = init_logging(args.log_level, &mut args.log_path);
-    system_info()?;
-
-    // Print the configuration being used
-    args.print_config(); // Auto-save configuration if no config file was used
-    args.auto_save_if_no_config()?;
+    let _guard = init_logging(args.log_level, &mut args.log_path)?;
+    system_info()?; // Print the configuration being used
+    args.print_config();
 
     if args.list_models {
         blue_onyx::download_models::list_models();
@@ -58,7 +56,7 @@ fn main() -> anyhow::Result<()> {
     let mut current_thread_handle: Option<std::thread::JoinHandle<()>> = None;
 
     loop {
-        let (blue_onyx_service_future, cancellation_token, _restart_token, thread_handle) =
+        let (blue_onyx_service_future, cancellation_token, restart_token, thread_handle) =
             create_blue_onyx_service(current_args.clone())?;
         current_thread_handle = Some(thread_handle);
 
@@ -72,11 +70,23 @@ fn main() -> anyhow::Result<()> {
                 ctrl_c_token.cancel();
             });
 
-            blue_onyx_service_future
-                .await
-                .expect("Failed to run blue onyx service")
+            // Wait for either the service to complete, or restart to be requested
+            tokio::select! {
+                result = blue_onyx_service_future => {
+                    match result {
+                        Ok(restart_requested) => restart_requested,
+                        Err(e) => {
+                            error!("Service failed: {}", e);
+                            false // Don't restart on error
+                        }
+                    }
+                }
+                _ = restart_token.cancelled() => {
+                    info!("Restart requested via API");
+                    true // Restart requested
+                }
+            }
         });
-
         if should_restart {
             info!("Restarting server with updated configuration...");
 
@@ -88,9 +98,24 @@ fn main() -> anyhow::Result<()> {
                 }
                 info!("Worker thread shutdown complete");
             }
+
             // Reload configuration for restart
-            current_args = Cli::from_config_and_args()?;
-            // Note: Don't re-initialize logging during restart as the global subscriber is already set
+            let new_args = Cli::from_config_and_args()?;
+
+            // Check if log level changed and update dynamically
+            if new_args.log_level != current_args.log_level {
+                info!(
+                    old_level = ?current_args.log_level,
+                    new_level = ?new_args.log_level,
+                    "Log level change detected, applying dynamically"
+                );
+
+                if let Err(e) = update_log_level(new_args.log_level) {
+                    warn!("Failed to update log level dynamically: {}", e);
+                }
+            }
+
+            current_args = new_args;
             continue;
         } else {
             break; // Normal shutdown

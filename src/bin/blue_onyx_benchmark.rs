@@ -117,7 +117,7 @@ struct Cli {
 
 fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
-    let _guard = init_logging(args.log_level, &mut None);
+    let _guard = init_logging(args.log_level, &mut None)?;
     system_info()?;
 
     if args.list_models {
