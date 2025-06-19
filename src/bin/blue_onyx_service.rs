@@ -26,7 +26,7 @@ fn main() {
 
 #[cfg(windows)]
 mod blue_onyx_service {
-    use blue_onyx::{blue_onyx_service, cli::Cli, init_logging};
+    use blue_onyx::{blue_onyx_service, cli::Cli, init_service_logging};
     use std::{ffi::OsString, future::Future, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tracing::{error, info};
@@ -57,9 +57,7 @@ mod blue_onyx_service {
                 eprintln!("Failed to load service configuration: {}", err);
                 return;
             }
-        };
-
-        // Set up default log path for service if not specified in config
+        }; // Set up default log path for service if not specified in config
         if args.log_path.is_none() {
             let default_log_path = std::path::PathBuf::from(format!(
                 "{}\\{}",
@@ -67,13 +65,8 @@ mod blue_onyx_service {
                 service_name[0].to_string_lossy()
             ));
             args.log_path = Some(default_log_path);
-        }
-
-        println!(
-            "Logs will be written to log path: {}",
-            args.log_path.as_ref().unwrap().display()
-        );
-        let _guard = init_logging(args.log_level, &mut args.log_path);
+        } // Initialize service logging (Windows Event Log only)
+        init_service_logging(args.log_level, &mut args.log_path);
         info!("Starting blue onyx service with config from blue_onyx_config_service.json");
 
         // Print the configuration being used

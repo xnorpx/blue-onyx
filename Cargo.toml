@@ -70,6 +70,7 @@ zune-jpeg = { version = "0", default-features = false, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
 ansi_term = { version = "0", default-features = false }
+tracing-layer-win-eventlog = { version = "1", default-features = false }
 windows = { version = "0", default-features = false, features = [
     "Win32_Foundation",
     "Win32_Graphics_Dxgi",
