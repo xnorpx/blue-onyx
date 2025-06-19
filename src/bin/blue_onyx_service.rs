@@ -106,22 +106,25 @@ mod blue_onyx_service {
             } else {
                 info!("Using previous configuration (failed to reload config)");
             }
-
             let (blue_onyx_service, cancellation_token, restart_token, thread_handle) =
                 match blue_onyx_service(current_args.clone()) {
                     Ok(v) => v,
                     Err(err) => {
-                        error!(?err, "Failed to init blue onyx service");
-                        return;
+                        error!(
+                            ?err,
+                            "Failed to init blue onyx service, will retry after delay"
+                        );
+                        std::thread::sleep(Duration::from_secs(5));
+                        continue;
                     }
                 };
-
             let should_restart =
                 match run_service(blue_onyx_service, cancellation_token, restart_token.clone()) {
                     Ok(restart) => restart,
                     Err(err) => {
-                        error!(?err, "Blue onyx service failed");
-                        break;
+                        error!(?err, "Blue onyx service failed, will retry after delay");
+                        std::thread::sleep(Duration::from_secs(5));
+                        true // Force restart after error
                     }
                 };
 
