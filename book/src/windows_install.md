@@ -17,7 +17,43 @@ For GPU acceleration, ensure you have compatible drivers:
 
 ## Installation Methods
 
-### Method 1: One-Line Installation (Recommended)
+### Method 1: Windows Installer (Recommended)
+
+The easiest way to install Blue Onyx is using the official Windows installer:
+
+1. **Download the Installer**:
+   - Go to [Blue Onyx Releases](https://github.com/xnorpx/blue-onyx/releases)
+   - Download `blue_onyx-X.Y.Z-installer.exe` (where X.Y.Z is the version number)
+
+2. **Run the Installer**:
+   - Right-click the installer and select "Run as administrator"
+   - Windows will show a UAC prompt - click "Yes" to proceed
+   - Follow the installation wizard
+
+3. **What's Included**:
+   The installer includes:
+   - **Binaries:**
+     - `blue_onyx.exe` - Main Blue Onyx application
+     - `blue_onyx_service.exe` - Windows service for Blue Onyx
+     - `blue_onyx_benchmark.exe` - Performance benchmarking tool
+     - `test_blue_onyx.exe` - Testing utilities
+   - **Required DLLs:**
+     - `DirectML.dll` - DirectML library for GPU acceleration
+     - `onnxruntime.dll` - ONNX Runtime library
+   - **Scripts:**
+     - `install_service.ps1` - Install Blue Onyx as a Windows service
+     - `uninstall_service.ps1` - Remove the Windows service
+     - `windows_event_logs_to_txt.ps1` - Export Windows event logs
+
+4. **Smart Installation Features**:
+   - Automatically checks for existing Blue Onyx Service installation
+   - Stops the service if it's currently running before updating files
+   - Installs to `C:\Program Files\blue-onyx` by default
+   - Requests administrator privileges automatically
+
+**Note:** If you're upgrading an existing installation, the installer will automatically stop the running service before updating the files.
+
+### Method 2: One-Line Installation Script
 
 This is the fastest way to get Blue Onyx running:
 
@@ -31,7 +67,7 @@ This script will:
 - Add the directory to your PATH
 - Download default models
 
-### Method 2: Manual Installation
+### Method 3: Manual Installation
 
 1. **Download the Latest Release**:
    - Go to [Blue Onyx Releases](https://github.com/xnorpx/blue-onyx/releases)
