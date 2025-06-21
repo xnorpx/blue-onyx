@@ -2,6 +2,10 @@
 name = "blue-onyx"
 version = "0.8.0"
 edition = "2021"
+description = "Blue Onyx object detection service and utilities"
+authors = ["Blue Onyx Team"]
+license = "MIT"
+homepage = "https://github.com/blue-onyx/blue-onyx"
 
 [dependencies]
 

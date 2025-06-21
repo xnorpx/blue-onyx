@@ -1,0 +1,31 @@
+name = "blue-onyx"
+version = "0.8.0"
+product-name = "Blue Onyx"
+identifier = "com.blue-onyx.app"
+description = "Blue Onyx object detection service and utilities"
+authors = ["Blue Onyx Team"]
+homepage = "https://github.com/blue-onyx/blue-onyx"
+out-dir = "target/release"
+
+# All binaries
+binaries = [
+  { path = "blue_onyx.exe", main = true },
+  { path = "blue_onyx_service.exe" },
+  { path = "blue_onyx_benchmark.exe" },
+  { path = "test_blue_onyx.exe" }
+]
+
+# Include essential resources
+resources = [
+  "scripts/",
+  "target/release/DirectML.dll",
+  "target/release/onnxruntime.dll",
+  "README.md",
+  "LICENSE"
+]
+
+# NSIS configuration for administrator privileges
+[nsis]
+installer-mode = "perMachine"
+display-language-selector = false
+template = "installer_template.nsi"

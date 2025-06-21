@@ -13,7 +13,6 @@ pub struct Cli {
     pub config: Option<PathBuf>,
     /// The port on which the server will listen for HTTP requests.
     /// Default is 32168. Example usage: --port 1337
-    //#[arg(long, default_value_t = 32168)]
     #[arg(long, default_value_t = 32168)]
     pub port: u16,
     /// Duration to wait for a response from the detection worker.

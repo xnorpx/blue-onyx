@@ -110,3 +110,45 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps --document-private-items --workspace
+
+  installer:
+    name: windows-installer
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: python -m pip install --upgrade pip setuptools wheel
+
+    - name: Install dependencies
+      run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
+
+    - name: Build release
+      run: cargo build --release
+
+    - name: Install cargo-packager and NSIS
+      shell: bash
+      run: |
+        cargo install cargo-packager
+        # Install NSIS
+        choco install nsis -y
+        # Add NSIS to PATH for current session
+        echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
+
+    - name: Test Windows installer build
+      shell: bash
+      run: |
+        # Build the NSIS installer to ensure it doesn't break
+        cargo packager --release --formats nsis
+        # Verify the installer was created
+        ls -la target/release/blue_onyx_*_x64-setup.exe

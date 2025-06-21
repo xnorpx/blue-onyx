@@ -157,3 +157,96 @@ Check Event Viewer → Windows Logs → Application for service events.
 2. **Thread Configuration**: Adjust `intra_threads` and `inter_threads` for CPU fallback
 3. **Model Placement**: Store models on fast storage (SSD)
 4. **Memory Management**: Monitor memory usage, especially with large models
+
+## Service Installation After Using Windows Installer
+
+If you installed Blue Onyx using the Windows installer, follow these steps to set up the service:
+
+### Post-Installation Service Setup
+
+1. **Open PowerShell as Administrator**:
+   - Right-click on PowerShell and select "Run as Administrator"
+
+2. **Navigate to the Installation Directory**:
+   ```powershell
+   cd "C:\Program Files\blue-onyx\scripts"
+   ```
+
+3. **Run the Service Installation Script**:
+   ```powershell
+   .\install_service.ps1
+   ```
+
+This script will automatically:
+- Set service timeout to 10 minutes (for model loading)
+- Create event log source for Blue Onyx
+- Install the service to run automatically with LocalSystem privileges
+- Configure the service properly
+
+### Service Management
+
+After installing the service:
+
+```powershell
+# Start the service
+net start BlueOnyxService
+
+# Stop the service
+net stop BlueOnyxService
+
+# Check service status
+sc.exe query BlueOnyxService
+
+# Remove the service (if needed)
+.\uninstall_service.ps1
+```
+
+### Manual Service Installation (Alternative)
+
+If the automated script doesn't work, you can manually install the service:
+
+```powershell
+# Run as Administrator
+
+# 1. Set service timeout (10 minutes for model loading)
+reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v ServicesPipeTimeout /t REG_DWORD /d 600000 /f
+
+# 2. Create event log source
+New-EventLog -LogName Application -Source BlueOnyxService
+
+# 3. Install the service (replace path as needed)
+sc.exe create BlueOnyxService binPath= "C:\Program Files\blue-onyx\blue_onyx_service.exe" start= auto displayname= "Blue Onyx Service" obj= LocalSystem
+
+# 4. Configure service type
+sc.exe config BlueOnyxService type= own
+
+# 5. Start the service
+net start BlueOnyxService
+```
+
+## Advanced Service Configuration
+
+1. **Service Timeout**: Increase timeout for model loading if necessary
+   ```powershell
+   reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v ServicesPipeTimeout /t REG_DWORD /d 600000 /f
+   ```
+
+2. **Event Logging**: Ensure event log source is created
+   ```powershell
+   New-EventLog -LogName Application -Source BlueOnyxService
+   ```
+
+3. **Service Account**: For maximum compatibility, use LocalSystem
+   ```cmd
+   sc.exe config blue_onyx_service obj= LocalSystem
+   ```
+
+4. **Service Type**: Configure service to own process
+   ```cmd
+   sc.exe config blue_onyx_service type= own
+   ```
+
+5. **Start the Service**: After configuration, start the service
+   ```cmd
+   net start blue_onyx_service
+   ```
