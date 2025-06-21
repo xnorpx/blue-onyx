@@ -197,7 +197,63 @@
 <li><strong>Intel GPU</strong>: Latest Intel Graphics drivers</li>
 </ul>
 <h2 id="installation-methods"><a class="header" href="#installation-methods">Installation Methods</a></h2>
-<h3 id="method-1-one-line-installation-recommended"><a class="header" href="#method-1-one-line-installation-recommended">Method 1: One-Line Installation (Recommended)</a></h3>
+<h3 id="method-1-windows-installer-recommended"><a class="header" href="#method-1-windows-installer-recommended">Method 1: Windows Installer (Recommended)</a></h3>
+<p>The easiest way to install Blue Onyx is using the official Windows installer:</p>
+<ol>
+<li>
+<p><strong>Download the Installer</strong>:</p>
+<ul>
+<li>Go to <a href="https://github.com/xnorpx/blue-onyx/releases">Blue Onyx Releases</a></li>
+<li>Download <code>blue_onyx-X.Y.Z-installer.exe</code> (where X.Y.Z is the version number)</li>
+</ul>
+</li>
+<li>
+<p><strong>Run the Installer</strong>:</p>
+<ul>
+<li>Right-click the installer and select "Run as administrator"</li>
+<li>Windows will show a UAC prompt - click "Yes" to proceed</li>
+<li>Follow the installation wizard</li>
+</ul>
+</li>
+<li>
+<p><strong>What's Included</strong>:
+The installer includes:</p>
+<ul>
+<li><strong>Binaries:</strong>
+<ul>
+<li><code>blue_onyx.exe</code> - Main Blue Onyx application</li>
+<li><code>blue_onyx_service.exe</code> - Windows service for Blue Onyx</li>
+<li><code>blue_onyx_benchmark.exe</code> - Performance benchmarking tool</li>
+<li><code>test_blue_onyx.exe</code> - Testing utilities</li>
+</ul>
+</li>
+<li><strong>Required DLLs:</strong>
+<ul>
+<li><code>DirectML.dll</code> - DirectML library for GPU acceleration</li>
+<li><code>onnxruntime.dll</code> - ONNX Runtime library</li>
+</ul>
+</li>
+<li><strong>Scripts:</strong>
+<ul>
+<li><code>install_service.ps1</code> - Install Blue Onyx as a Windows service</li>
+<li><code>uninstall_service.ps1</code> - Remove the Windows service</li>
+<li><code>windows_event_logs_to_txt.ps1</code> - Export Windows event logs</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Smart Installation Features</strong>:</p>
+<ul>
+<li>Automatically checks for existing Blue Onyx Service installation</li>
+<li>Stops the service if it's currently running before updating files</li>
+<li>Installs to <code>C:\Program Files\blue-onyx</code> by default</li>
+<li>Requests administrator privileges automatically</li>
+</ul>
+</li>
+</ol>
+<p><strong>Note:</strong> If you're upgrading an existing installation, the installer will automatically stop the running service before updating the files.</p>
+<h3 id="method-2-one-line-installation-script"><a class="header" href="#method-2-one-line-installation-script">Method 2: One-Line Installation Script</a></h3>
 <p>This is the fastest way to get Blue Onyx running:</p>
 <pre><code class="language-powershell">powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
 </code></pre>
@@ -208,7 +264,7 @@
 <li>Add the directory to your PATH</li>
 <li>Download default models</li>
 </ul>
-<h3 id="method-2-manual-installation"><a class="header" href="#method-2-manual-installation">Method 2: Manual Installation</a></h3>
+<h3 id="method-3-manual-installation"><a class="header" href="#method-3-manual-installation">Method 3: Manual Installation</a></h3>
 <ol>
 <li>
 <p><strong>Download the Latest Release</strong>:</p>
@@ -1872,6 +1928,95 @@ sc.exe delete blue_onyx_service
 <li><strong>Thread Configuration</strong>: Adjust <code>intra_threads</code> and <code>inter_threads</code> for CPU fallback</li>
 <li><strong>Model Placement</strong>: Store models on fast storage (SSD)</li>
 <li><strong>Memory Management</strong>: Monitor memory usage, especially with large models</li>
+</ol>
+<h2 id="service-installation-after-using-windows-installer"><a class="header" href="#service-installation-after-using-windows-installer">Service Installation After Using Windows Installer</a></h2>
+<p>If you installed Blue Onyx using the Windows installer, follow these steps to set up the service:</p>
+<h3 id="post-installation-service-setup"><a class="header" href="#post-installation-service-setup">Post-Installation Service Setup</a></h3>
+<ol>
+<li>
+<p><strong>Open PowerShell as Administrator</strong>:</p>
+<ul>
+<li>Right-click on PowerShell and select "Run as Administrator"</li>
+</ul>
+</li>
+<li>
+<p><strong>Navigate to the Installation Directory</strong>:</p>
+<pre><code class="language-powershell">cd "C:\Program Files\blue-onyx\scripts"
+</code></pre>
+</li>
+<li>
+<p><strong>Run the Service Installation Script</strong>:</p>
+<pre><code class="language-powershell">.\install_service.ps1
+</code></pre>
+</li>
+</ol>
+<p>This script will automatically:</p>
+<ul>
+<li>Set service timeout to 10 minutes (for model loading)</li>
+<li>Create event log source for Blue Onyx</li>
+<li>Install the service to run automatically with LocalSystem privileges</li>
+<li>Configure the service properly</li>
+</ul>
+<h3 id="service-management-2"><a class="header" href="#service-management-2">Service Management</a></h3>
+<p>After installing the service:</p>
+<pre><code class="language-powershell"># Start the service
+net start BlueOnyxService
+
+# Stop the service
+net stop BlueOnyxService
+
+# Check service status
+sc.exe query BlueOnyxService
+
+# Remove the service (if needed)
+.\uninstall_service.ps1
+</code></pre>
+<h3 id="manual-service-installation-alternative"><a class="header" href="#manual-service-installation-alternative">Manual Service Installation (Alternative)</a></h3>
+<p>If the automated script doesn't work, you can manually install the service:</p>
+<pre><code class="language-powershell"># Run as Administrator
+
+# 1. Set service timeout (10 minutes for model loading)
+reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v ServicesPipeTimeout /t REG_DWORD /d 600000 /f
+
+# 2. Create event log source
+New-EventLog -LogName Application -Source BlueOnyxService
+
+# 3. Install the service (replace path as needed)
+sc.exe create BlueOnyxService binPath= "C:\Program Files\blue-onyx\blue_onyx_service.exe" start= auto displayname= "Blue Onyx Service" obj= LocalSystem
+
+# 4. Configure service type
+sc.exe config BlueOnyxService type= own
+
+# 5. Start the service
+net start BlueOnyxService
+</code></pre>
+<h2 id="advanced-service-configuration"><a class="header" href="#advanced-service-configuration">Advanced Service Configuration</a></h2>
+<ol>
+<li>
+<p><strong>Service Timeout</strong>: Increase timeout for model loading if necessary</p>
+<pre><code class="language-powershell">reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v ServicesPipeTimeout /t REG_DWORD /d 600000 /f
+</code></pre>
+</li>
+<li>
+<p><strong>Event Logging</strong>: Ensure event log source is created</p>
+<pre><code class="language-powershell">New-EventLog -LogName Application -Source BlueOnyxService
+</code></pre>
+</li>
+<li>
+<p><strong>Service Account</strong>: For maximum compatibility, use LocalSystem</p>
+<pre><code class="language-cmd">sc.exe config blue_onyx_service obj= LocalSystem
+</code></pre>
+</li>
+<li>
+<p><strong>Service Type</strong>: Configure service to own process</p>
+<pre><code class="language-cmd">sc.exe config blue_onyx_service type= own
+</code></pre>
+</li>
+<li>
+<p><strong>Start the Service</strong>: After configuration, start the service</p>
+<pre><code class="language-cmd">net start blue_onyx_service
+</code></pre>
+</li>
 </ol>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
 <p>The design of Blue Onyx is very simple. It implements the same HTTP API as other open-source object detection services for compatibility.</p>

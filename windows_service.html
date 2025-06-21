@@ -300,6 +300,95 @@ sc.exe delete blue_onyx_service
 <li><strong>Model Placement</strong>: Store models on fast storage (SSD)</li>
 <li><strong>Memory Management</strong>: Monitor memory usage, especially with large models</li>
 </ol>
+<h2 id="service-installation-after-using-windows-installer"><a class="header" href="#service-installation-after-using-windows-installer">Service Installation After Using Windows Installer</a></h2>
+<p>If you installed Blue Onyx using the Windows installer, follow these steps to set up the service:</p>
+<h3 id="post-installation-service-setup"><a class="header" href="#post-installation-service-setup">Post-Installation Service Setup</a></h3>
+<ol>
+<li>
+<p><strong>Open PowerShell as Administrator</strong>:</p>
+<ul>
+<li>Right-click on PowerShell and select "Run as Administrator"</li>
+</ul>
+</li>
+<li>
+<p><strong>Navigate to the Installation Directory</strong>:</p>
+<pre><code class="language-powershell">cd "C:\Program Files\blue-onyx\scripts"
+</code></pre>
+</li>
+<li>
+<p><strong>Run the Service Installation Script</strong>:</p>
+<pre><code class="language-powershell">.\install_service.ps1
+</code></pre>
+</li>
+</ol>
+<p>This script will automatically:</p>
+<ul>
+<li>Set service timeout to 10 minutes (for model loading)</li>
+<li>Create event log source for Blue Onyx</li>
+<li>Install the service to run automatically with LocalSystem privileges</li>
+<li>Configure the service properly</li>
+</ul>
+<h3 id="service-management-1"><a class="header" href="#service-management-1">Service Management</a></h3>
+<p>After installing the service:</p>
+<pre><code class="language-powershell"># Start the service
+net start BlueOnyxService
+
+# Stop the service
+net stop BlueOnyxService
+
+# Check service status
+sc.exe query BlueOnyxService
+
+# Remove the service (if needed)
+.\uninstall_service.ps1
+</code></pre>
+<h3 id="manual-service-installation-alternative"><a class="header" href="#manual-service-installation-alternative">Manual Service Installation (Alternative)</a></h3>
+<p>If the automated script doesn't work, you can manually install the service:</p>
+<pre><code class="language-powershell"># Run as Administrator
+
+# 1. Set service timeout (10 minutes for model loading)
+reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v ServicesPipeTimeout /t REG_DWORD /d 600000 /f
+
+# 2. Create event log source
+New-EventLog -LogName Application -Source BlueOnyxService
+
+# 3. Install the service (replace path as needed)
+sc.exe create BlueOnyxService binPath= "C:\Program Files\blue-onyx\blue_onyx_service.exe" start= auto displayname= "Blue Onyx Service" obj= LocalSystem
+
+# 4. Configure service type
+sc.exe config BlueOnyxService type= own
+
+# 5. Start the service
+net start BlueOnyxService
+</code></pre>
+<h2 id="advanced-service-configuration"><a class="header" href="#advanced-service-configuration">Advanced Service Configuration</a></h2>
+<ol>
+<li>
+<p><strong>Service Timeout</strong>: Increase timeout for model loading if necessary</p>
+<pre><code class="language-powershell">reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v ServicesPipeTimeout /t REG_DWORD /d 600000 /f
+</code></pre>
+</li>
+<li>
+<p><strong>Event Logging</strong>: Ensure event log source is created</p>
+<pre><code class="language-powershell">New-EventLog -LogName Application -Source BlueOnyxService
+</code></pre>
+</li>
+<li>
+<p><strong>Service Account</strong>: For maximum compatibility, use LocalSystem</p>
+<pre><code class="language-cmd">sc.exe config blue_onyx_service obj= LocalSystem
+</code></pre>
+</li>
+<li>
+<p><strong>Service Type</strong>: Configure service to own process</p>
+<pre><code class="language-cmd">sc.exe config blue_onyx_service type= own
+</code></pre>
+</li>
+<li>
+<p><strong>Start the Service</strong>: After configuration, start the service</p>
+<pre><code class="language-cmd">net start blue_onyx_service
+</code></pre>
+</li>
+</ol>
 
                     </main>
 

@@ -168,7 +168,63 @@
 <li><strong>Intel GPU</strong>: Latest Intel Graphics drivers</li>
 </ul>
 <h2 id="installation-methods"><a class="header" href="#installation-methods">Installation Methods</a></h2>
-<h3 id="method-1-one-line-installation-recommended"><a class="header" href="#method-1-one-line-installation-recommended">Method 1: One-Line Installation (Recommended)</a></h3>
+<h3 id="method-1-windows-installer-recommended"><a class="header" href="#method-1-windows-installer-recommended">Method 1: Windows Installer (Recommended)</a></h3>
+<p>The easiest way to install Blue Onyx is using the official Windows installer:</p>
+<ol>
+<li>
+<p><strong>Download the Installer</strong>:</p>
+<ul>
+<li>Go to <a href="https://github.com/xnorpx/blue-onyx/releases">Blue Onyx Releases</a></li>
+<li>Download <code>blue_onyx-X.Y.Z-installer.exe</code> (where X.Y.Z is the version number)</li>
+</ul>
+</li>
+<li>
+<p><strong>Run the Installer</strong>:</p>
+<ul>
+<li>Right-click the installer and select "Run as administrator"</li>
+<li>Windows will show a UAC prompt - click "Yes" to proceed</li>
+<li>Follow the installation wizard</li>
+</ul>
+</li>
+<li>
+<p><strong>What's Included</strong>:
+The installer includes:</p>
+<ul>
+<li><strong>Binaries:</strong>
+<ul>
+<li><code>blue_onyx.exe</code> - Main Blue Onyx application</li>
+<li><code>blue_onyx_service.exe</code> - Windows service for Blue Onyx</li>
+<li><code>blue_onyx_benchmark.exe</code> - Performance benchmarking tool</li>
+<li><code>test_blue_onyx.exe</code> - Testing utilities</li>
+</ul>
+</li>
+<li><strong>Required DLLs:</strong>
+<ul>
+<li><code>DirectML.dll</code> - DirectML library for GPU acceleration</li>
+<li><code>onnxruntime.dll</code> - ONNX Runtime library</li>
+</ul>
+</li>
+<li><strong>Scripts:</strong>
+<ul>
+<li><code>install_service.ps1</code> - Install Blue Onyx as a Windows service</li>
+<li><code>uninstall_service.ps1</code> - Remove the Windows service</li>
+<li><code>windows_event_logs_to_txt.ps1</code> - Export Windows event logs</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Smart Installation Features</strong>:</p>
+<ul>
+<li>Automatically checks for existing Blue Onyx Service installation</li>
+<li>Stops the service if it's currently running before updating files</li>
+<li>Installs to <code>C:\Program Files\blue-onyx</code> by default</li>
+<li>Requests administrator privileges automatically</li>
+</ul>
+</li>
+</ol>
+<p><strong>Note:</strong> If you're upgrading an existing installation, the installer will automatically stop the running service before updating the files.</p>
+<h3 id="method-2-one-line-installation-script"><a class="header" href="#method-2-one-line-installation-script">Method 2: One-Line Installation Script</a></h3>
 <p>This is the fastest way to get Blue Onyx running:</p>
 <pre><code class="language-powershell">powershell -NoProfile -Command "curl 'https://github.com/xnorpx/blue-onyx/releases/latest/download/install_latest_blue_onyx.ps1' -o 'install_latest_blue_onyx.ps1'; Unblock-File '.\install_latest_blue_onyx.ps1'; powershell.exe -ExecutionPolicy Bypass -File '.\install_latest_blue_onyx.ps1'"
 </code></pre>
@@ -179,7 +235,7 @@
 <li>Add the directory to your PATH</li>
 <li>Download default models</li>
 </ul>
-<h3 id="method-2-manual-installation"><a class="header" href="#method-2-manual-installation">Method 2: Manual Installation</a></h3>
+<h3 id="method-3-manual-installation"><a class="header" href="#method-3-manual-installation">Method 3: Manual Installation</a></h3>
 <ol>
 <li>
 <p><strong>Download the Latest Release</strong>:</p>
