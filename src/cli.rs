@@ -157,56 +157,91 @@ impl Default for Cli {
 }
 
 impl Cli {
-    /// Create a new Cli from a combination of config file and command line arguments
-    /// If a config file is specified, it completely overrides CLI defaults
-    /// If no config file is specified, create one from CLI args and make it the ground truth
+    /// Create a new Cli from a combination of config file and command line arguments    /// CLI arguments always override config file values
     pub fn from_config_and_args() -> anyhow::Result<Self> {
-        // First parse CLI to get the config file path
+        // First parse CLI to get the config file path and all CLI arguments
         let cli_args = Self::parse();
 
-        if let Some(config_path) = &cli_args.config {
-            // If config file is specified, use it entirely (ignore other CLI args)
-            Self::load_config(config_path)
+        if let Some(config_path) = cli_args.config.clone() {
+            // If config file is specified, load it and merge with CLI args
+            let config_file = Self::load_config(&config_path)?;
+            Ok(Self::merge_config_with_cli_args(
+                config_file,
+                cli_args,
+                config_path,
+            ))
         } else {
-            // No config file specified, create one from CLI arguments and save it
+            // No config file specified, check if default config exists
             let default_config_path = Self::get_default_config_path()?;
 
-            // Save the current CLI args as the new config file
-            cli_args.save_config(&default_config_path)?;
-            tracing::info!(
-                "Created config file from CLI arguments: {}",
-                default_config_path.display()
-            );
+            if default_config_path.exists() {
+                // Load existing default config file and merge with CLI args
+                tracing::info!(
+                    "Loading existing config file and merging with CLI arguments: {}",
+                    default_config_path.display()
+                );
+                let config_file = Self::load_config(&default_config_path)?;
+                Ok(Self::merge_config_with_cli_args(
+                    config_file,
+                    cli_args,
+                    default_config_path,
+                ))
+            } else {
+                // Create new config file from CLI arguments
+                cli_args.save_config(&default_config_path)?;
+                tracing::info!(
+                    "Created config file from CLI arguments: {}",
+                    default_config_path.display()
+                );
 
-            // Now load it back with the config path set
-            let mut config = cli_args;
-            config.config = Some(default_config_path);
-            Ok(config)
+                // Now load it back with the config path set
+                let mut config = cli_args;
+                config.config = Some(default_config_path);
+                Ok(config)
+            }
         }
     }
     /// Create a Cli from provided arguments with config file support
-    /// If no config file is specified, create one from CLI args and make it the ground truth
+    /// CLI arguments always override config file values
     pub fn from_args_with_config(args: Vec<std::ffi::OsString>) -> anyhow::Result<Self> {
         let cli_args = Self::try_parse_from(args)?;
-
-        if let Some(config_path) = &cli_args.config {
-            // If config file is specified, use it entirely (ignore other CLI args)
-            Self::load_config(config_path)
+        if let Some(config_path) = cli_args.config.clone() {
+            // If config file is specified, load it and merge with CLI args
+            let config_file = Self::load_config(&config_path)?;
+            Ok(Self::merge_config_with_cli_args(
+                config_file,
+                cli_args,
+                config_path,
+            ))
         } else {
-            // No config file specified, create one from CLI arguments and save it
+            // No config file specified, check if default config exists
             let default_config_path = Self::get_default_config_path()?;
 
-            // Save the current CLI args as the new config file
-            cli_args.save_config(&default_config_path)?;
-            tracing::info!(
-                "Created config file from CLI arguments: {}",
-                default_config_path.display()
-            );
+            if default_config_path.exists() {
+                // Load existing default config file and merge with CLI args
+                tracing::info!(
+                    "Loading existing config file and merging with CLI arguments: {}",
+                    default_config_path.display()
+                );
+                let config_file = Self::load_config(&default_config_path)?;
+                Ok(Self::merge_config_with_cli_args(
+                    config_file,
+                    cli_args,
+                    default_config_path,
+                ))
+            } else {
+                // Create new config file from CLI arguments
+                cli_args.save_config(&default_config_path)?;
+                tracing::info!(
+                    "Created config file from CLI arguments: {}",
+                    default_config_path.display()
+                );
 
-            // Now load it back with the config path set
-            let mut config = cli_args;
-            config.config = Some(default_config_path);
-            Ok(config)
+                // Now load it back with the config path set
+                let mut config = cli_args;
+                config.config = Some(default_config_path);
+                Ok(config)
+            }
         }
     }
 
@@ -377,8 +412,86 @@ impl Cli {
         if let Some(download_path) = &self.download_model_path {
             tracing::info!("  Download models to: {}", download_path.display());
         }
-
         tracing::info!("=== Configuration Complete ===");
+    }
+
+    /// Merge config file values with CLI arguments, where CLI arguments take precedence
+    /// CLI arguments override config file values when they are explicitly provided
+    fn merge_config_with_cli_args(
+        mut config_file: Self,
+        cli_args: Self,
+        config_path: PathBuf,
+    ) -> Self {
+        // Use clap's built-in logic to determine which values were explicitly set
+        // We'll create default CLI args and compare with the parsed CLI args
+        let defaults = Self::default();
+
+        // Override config file values with CLI arguments when they differ from defaults
+        // This approach assumes that if a CLI arg differs from its default, it was explicitly set
+
+        if cli_args.port != defaults.port {
+            config_file.port = cli_args.port;
+        }
+        if cli_args.request_timeout != defaults.request_timeout {
+            config_file.request_timeout = cli_args.request_timeout;
+        }
+        if cli_args.worker_queue_size != defaults.worker_queue_size {
+            config_file.worker_queue_size = cli_args.worker_queue_size;
+        }
+        if cli_args.model != defaults.model {
+            config_file.model = cli_args.model;
+        }
+        if cli_args.object_detection_model_type != defaults.object_detection_model_type {
+            config_file.object_detection_model_type = cli_args.object_detection_model_type;
+        }
+        if cli_args.object_classes != defaults.object_classes {
+            config_file.object_classes = cli_args.object_classes;
+        }
+        if cli_args.object_filter != defaults.object_filter {
+            config_file.object_filter = cli_args.object_filter;
+        }
+        if cli_args.log_level != defaults.log_level {
+            config_file.log_level = cli_args.log_level;
+        }
+        if cli_args.log_path != defaults.log_path {
+            config_file.log_path = cli_args.log_path;
+        }
+        if cli_args.confidence_threshold != defaults.confidence_threshold {
+            config_file.confidence_threshold = cli_args.confidence_threshold;
+        }
+        if cli_args.save_image_path != defaults.save_image_path {
+            config_file.save_image_path = cli_args.save_image_path;
+        }
+        if cli_args.save_ref_image != defaults.save_ref_image {
+            config_file.save_ref_image = cli_args.save_ref_image;
+        }
+        if cli_args.save_stats_path != defaults.save_stats_path {
+            config_file.save_stats_path = cli_args.save_stats_path;
+        }
+        if cli_args.force_cpu != defaults.force_cpu {
+            config_file.force_cpu = cli_args.force_cpu;
+        }
+        if cli_args.gpu_index != defaults.gpu_index {
+            config_file.gpu_index = cli_args.gpu_index;
+        }
+        if cli_args.intra_threads != defaults.intra_threads {
+            config_file.intra_threads = cli_args.intra_threads;
+        }
+        if cli_args.inter_threads != defaults.inter_threads {
+            config_file.inter_threads = cli_args.inter_threads;
+        }
+
+        // Set the config path
+        config_file.config = Some(config_path.clone());
+
+        // Save the merged configuration back to the config file
+        if let Err(e) = config_file.save_config(&config_path) {
+            tracing::warn!("Failed to save merged configuration: {}", e);
+        } else {
+            tracing::info!("Saved merged configuration to: {}", config_path.display());
+        }
+
+        config_file
     }
 }
 

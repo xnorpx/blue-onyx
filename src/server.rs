@@ -485,22 +485,81 @@ async fn config_restart_handler(
     let mut config = crate::cli::Cli::load_config(current_config_path).unwrap_or_default();
 
     // Apply all form updates (complete parsing logic from config_post_handler)
-    update_config_from_form_data(&mut config, &form_data);
-
-    // Save configuration
+    update_config_from_form_data(&mut config, &form_data); // Save configuration
     match config.save_config(current_config_path) {
         Ok(()) => {
             info!("Configuration saved, triggering server restart...");
-            // Trigger restart by cancelling the restart token
-            state.restart_token.cancel();
-            (
-                StatusCode::OK,
-                Json(serde_json::json!({
-                    "success": true,
-                    "message": "Configuration saved and server restart initiated. Please wait...",
-                })),
-            )
-                .into_response()
+
+            // Check if detector is ready before restarting
+            let detector_ready = state.detector_ready.lock().await;
+            match &*detector_ready {
+                DetectorReady::Ready { .. } => {
+                    // Detector is ready, we can restart immediately
+                    drop(detector_ready); // Release the lock
+                    state.restart_token.cancel();
+                    (
+                        StatusCode::OK,
+                        Json(serde_json::json!({
+                            "success": true,
+                            "message": "Configuration saved and server restart initiated. Please wait...",
+                        })),
+                    ).into_response()
+                }
+                DetectorReady::NotReady => {
+                    // Detector is still initializing, wait for it to complete then restart
+                    drop(detector_ready); // Release the lock
+
+                    // Spawn a task to wait for detector initialization and then restart
+                    let restart_token = state.restart_token.clone();
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        info!(
+                            "Detector still initializing, waiting for completion before restart..."
+                        );
+
+                        // Poll until detector is ready
+                        loop {
+                            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                            let detector_ready = state_clone.detector_ready.lock().await;
+                            match &*detector_ready {
+                                DetectorReady::Ready { .. } | DetectorReady::Failed(_) => {
+                                    // Detector initialization completed (success or failure)
+                                    drop(detector_ready);
+                                    info!(
+                                        "Detector initialization completed, triggering restart now"
+                                    );
+                                    restart_token.cancel();
+                                    break;
+                                }
+                                DetectorReady::NotReady => {
+                                    // Still not ready, continue waiting
+                                    continue;
+                                }
+                            }
+                        }
+                    });
+
+                    (
+                        StatusCode::OK,
+                        Json(serde_json::json!({
+                            "success": true,
+                            "message": "Configuration saved. Waiting for detector initialization to complete before restart...",
+                        })),
+                    ).into_response()
+                }
+                DetectorReady::Failed(_) => {
+                    // Detector failed, restart immediately to try again
+                    drop(detector_ready);
+                    state.restart_token.cancel();
+                    (
+                        StatusCode::OK,
+                        Json(serde_json::json!({
+                            "success": true,
+                            "message": "Configuration saved and server restart initiated (detector failed)...",
+                        })),
+                    ).into_response()
+                }
+            }
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,

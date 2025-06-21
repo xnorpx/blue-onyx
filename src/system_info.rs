@@ -78,8 +78,8 @@ pub fn gpu_info(log_info: bool) -> anyhow::Result<Vec<String>> {
 
     gpu_names.sort();
     if log_info {
-        for (index, device_name) in gpu_names.iter().enumerate() {
-            info!("GPU {} | {}", index, device_name);
+        for device_name in &gpu_names {
+            info!("GPU: {}", device_name);
         }
     }
 

@@ -45,30 +45,34 @@ fn main() -> anyhow::Result<()> {
             blue_onyx::download_models::download_model(download_path, model_type).await
         })?;
         return Ok(());
-    }
-
-    // Run the tokio runtime on the main thread
+    } // Run the tokio runtime on the main thread
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .build()?; // Main server loop - restart if requested
+        .build()?;
+
+    // Main server loop - restart if requested
     let mut current_args = args;
+
+    // Set up Ctrl+C handler once, outside the restart loop
+    let global_shutdown = tokio_util::sync::CancellationToken::new();
+    let ctrl_c_shutdown = global_shutdown.clone();
+
+    rt.spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to listen for Ctrl+C");
+        info!("Ctrl+C received, shutting down server");
+        ctrl_c_shutdown.cancel();
+    });
 
     loop {
         let (blue_onyx_service_future, cancellation_token, restart_token) =
             create_blue_onyx_service(current_args.clone())?;
 
         let should_restart = rt.block_on(async {
-            let ctrl_c_token = cancellation_token.clone();
-            tokio::spawn(async move {
-                tokio::signal::ctrl_c()
-                    .await
-                    .expect("Failed to listen for Ctrl+C");
-                info!("Ctrl+C received, shutting down server");
-                ctrl_c_token.cancel();
-            });
-
-            // Wait for either the service to complete, or restart to be requested
-            tokio::select! {                result = blue_onyx_service_future => {
+            // Wait for either the service to complete, restart to be requested, or global shutdown
+            tokio::select! {
+                result = blue_onyx_service_future => {
                     match result {
                         Ok((restart_requested, worker_handle)) => {
                             // Wait for worker thread to complete if available
@@ -89,6 +93,10 @@ fn main() -> anyhow::Result<()> {
                 _ = restart_token.cancelled() => {
                     info!("Restart requested via API");
                     true // Restart requested
+                }                _ = global_shutdown.cancelled() => {
+                    info!("Global shutdown requested");
+                    cancellation_token.cancel(); // Cancel the current service
+                    false // Don't restart, just exit
                 }
             }
         });
