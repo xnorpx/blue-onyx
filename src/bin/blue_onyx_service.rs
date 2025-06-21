@@ -35,7 +35,7 @@ fn main() {
 
 #[cfg(windows)]
 mod blue_onyx_service {
-    use blue_onyx::{blue_onyx_service, cli::Cli, init_service_logging, update_service_log_level};
+    use blue_onyx::{blue_onyx_service, cli::Cli, init_service_logging, update_service_log_level, ServiceResult};
     use std::{ffi::OsString, future::Future, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tracing::{error, info};
@@ -137,11 +137,8 @@ mod blue_onyx_service {
                 break;
             }
         }
-    }
-    pub fn run_service(
-        blue_onyx_service: impl Future<
-            Output = anyhow::Result<(bool, Option<std::thread::JoinHandle<()>>)>,
-        >,
+    }    pub fn run_service(
+        blue_onyx_service: impl Future<Output = ServiceResult>,
         cancellation_token: CancellationToken,
         restart_token: CancellationToken,
     ) -> anyhow::Result<bool> {

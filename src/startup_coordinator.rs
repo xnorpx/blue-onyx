@@ -88,8 +88,7 @@ fn startup_worker_thread(
                 detector_info,
                 worker_thread_handle,
             };
-
-            if let Err(_) = init_sender.send(result) {
+            if init_sender.send(result).is_err() {
                 error!("Startup worker thread: Failed to send initialization result to server");
             } else {
                 info!(
@@ -103,9 +102,8 @@ fn startup_worker_thread(
         }
         Err(e) => {
             error!(error = %e, "Startup worker thread: Detector initialization failed");
-
             let result = InitResult::Failed(e.to_string());
-            if let Err(_) = init_sender.send(result) {
+            if init_sender.send(result).is_err() {
                 error!("Startup worker thread: Failed to send failure result to server");
             }
             info!("Startup worker thread: Completed due to initialization failure");

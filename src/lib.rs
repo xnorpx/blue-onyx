@@ -27,10 +27,13 @@ struct CocoClasses {
     NAMES: Vec<String>,
 }
 
+/// Type alias for the service result containing restart flag and optional worker thread handle
+pub type ServiceResult = anyhow::Result<(bool, Option<std::thread::JoinHandle<()>>)>;
+
 pub fn blue_onyx_service(
     args: Cli,
 ) -> anyhow::Result<(
-    impl Future<Output = anyhow::Result<(bool, Option<std::thread::JoinHandle<()>>)>>, // Return bool for restart indication and optional worker handle
+    impl Future<Output = ServiceResult>,
     CancellationToken,
     CancellationToken, // Add restart token
 )> {

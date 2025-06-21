@@ -227,20 +227,19 @@ async fn v1_vision_detection(
 
     // Check detector state first
     let detector_ready = server_state.detector_ready.lock().await;
-
     match &*detector_ready {
         DetectorReady::NotReady => {
             // Detector is still initializing, return not ready
-            return Err(BlueOnyxError(anyhow::anyhow!(
+            Err(BlueOnyxError(anyhow::anyhow!(
                 "Server not ready yet, detector is still initializing"
-            )));
+            )))
         }
         DetectorReady::Failed(error_msg) => {
             // Detector initialization failed
-            return Err(BlueOnyxError(anyhow::anyhow!(
+            Err(BlueOnyxError(anyhow::anyhow!(
                 "Detector initialization failed: {}",
                 error_msg
-            )));
+            )))
         }
         DetectorReady::Ready {
             sender,
