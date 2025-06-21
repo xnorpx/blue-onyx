@@ -52,13 +52,10 @@ fn main() -> anyhow::Result<()> {
         .enable_all()
         .build()?; // Main server loop - restart if requested
     let mut current_args = args;
-    #[allow(unused_assignments)] // False positive - we do use this in take() calls
-    let mut current_thread_handle: Option<std::thread::JoinHandle<()>> = None;
 
     loop {
-        let (blue_onyx_service_future, cancellation_token, restart_token, thread_handle) =
+        let (blue_onyx_service_future, cancellation_token, restart_token) =
             create_blue_onyx_service(current_args.clone())?;
-        current_thread_handle = Some(thread_handle);
 
         let should_restart = rt.block_on(async {
             let ctrl_c_token = cancellation_token.clone();
@@ -71,10 +68,18 @@ fn main() -> anyhow::Result<()> {
             });
 
             // Wait for either the service to complete, or restart to be requested
-            tokio::select! {
-                result = blue_onyx_service_future => {
+            tokio::select! {                result = blue_onyx_service_future => {
                     match result {
-                        Ok(restart_requested) => restart_requested,
+                        Ok((restart_requested, worker_handle)) => {
+                            // Wait for worker thread to complete if available
+                            if let Some(handle) = worker_handle {
+                                info!("Waiting for worker thread to complete...");
+                                if let Err(e) = handle.join() {
+                                    error!("Worker thread panicked: {:?}", e);
+                                }
+                            }
+                            restart_requested
+                        },
                         Err(e) => {
                             error!("Service failed: {}", e);
                             false // Don't restart on error
@@ -89,15 +94,6 @@ fn main() -> anyhow::Result<()> {
         });
         if should_restart {
             info!("Restarting server with updated configuration...");
-
-            // Wait for the current worker thread to finish properly
-            if let Some(handle) = current_thread_handle.take() {
-                info!("Waiting for worker thread to shutdown...");
-                if let Err(e) = handle.join() {
-                    warn!("Worker thread didn't shutdown cleanly: {:?}", e);
-                }
-                info!("Worker thread shutdown complete");
-            }
 
             // Reload configuration for restart
             let new_args = Cli::from_config_and_args()?;
@@ -119,14 +115,6 @@ fn main() -> anyhow::Result<()> {
             continue;
         } else {
             break; // Normal shutdown
-        }
-    }
-
-    // Clean up the final worker thread on normal shutdown
-    if let Some(handle) = current_thread_handle.take() {
-        info!("Waiting for final worker thread to shutdown...");
-        if let Err(e) = handle.join() {
-            warn!("Final worker thread didn't shutdown cleanly: {:?}", e);
         }
     }
 

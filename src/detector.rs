@@ -680,3 +680,10 @@ impl std::fmt::Display for DeviceType {
         }
     }
 }
+
+/// Execution provider for the detector
+#[derive(Debug, Clone)]
+pub enum ExecutionProvider {
+    CPU,
+    DirectML(usize), // GPU index
+}
