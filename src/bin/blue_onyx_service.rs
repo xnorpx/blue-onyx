@@ -35,7 +35,9 @@ fn main() {
 
 #[cfg(windows)]
 mod blue_onyx_service {
-    use blue_onyx::{blue_onyx_service, cli::Cli, init_service_logging, update_service_log_level};
+    use blue_onyx::{
+        blue_onyx_service, cli::Cli, init_service_logging, update_service_log_level, ServiceResult,
+    };
     use std::{ffi::OsString, future::Future, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tracing::{error, info};
@@ -106,7 +108,7 @@ mod blue_onyx_service {
             } else {
                 info!("Using previous configuration (failed to reload config)");
             }
-            let (blue_onyx_service, cancellation_token, restart_token, thread_handle) =
+            let (blue_onyx_service, cancellation_token, restart_token) =
                 match blue_onyx_service(current_args.clone()) {
                     Ok(v) => v,
                     Err(err) => {
@@ -128,10 +130,6 @@ mod blue_onyx_service {
                     }
                 };
 
-            thread_handle
-                .join()
-                .expect("Failed to join detector worker thread");
-
             if should_restart {
                 info!("Restarting Blue Onyx service...");
                 // Small delay before restart to avoid rapid restart loops
@@ -143,7 +141,7 @@ mod blue_onyx_service {
         }
     }
     pub fn run_service(
-        blue_onyx_service: impl Future<Output = anyhow::Result<bool>>,
+        blue_onyx_service: impl Future<Output = ServiceResult>,
         cancellation_token: CancellationToken,
         restart_token: CancellationToken,
     ) -> anyhow::Result<bool> {
@@ -207,10 +205,22 @@ mod blue_onyx_service {
         let should_restart = rt.block_on(async {
             tokio::select! {
                 result = blue_onyx_service => {
-                    result.unwrap_or_else(|err| {
-                        error!(?err, "Blue onyx service encountered an error");
-                        false // Don't restart on error
-                    })
+                    match result {
+                        Ok((restart_requested, worker_handle)) => {
+                            // Wait for worker thread to complete if available
+                            if let Some(handle) = worker_handle {
+                                info!("Waiting for worker thread to complete...");
+                                if let Err(e) = handle.join() {
+                                    error!("Worker thread panicked: {:?}", e);
+                                }
+                            }
+                            restart_requested
+                        },
+                        Err(err) => {
+                            error!(?err, "Blue onyx service encountered an error");
+                            false // Don't restart on error
+                        }
+                    }
                 }
                 _ = restart_token.cancelled() => {
                     info!("Restart signal received");

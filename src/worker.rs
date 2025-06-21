@@ -70,12 +70,11 @@ impl DetectorWorker {
             },
         ))
     }
-
     pub fn get_detector(&self) -> &Detector {
         &self.detector
     }
-
     pub fn run(&mut self) {
+        info!("Detector worker thread: Starting detector worker loop");
         while let Ok((vision_request, response_sender, start_request_time)) = self.receiver.recv() {
             let queue_time = start_request_time.elapsed();
             debug!(
@@ -141,5 +140,30 @@ impl DetectorWorker {
                 warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
             }
         }
+        info!("Detector worker thread: Completed and exiting");
+    }
+
+    /// Spawns the detector worker thread with optimized settings
+    pub fn spawn_worker_thread(mut self) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            #[cfg(windows)]
+            unsafe {
+                use windows::Win32::System::Threading::{
+                    GetCurrentProcessorNumber, GetCurrentThread, SetThreadAffinityMask,
+                    SetThreadPriority, THREAD_PRIORITY_TIME_CRITICAL,
+                };
+                let thread_handle = GetCurrentThread();
+                if let Err(err) = SetThreadPriority(thread_handle, THREAD_PRIORITY_TIME_CRITICAL) {
+                    tracing::error!(?err, "Failed to set thread priority to time critical");
+                }
+                let processor_number = GetCurrentProcessorNumber();
+                let core_mask = 1usize << processor_number;
+                let previous_mask = SetThreadAffinityMask(thread_handle, core_mask);
+                if previous_mask == 0 {
+                    tracing::error!("Failed to set thread affinity.");
+                }
+            }
+            self.run();
+        })
     }
 }

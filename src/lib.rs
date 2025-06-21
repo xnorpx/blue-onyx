@@ -3,6 +3,7 @@ use cli::Cli;
 use detector::OnnxConfig;
 use serde::Deserialize;
 use server::run_server;
+use startup_coordinator::spawn_detector_initialization;
 use std::{future::Future, path::PathBuf};
 use tokio_util::sync::CancellationToken;
 use tracing::{info, Level};
@@ -12,6 +13,7 @@ pub mod detector;
 pub mod download_models;
 pub mod image;
 pub mod server;
+pub mod startup_coordinator;
 pub mod system_info;
 pub mod worker;
 
@@ -25,13 +27,15 @@ struct CocoClasses {
     NAMES: Vec<String>,
 }
 
+/// Type alias for the service result containing restart flag and optional worker thread handle
+pub type ServiceResult = anyhow::Result<(bool, Option<std::thread::JoinHandle<()>>)>;
+
 pub fn blue_onyx_service(
     args: Cli,
 ) -> anyhow::Result<(
-    impl Future<Output = anyhow::Result<bool>>, // Return bool for restart indication
+    impl Future<Output = ServiceResult>,
     CancellationToken,
     CancellationToken, // Add restart token
-    std::thread::JoinHandle<()>,
 )> {
     // Get the config path for the server
     let config_path = args.get_current_config_path()?;
@@ -53,59 +57,30 @@ pub fn blue_onyx_service(
         object_detection_model: args.object_detection_model_type,
     };
 
-    // Run a separate thread for the detector worker
-    let (sender, mut detector_worker) =
-        worker::DetectorWorker::new(detector_config, args.worker_queue_size)?;
+    // Log available GPU information
+    log_available_gpus();
 
-    let detector = detector_worker.get_detector();
-    let model_name = detector.get_model_name();
-    let using_gpu = detector.is_using_gpu();
-    let execution_providers_name = detector.get_endpoint_provider_name();
-
-    let device_name = if using_gpu {
-        system_info::gpu_model(args.gpu_index as usize)
-    } else {
-        system_info::cpu_model()
-    };
+    // Start the detector initialization in the background
+    let detector_init_receiver =
+        spawn_detector_initialization(detector_config, args.worker_queue_size); // Create placeholder metrics (will be updated when detector is ready)
     let metrics = server::Metrics::new(
-        model_name.clone(),
-        device_name,
-        execution_providers_name,
+        "Initializing...".to_string(),
+        "Initializing...".to_string(),
         args.log_path,
     );
+
     let cancel_token = CancellationToken::new();
     let restart_token = CancellationToken::new();
     let server_future = run_server(
         args.port,
         cancel_token.clone(),
         restart_token.clone(),
-        sender,
+        detector_init_receiver,
         metrics,
         config_path,
     );
 
-    let thread_handle = std::thread::spawn(move || {
-        #[cfg(windows)]
-        unsafe {
-            use windows::Win32::System::Threading::{
-                GetCurrentProcessorNumber, GetCurrentThread, SetThreadAffinityMask,
-                SetThreadPriority, THREAD_PRIORITY_TIME_CRITICAL,
-            };
-            let thread_handle = GetCurrentThread();
-            if let Err(err) = SetThreadPriority(thread_handle, THREAD_PRIORITY_TIME_CRITICAL) {
-                tracing::error!(?err, "Failed to set thread priority to time critical");
-            }
-            let processor_number = GetCurrentProcessorNumber();
-            let core_mask = 1usize << processor_number;
-            let previous_mask = SetThreadAffinityMask(thread_handle, core_mask);
-            if previous_mask == 0 {
-                tracing::error!("Failed to set thread affinity.");
-            }
-        }
-        detector_worker.run();
-    });
-
-    Ok((server_future, cancel_token, restart_token, thread_handle))
+    Ok((server_future, cancel_token, restart_token))
 }
 
 pub fn get_object_classes(yaml_file: Option<PathBuf>) -> anyhow::Result<Vec<String>> {
@@ -130,6 +105,25 @@ pub fn direct_ml_available() -> bool {
             return false;
         };
         exe_dir.join("DirectML.dll").exists()
+    }
+}
+
+/// Log information about available GPU devices
+pub fn log_available_gpus() {
+    if direct_ml_available() {
+        info!("DirectML is available for GPU inference");
+    } else {
+        info!("DirectML is not available - only CPU inference will be supported");
+    }
+
+    // Log available GPU devices
+    match system_info::gpu_info(true) {
+        Ok(_) => {
+            // gpu_info already logs the available GPUs when log_info is true
+        }
+        Err(e) => {
+            tracing::warn!("Failed to enumerate GPU devices: {}", e);
+        }
     }
 }
 

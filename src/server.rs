@@ -3,7 +3,9 @@ use crate::{
         StatusUpdateResponse, VersionInfo, VisionCustomListResponse, VisionDetectionRequest,
         VisionDetectionResponse,
     },
+    detector::ExecutionProvider,
     image::draw_boundary_boxes_on_encoded_image,
+    startup_coordinator::{DetectorInfo, InitResult},
 };
 use askama::Template;
 use axum::{
@@ -37,12 +39,23 @@ use tracing::{debug, error, info, warn};
 const MEGABYTE: usize = 1024 * 1024; // 1 MB = 1024 * 1024 bytes
 const THIRTY_MEGABYTES: usize = 30 * MEGABYTE; // 30 MB in bytes
 
+enum DetectorReady {
+    NotReady,
+    Ready {
+        sender: Sender<(
+            VisionDetectionRequest,
+            oneshot::Sender<VisionDetectionResponse>,
+            Instant,
+        )>,
+        #[allow(dead_code)]
+        detector_info: DetectorInfo,
+        worker_thread_handle: Option<std::thread::JoinHandle<()>>,
+    },
+    Failed(String),
+}
+
 struct ServerState {
-    sender: Sender<(
-        VisionDetectionRequest,
-        oneshot::Sender<VisionDetectionResponse>,
-        Instant,
-    )>,
+    detector_ready: Mutex<DetectorReady>,
     metrics: Mutex<Metrics>,
     restart_token: CancellationToken,
     config_path: PathBuf,
@@ -52,20 +65,61 @@ pub async fn run_server(
     port: u16,
     cancellation_token: CancellationToken,
     restart_token: CancellationToken,
-    sender: Sender<(
-        VisionDetectionRequest,
-        oneshot::Sender<VisionDetectionResponse>,
-        Instant,
-    )>,
+    detector_init_receiver: tokio::sync::oneshot::Receiver<InitResult>,
     metrics: Metrics,
     config_path: PathBuf,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<(bool, Option<std::thread::JoinHandle<()>>)> {
     // Return bool to indicate if restart was requested
     let server_state = Arc::new(ServerState {
-        sender,
+        detector_ready: Mutex::new(DetectorReady::NotReady),
         metrics: Mutex::new(metrics),
         restart_token: restart_token.clone(),
         config_path,
+    });
+
+    // Spawn a task to wait for detector initialization and update the server state
+    let state_clone = server_state.clone();
+    tokio::spawn(async move {
+        match detector_init_receiver.await {
+            Ok(InitResult::Success {
+                sender,
+                detector_info,
+                worker_thread_handle,
+            }) => {
+                info!(
+                    model_name = %detector_info.model_name,
+                    execution_provider = ?detector_info.execution_provider,
+                    "Detector ready - server can now handle requests"
+                );
+
+                // Update metrics with real detector info
+                {
+                    let mut metrics = state_clone.metrics.lock().await;
+                    metrics.update_detector_info(&detector_info);
+                }
+
+                // Update detector ready state
+                {
+                    let mut detector_ready = state_clone.detector_ready.lock().await;
+                    *detector_ready = DetectorReady::Ready {
+                        sender,
+                        detector_info,
+                        worker_thread_handle: Some(worker_thread_handle),
+                    };
+                }
+            }
+            Ok(InitResult::Failed(error)) => {
+                error!(error = %error, "Detector initialization failed");
+                let mut detector_ready = state_clone.detector_ready.lock().await;
+                *detector_ready = DetectorReady::Failed(error);
+            }
+            Err(_) => {
+                error!("Detector initialization channel was dropped");
+                let mut detector_ready = state_clone.detector_ready.lock().await;
+                *detector_ready =
+                    DetectorReady::Failed("Initialization channel dropped".to_string());
+            }
+        }
     });
     let blue_onyx = Router::new()
         .route("/", get(welcome_handler))
@@ -109,10 +163,10 @@ pub async fn run_server(
                 _ = restart_check.cancelled() => {},
             }
         })
-        .await?;
-
-    // Return true if restart was requested, false if normal shutdown
-    Ok(restart_token.is_cancelled())
+        .await?; // Return true if restart was requested, false if normal shutdown
+                 // Also return the worker thread handle if available for clean shutdown
+    let worker_handle = server_state.take_worker_thread_handle().await;
+    Ok((restart_token.is_cancelled(), worker_handle))
 }
 
 #[derive(Template)]
@@ -171,45 +225,70 @@ async fn v1_vision_detection(
         }
     }
 
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-
-    if server_state.sender.is_full() {
-        warn!("Worker queue is full server is overloaded, rejecting request");
-        update_dropped_requests(server_state).await;
-        return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
-    }
-
-    if let Err(err) = server_state
-        .sender
-        .send((vision_request, sender, request_start_time))
-    {
-        warn!(?err, "Failed to send request to detection worker");
-        update_dropped_requests(server_state).await;
-        return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
-    }
-    let result = timeout(Duration::from_secs(30), receiver).await;
-
-    let mut vision_response = match result {
-        Ok(Ok(response)) => response,
-        Ok(Err(err)) => {
-            warn!("Failed to receive vision detection response: {:?}", err);
-            update_dropped_requests(server_state).await;
-            return Err(BlueOnyxError::from(err));
+    // Check detector state first
+    let detector_ready = server_state.detector_ready.lock().await;
+    match &*detector_ready {
+        DetectorReady::NotReady => {
+            // Detector is still initializing, return not ready
+            Err(BlueOnyxError(anyhow::anyhow!(
+                "Server not ready yet, detector is still initializing"
+            )))
         }
-        Err(_) => {
-            warn!("Timeout while waiting for vision detection response");
-            update_dropped_requests(server_state).await;
-            return Err(BlueOnyxError::from(anyhow::anyhow!("Operation timed out")));
+        DetectorReady::Failed(error_msg) => {
+            // Detector initialization failed
+            Err(BlueOnyxError(anyhow::anyhow!(
+                "Detector initialization failed: {}",
+                error_msg
+            )))
         }
-    };
-    vision_response.analysisRoundTripMs = request_start_time.elapsed().as_millis() as i32;
+        DetectorReady::Ready {
+            sender,
+            detector_info: _,
+            worker_thread_handle: _,
+        } => {
+            // Detector is ready, proceed with request
+            let (response_sender, receiver) = tokio::sync::oneshot::channel();
 
-    {
-        let mut metrics = server_state.metrics.lock().await;
-        metrics.update_metrics(&vision_response);
+            if sender.is_full() {
+                warn!("Worker queue is full server is overloaded, rejecting request");
+                drop(detector_ready); // Release the lock
+                update_dropped_requests(server_state).await;
+                return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
+            }
+
+            if let Err(err) = sender.send((vision_request, response_sender, request_start_time)) {
+                warn!(?err, "Failed to send request to detection worker");
+                drop(detector_ready); // Release the lock
+                update_dropped_requests(server_state).await;
+                return Err(BlueOnyxError(anyhow::anyhow!("Worker queue is full")));
+            }
+
+            drop(detector_ready); // Release the lock before waiting
+            let result = timeout(Duration::from_secs(30), receiver).await;
+
+            let mut vision_response = match result {
+                Ok(Ok(response)) => response,
+                Ok(Err(err)) => {
+                    warn!("Failed to receive vision detection response: {:?}", err);
+                    update_dropped_requests(server_state).await;
+                    return Err(BlueOnyxError::from(err));
+                }
+                Err(_) => {
+                    warn!("Timeout while waiting for vision detection response");
+                    update_dropped_requests(server_state).await;
+                    return Err(BlueOnyxError::from(anyhow::anyhow!("Operation timed out")));
+                }
+            };
+            vision_response.analysisRoundTripMs = request_start_time.elapsed().as_millis() as i32;
+
+            {
+                let mut metrics = server_state.metrics.lock().await;
+                metrics.update_metrics(&vision_response);
+            }
+
+            Ok(Json(vision_response))
+        }
     }
-
-    Ok(Json(vision_response))
 }
 
 async fn v1_status_update_available() -> Result<Json<StatusUpdateResponse>, BlueOnyxError> {
@@ -640,7 +719,6 @@ pub struct Metrics {
     log_path: String,
     start_time: Instant,
     model_name: String,
-    device_name: String,
     execution_provider_name: String,
     number_of_requests: u128,
     dropped_requests: u128,
@@ -656,12 +734,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new(
-        model_name: String,
-        device_name: String,
-        execution_provider: String,
-        log_path: Option<PathBuf>,
-    ) -> Self {
+    pub fn new(model_name: String, execution_provider: String, log_path: Option<PathBuf>) -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
             log_path: log_path
@@ -670,7 +743,6 @@ impl Metrics {
                 .to_string(),
             start_time: Instant::now(),
             model_name,
-            device_name,
             execution_provider_name: execution_provider,
             number_of_requests: 0,
             dropped_requests: 0,
@@ -740,6 +812,28 @@ impl Metrics {
     fn avg_analysis_round_trip_ms(&self) -> i32 {
         self.avg_ms(self.total_analysis_round_trip_ms)
     }
+    pub fn update_detector_info(&mut self, detector_info: &DetectorInfo) {
+        self.model_name = detector_info.model_name.clone();
+        self.execution_provider_name = match &detector_info.execution_provider {
+            ExecutionProvider::CPU => "CPU".to_string(),
+            ExecutionProvider::DirectML(index) => format!("DirectML(GPU {})", index),
+        };
+    }
+}
+
+impl ServerState {
+    /// Extract the worker thread handle for clean shutdown
+    /// Returns the handle if the detector is ready, None otherwise
+    pub async fn take_worker_thread_handle(&self) -> Option<std::thread::JoinHandle<()>> {
+        let mut detector_ready = self.detector_ready.lock().await;
+        match &mut *detector_ready {
+            DetectorReady::Ready {
+                worker_thread_handle,
+                ..
+            } => worker_thread_handle.take(),
+            _ => None,
+        }
+    }
 }
 
 async fn update_dropped_requests(server_state: Arc<ServerState>) {
@@ -788,74 +882,101 @@ async fn handle_upload(
                 image_name: "image.jpg".to_string(),
             };
 
-            let (sender, receiver) = tokio::sync::oneshot::channel();
-            if let Err(err) = server_state
-                .sender
-                .send((vision_request, sender, request_start_time))
-            {
-                error!(?err, "Failed to send request to detection worker");
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to send request")
-                    .into_response();
-            }
-            let result = timeout(Duration::from_secs(30), receiver).await;
+            // Check detector state first
+            let detector_ready = server_state.detector_ready.lock().await;
 
-            let mut vision_response = match result {
-                Ok(Ok(response)) => response,
-                Ok(Err(err)) => {
-                    error!("Failed to receive vision detection response: {:?}", err);
+            match &*detector_ready {
+                DetectorReady::NotReady => {
                     return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Failed to receive response",
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "Server not ready yet, detector is still initializing",
                     )
                         .into_response();
                 }
-                Err(_) => {
-                    error!("Timeout while waiting for vision detection response");
-                    return (StatusCode::INTERNAL_SERVER_ERROR, "Timeout").into_response();
-                }
-            };
-
-            let data = match draw_boundary_boxes_on_encoded_image(
-                data,
-                vision_response.predictions.as_slice(),
-            ) {
-                Ok(d) => d,
-                Err(_) => {
-                    return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to draw boxes")
-                        .into_response()
-                }
-            };
-
-            let encoded = general_purpose::STANDARD.encode(&data);
-            let data_url = format!("data:image/jpeg;base64,{}", encoded);
-
-            let template = TestTemplate {
-                image_data: Some(&data_url),
-            };
-
-            vision_response.analysisRoundTripMs = request_start_time.elapsed().as_millis() as i32;
-
-            {
-                let mut metrics = server_state.metrics.lock().await;
-                metrics.update_metrics(&vision_response);
-            }
-            match template.render() {
-                Ok(body) => {
-                    return (
-                        [
-                            (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
-                            (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
-                        ],
-                        body,
-                    )
-                        .into_response()
-                }
-                Err(e) => {
+                DetectorReady::Failed(error_msg) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Template error: {}", e),
+                        format!("Detector initialization failed: {}", error_msg),
                     )
-                        .into_response()
+                        .into_response();
+                }
+                DetectorReady::Ready {
+                    sender,
+                    detector_info: _,
+                    worker_thread_handle: _,
+                } => {
+                    let (response_sender, receiver) = tokio::sync::oneshot::channel();
+                    if let Err(err) =
+                        sender.send((vision_request, response_sender, request_start_time))
+                    {
+                        error!(?err, "Failed to send request to detection worker");
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to send request")
+                            .into_response();
+                    }
+
+                    drop(detector_ready); // Release the lock before waiting
+                    let result = timeout(Duration::from_secs(30), receiver).await;
+
+                    let mut vision_response = match result {
+                        Ok(Ok(response)) => response,
+                        Ok(Err(err)) => {
+                            error!("Failed to receive vision detection response: {:?}", err);
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                "Failed to receive response",
+                            )
+                                .into_response();
+                        }
+                        Err(_) => {
+                            error!("Timeout while waiting for vision detection response");
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Timeout").into_response();
+                        }
+                    };
+
+                    let data = match draw_boundary_boxes_on_encoded_image(
+                        data,
+                        vision_response.predictions.as_slice(),
+                    ) {
+                        Ok(d) => d,
+                        Err(_) => {
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to draw boxes")
+                                .into_response()
+                        }
+                    };
+
+                    let encoded = general_purpose::STANDARD.encode(&data);
+                    let data_url = format!("data:image/jpeg;base64,{}", encoded);
+
+                    let template = TestTemplate {
+                        image_data: Some(&data_url),
+                    };
+
+                    vision_response.analysisRoundTripMs =
+                        request_start_time.elapsed().as_millis() as i32;
+
+                    {
+                        let mut metrics = server_state.metrics.lock().await;
+                        metrics.update_metrics(&vision_response);
+                    }
+                    match template.render() {
+                        Ok(body) => {
+                            return (
+                                [
+                                    (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+                                    (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                                ],
+                                body,
+                            )
+                                .into_response()
+                        }
+                        Err(e) => {
+                            return (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                format!("Template error: {}", e),
+                            )
+                                .into_response()
+                        }
+                    }
                 }
             }
         }
