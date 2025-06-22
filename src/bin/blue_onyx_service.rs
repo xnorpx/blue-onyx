@@ -120,22 +120,33 @@ mod blue_onyx_service {
                         continue;
                     }
                 };
-            let should_restart =
+            let (should_restart, status_handle) =
                 match run_service(blue_onyx_service, cancellation_token, restart_token.clone()) {
-                    Ok(restart) => restart,
+                    Ok((restart, handle)) => (restart, Some(handle)),
                     Err(err) => {
                         error!(?err, "Blue onyx service failed, will retry after delay");
                         std::thread::sleep(Duration::from_secs(5));
-                        true // Force restart after error
+                        (true, None) // Force restart after error
                     }
                 };
-
             if should_restart {
                 info!("Restarting Blue Onyx service...");
                 // Small delay before restart to avoid rapid restart loops
                 std::thread::sleep(Duration::from_secs(1));
             } else {
                 info!("Blue Onyx service stopped normally");
+                // Set final service status to stopped
+                if let Some(handle) = status_handle {
+                    let _ = handle.set_service_status(ServiceStatus {
+                        service_type: SERVICE_TYPE,
+                        current_state: ServiceState::Stopped,
+                        controls_accepted: ServiceControlAccept::empty(),
+                        exit_code: ServiceExitCode::Win32(0),
+                        checkpoint: 0,
+                        wait_hint: Duration::default(),
+                        process_id: None,
+                    });
+                }
                 break;
             }
         }
@@ -144,7 +155,10 @@ mod blue_onyx_service {
         blue_onyx_service: impl Future<Output = ServiceResult>,
         cancellation_token: CancellationToken,
         restart_token: CancellationToken,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<(
+        bool,
+        windows_service::service_control_handler::ServiceStatusHandle,
+    )> {
         let restart_token_clone = restart_token.clone();
         let event_handler = move |control_event| -> ServiceControlHandlerResult {
             match control_event {
@@ -227,19 +241,20 @@ mod blue_onyx_service {
                     true // Restart requested
                 }
             }
-        });
+        }); // Only set service status to Stopped if we're not restarting
+        if !should_restart {
+            status_handle.set_service_status(ServiceStatus {
+                service_type: SERVICE_TYPE,
+                current_state: ServiceState::Stopped,
+                controls_accepted: ServiceControlAccept::empty(),
+                exit_code: ServiceExitCode::Win32(0),
+                checkpoint: 0,
+                wait_hint: Duration::default(),
+                process_id: None,
+            })?;
+        }
 
-        status_handle.set_service_status(ServiceStatus {
-            service_type: SERVICE_TYPE,
-            current_state: ServiceState::Stopped,
-            controls_accepted: ServiceControlAccept::empty(),
-            exit_code: ServiceExitCode::Win32(0),
-            checkpoint: 0,
-            wait_hint: Duration::default(),
-            process_id: None,
-        })?;
-
-        Ok(should_restart)
+        Ok((should_restart, status_handle))
     }
     /// Validate GPU environment for DirectML access in service context
     fn validate_gpu_environment() {

@@ -76,7 +76,9 @@ pub struct OnnxConfig {
     pub model: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Default, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Default, PartialEq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
+)]
 pub enum ObjectDetectionModel {
     #[default]
     RtDetrv2,
@@ -222,17 +224,46 @@ fn yolo5_post_process(
     let shape_dims: Vec<usize> = shape.iter().map(|&dim| dim as usize).collect();
     let yolo_output = ArrayView::from_shape(shape_dims.as_slice(), data)
         .map_err(|e| anyhow!("Failed to create output array view: {}", e))?;
-    assert_eq!(
-        yolo_output.shape()[1],
-        5 + object_classes.len(),
-        "Unexpected yolo_output shape, expected {}, got {}. This probably means that your classes YAML file does not match the model.",
-        5 + object_classes.len(),
-        yolo_output.shape()[1]
-    );
 
+    // Debug: Print the actual tensor shape
+    debug!("YOLO output tensor shape: {:?}", yolo_output.shape());
+    debug!("Expected classes + 5: {}", 5 + object_classes.len());
+
+    // The YOLO5 output is typically [batch_size, num_detections, num_classes + 5]
+    // So we need to check the last dimension, not the second dimension
+    let expected_features = 5 + object_classes.len();
+    let actual_shape = yolo_output.shape();
+
+    if actual_shape.len() == 3 && actual_shape[2] == expected_features {
+        // Shape is [batch_size, num_detections, features] - this is correct
+        debug!(
+            "Tensor shape is correct: [batch_size={}, num_detections={}, features={}]",
+            actual_shape[0], actual_shape[1], actual_shape[2]
+        );
+    } else if actual_shape.len() == 2 && actual_shape[1] == expected_features {
+        // Shape is [num_detections, features] - also valid
+        debug!(
+            "Tensor shape is 2D: [num_detections={}, features={}]",
+            actual_shape[0], actual_shape[1]
+        );
+    } else {
+        bail!(
+            "Unexpected YOLO output shape: {:?}. Expected last dimension to be {} (5 + {} classes). This probably means that your classes YAML file does not match the model.",
+            actual_shape, expected_features, object_classes.len()
+        );
+    }
     let mut predictions = SmallVec::<[Prediction; 10]>::new();
 
-    for iter in yolo_output.outer_iter() {
+    // Handle different tensor shapes
+    let detections_view = if yolo_output.shape().len() == 3 {
+        // Shape is [batch_size, num_detections, features] - get the first batch
+        yolo_output.index_axis(Axis(0), 0)
+    } else {
+        // Shape is [num_detections, features] - use directly
+        yolo_output.view()
+    };
+
+    for iter in detections_view.outer_iter() {
         if iter[4] > confidence_threshold {
             let class_idx = iter
                 .slice(s![5..])
