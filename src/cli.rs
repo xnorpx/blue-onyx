@@ -1,4 +1,4 @@
-use crate::{detector::ObjectDetectionModel, download_models::Model, init_logging, LogLevel};
+use crate::{LogLevel, detector::ObjectDetectionModel, download_models::Model, init_logging};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};

@@ -95,7 +95,9 @@ fn startup_worker_thread(
                     "Startup worker thread: Handover complete, detector is now available to server"
                 );
             }
-            info!("Startup worker thread: Completed successfully (worker thread continues in background)");
+            info!(
+                "Startup worker thread: Completed successfully (worker thread continues in background)"
+            );
 
             // The startup thread exits here, but the worker thread continues running
             // The server now owns the sender and can communicate with the detector

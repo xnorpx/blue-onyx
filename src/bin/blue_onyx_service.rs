@@ -36,19 +36,19 @@ fn main() {
 #[cfg(windows)]
 mod blue_onyx_service {
     use blue_onyx::{
-        blue_onyx_service, cli::Cli, init_service_logging, update_service_log_level, ServiceResult,
+        ServiceResult, blue_onyx_service, cli::Cli, init_service_logging, update_service_log_level,
     };
     use std::{ffi::OsString, future::Future, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tracing::{error, info};
     use windows_service::{
-        define_windows_service,
+        Result, define_windows_service,
         service::{
             ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
             ServiceType,
         },
         service_control_handler::{self, ServiceControlHandlerResult},
-        service_dispatcher, Result,
+        service_dispatcher,
     };
 
     const SERVICE_NAME: &str = "BlueOnyxService";
@@ -262,8 +262,8 @@ mod blue_onyx_service {
         info!("Validating GPU environment for service context");
 
         // Set environment variables for better GPU access
-        std::env::set_var("DIRECTML_DEBUG", "0");
-        std::env::set_var("D3D12_EXPERIMENTAL_SHADER_MODELS", "1");
+        unsafe { std::env::set_var("DIRECTML_DEBUG", "0") };
+        unsafe { std::env::set_var("D3D12_EXPERIMENTAL_SHADER_MODELS", "1") };
 
         // Validate DirectX 12 availability
         validate_directx12_support();
@@ -313,8 +313,8 @@ mod blue_onyx_service {
     }
     /// Preload required DLLs for faster service startup
     fn preload_service_dlls() {
-        use windows::core::PCSTR;
         use windows::Win32::System::LibraryLoader::LoadLibraryA;
+        use windows::core::PCSTR;
 
         info!("Preloading service DLLs for optimized startup");
 
@@ -341,17 +341,19 @@ mod blue_onyx_service {
         }
 
         // Set DLL search optimization
-        std::env::set_var(
-            "PATH",
-            format!(
-                "{};{}",
-                std::env::current_exe()
-                    .unwrap_or_default()
-                    .parent()
-                    .unwrap_or(std::path::Path::new("."))
-                    .display(),
-                std::env::var("PATH").unwrap_or_default()
-            ),
-        );
+        unsafe {
+            std::env::set_var(
+                "PATH",
+                format!(
+                    "{};{}",
+                    std::env::current_exe()
+                        .unwrap_or_default()
+                        .parent()
+                        .unwrap_or(std::path::Path::new("."))
+                        .display(),
+                    std::env::var("PATH").unwrap_or_default()
+                ),
+            )
+        };
     }
 }

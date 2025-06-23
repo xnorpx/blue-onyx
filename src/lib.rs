@@ -6,7 +6,7 @@ use server::run_server;
 use startup_coordinator::spawn_detector_initialization;
 use std::{future::Future, path::PathBuf};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, Level};
+use tracing::{Level, info};
 pub mod api;
 pub mod cli;
 pub mod detector;
@@ -146,7 +146,7 @@ pub fn init_logging(
 ) -> anyhow::Result<Option<tracing_appender::non_blocking::WorkerGuard>> {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
-    use tracing_subscriber::{reload, EnvFilter};
+    use tracing_subscriber::{EnvFilter, reload};
 
     setup_ansi_support();
 
@@ -228,7 +228,7 @@ pub fn update_log_level(new_log_level: LogLevel) -> anyhow::Result<()> {
 pub fn init_service_logging(log_level: LogLevel) -> anyhow::Result<()> {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
-    use tracing_subscriber::{reload, EnvFilter};
+    use tracing_subscriber::{EnvFilter, reload};
 
     // Create a reloadable env filter
     let env_filter = EnvFilter::try_from_default_env()

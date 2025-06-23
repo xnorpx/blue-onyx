@@ -9,14 +9,14 @@ use crate::{
 };
 use askama::Template;
 use axum::{
+    Json, Router,
     body::{self, Body},
     extract::{DefaultBodyLimit, Multipart, State},
-    http::{header::CACHE_CONTROL, Request, StatusCode},
+    http::{Request, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use bytes::Bytes;
 use chrono::Utc;
 use crossbeam::channel::Sender;
@@ -30,8 +30,8 @@ use std::{
     time::Instant,
 };
 use tokio::{
-    sync::{oneshot, Mutex},
-    time::{timeout, Duration},
+    sync::{Mutex, oneshot},
+    time::{Duration, timeout},
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -149,7 +149,9 @@ pub async fn run_server(
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => listener,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
-            error!("Looks like {port} is already in use either by Blue Onyx, CPAI or another application, please turn off the other application or pick another port with --port");
+            error!(
+                "Looks like {port} is already in use either by Blue Onyx, CPAI or another application, please turn off the other application or pick another port with --port"
+            );
             return Err(e.into());
         }
         Err(e) => return Err(e.into()),
@@ -164,7 +166,7 @@ pub async fn run_server(
             }
         })
         .await?; // Return true if restart was requested, false if normal shutdown
-                 // Also return the worker thread handle if available for clean shutdown
+    // Also return the worker thread handle if available for clean shutdown
     let worker_handle = server_state.take_worker_thread_handle().await;
     Ok((restart_token.is_cancelled(), worker_handle))
 }
@@ -422,7 +424,7 @@ async fn config_get_handler(State(state): State<Arc<ServerState>>) -> impl IntoR
 async fn config_post_handler(
     State(state): State<Arc<ServerState>>,
     mut multipart: Multipart,
-) -> impl IntoResponse {
+) -> impl IntoResponse + use<> {
     // Parse form data
     let mut form_data = std::collections::HashMap::new();
 
@@ -606,7 +608,7 @@ async fn show_config_form(
     success_message: String,
     error_message: String,
     config_path: &Path,
-) -> impl IntoResponse {
+) -> impl IntoResponse + use<> {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
     let logo_data = format!("data:image/png;base64,{}", encoded_logo);
@@ -896,7 +898,9 @@ impl ServerState {
 }
 
 async fn update_dropped_requests(server_state: Arc<ServerState>) {
-    warn!("If you see this message spamming you should reduce the number of requests or upgrade your service to be faster.");
+    warn!(
+        "If you see this message spamming you should reduce the number of requests or upgrade your service to be faster."
+    );
     let mut metrics = server_state.metrics.lock().await;
     metrics.update_dropped_requests();
 }
@@ -932,7 +936,7 @@ async fn handle_upload(
             let data: Bytes = match field.bytes().await {
                 Ok(d) => d,
                 Err(_) => {
-                    return (StatusCode::BAD_REQUEST, "Failed to read image bytes").into_response()
+                    return (StatusCode::BAD_REQUEST, "Failed to read image bytes").into_response();
                 }
             };
             let vision_request = VisionDetectionRequest {
@@ -999,7 +1003,7 @@ async fn handle_upload(
                         Ok(d) => d,
                         Err(_) => {
                             return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to draw boxes")
-                                .into_response()
+                                .into_response();
                         }
                     };
 
@@ -1026,14 +1030,14 @@ async fn handle_upload(
                                 ],
                                 body,
                             )
-                                .into_response()
+                                .into_response();
                         }
                         Err(e) => {
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 format!("Template error: {}", e),
                             )
-                                .into_response()
+                                .into_response();
                         }
                     }
                 }

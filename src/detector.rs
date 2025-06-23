@@ -2,13 +2,13 @@ use crate::{
     api::Prediction,
     direct_ml_available, get_object_classes,
     image::{
-        create_od_image_name, decode_jpeg, encode_maybe_draw_boundary_boxes_and_save_jpeg, Image,
-        Resizer,
+        Image, Resizer, create_od_image_name, decode_jpeg,
+        encode_maybe_draw_boundary_boxes_and_save_jpeg,
     },
 };
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
-use ndarray::{s, Array, ArrayView, Axis};
+use ndarray::{Array, ArrayView, Axis, s};
 use ort::{
     execution_providers::DirectMLExecutionProvider,
     inputs,
@@ -249,7 +249,9 @@ fn yolo5_post_process(
     } else {
         bail!(
             "Unexpected YOLO output shape: {:?}. Expected last dimension to be {} (5 + {} classes). This probably means that your classes YAML file does not match the model.",
-            actual_shape, expected_features, object_classes.len()
+            actual_shape,
+            expected_features,
+            object_classes.len()
         );
     }
     let mut predictions = SmallVec::<[Prediction; 10]>::new();
@@ -387,7 +389,9 @@ impl Detector {
             info!("Using object classes from model YAML: {:?}", yaml_path);
             get_object_classes(Some(yaml_path.clone()))?
         } else {
-            bail!("No YAML file found with model. A YAML file containing object classes is required for the model.");
+            bail!(
+                "No YAML file found with model. A YAML file containing object classes is required for the model."
+            );
         };
 
         let mut object_filter = None;
@@ -638,7 +642,10 @@ fn initialize_onnx(
     } else {
         let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
         let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-        warn!("DirectML not available, falling back to CPU for inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
+        warn!(
+            "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
+            num_intra_threads, num_inter_threads
+        );
         (onnx_config.intra_threads, onnx_config.inter_threads)
     };
 
