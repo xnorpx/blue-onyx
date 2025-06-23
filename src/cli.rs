@@ -1,4 +1,4 @@
-use crate::{detector::ObjectDetectionModel, LogLevel};
+use crate::{detector::ObjectDetectionModel, download_models::Model, init_logging, LogLevel};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
@@ -157,19 +157,57 @@ impl Default for Cli {
 }
 
 impl Cli {
-    /// Create a new Cli from a combination of config file and command line arguments    /// CLI arguments always override config file values
-    pub fn from_config_and_args() -> anyhow::Result<Self> {
+    /// Create a new Cli from a combination of config file and command line arguments
+    /// CLI arguments always override config file values
+    pub fn from_config_and_args() -> anyhow::Result<Option<Self>> {
         // First parse CLI to get the config file path and all CLI arguments
-        let cli_args = Self::parse();
+        let mut args = Self::parse();
 
-        if let Some(config_path) = cli_args.config.clone() {
-            // If config file is specified, load it and merge with CLI args
+        if args.list_models {
+            let _guard = init_logging(args.log_level, &mut args.log_path)?;
+            crate::download_models::list_models();
+            return Ok(None);
+        }
+        // Check if any download flags are set
+        if args.download_all_models || args.download_rt_detr2 || args.download_yolo5 {
+            let _guard = init_logging(args.log_level, &mut args.log_path)?;
+            // Use specified path or default to current directory
+            let download_path = args.download_model_path.unwrap_or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ".".into()))
+            }); // Determine what to download based on flags
+            let model_type = match (
+                args.download_all_models,
+                args.download_rt_detr2,
+                args.download_yolo5,
+            ) {
+                (true, _, _) => Model::All,
+                (false, true, true) => Model::All,
+                (false, true, false) => Model::AllRtDetr2,
+                (false, false, true) => Model::AllYolo5,
+                (false, false, false) => unreachable!("No download flags set"),
+            };
+
+            // Create async runtime for download operation
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?;
+
+            rt.block_on(async {
+                crate::download_models::download_model(download_path, model_type).await
+            })?;
+            return Ok(None);
+        } // Run the tokio runtime on the main thread
+
+        if let Some(config_path) = args.config.clone() {
             let config_file = Self::load_config(&config_path)?;
-            Ok(Self::merge_config_with_cli_args(
+            Ok(Some(Self::merge_config_with_cli_args(
                 config_file,
-                cli_args,
+                args,
                 config_path,
-            ))
+            )))
         } else {
             // No config file specified, check if default config exists
             let default_config_path = Self::get_default_config_path()?;
@@ -181,23 +219,23 @@ impl Cli {
                     default_config_path.display()
                 );
                 let config_file = Self::load_config(&default_config_path)?;
-                Ok(Self::merge_config_with_cli_args(
+                Ok(Some(Self::merge_config_with_cli_args(
                     config_file,
-                    cli_args,
+                    args,
                     default_config_path,
-                ))
+                )))
             } else {
                 // Create new config file from CLI arguments
-                cli_args.save_config(&default_config_path)?;
+                args.save_config(&default_config_path)?;
                 tracing::info!(
                     "Created config file from CLI arguments: {}",
                     default_config_path.display()
                 );
 
                 // Now load it back with the config path set
-                let mut config = cli_args;
+                let mut config = args;
                 config.config = Some(default_config_path);
-                Ok(config)
+                Ok(Some(config))
             }
         }
     }
