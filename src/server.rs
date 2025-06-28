@@ -181,7 +181,7 @@ struct WelcomeTemplate {
 async fn welcome_handler(State(server_state): State<Arc<ServerState>>) -> impl IntoResponse {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
-    let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+    let logo_data = format!("data:image/png;base64,{encoded_logo}");
     let metrics = {
         let metrics_guard = server_state.metrics.lock().await;
         metrics_guard.clone()
@@ -198,7 +198,7 @@ async fn welcome_handler(State(server_state): State<Arc<ServerState>>) -> impl I
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -349,7 +349,7 @@ async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl Int
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -368,7 +368,7 @@ async fn show_form() -> impl IntoResponse {
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -458,7 +458,7 @@ async fn config_post_handler(
         Err(e) => {
             show_config_form(
                 "".to_string(),
-                format!("Failed to save configuration: {}", e),
+                format!("Failed to save configuration: {e}"),
                 current_config_path,
             )
             .await
@@ -565,7 +565,7 @@ async fn config_restart_handler(
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to save configuration: {}", e),
+            format!("Failed to save configuration: {e}"),
         )
             .into_response(),
     }
@@ -611,7 +611,7 @@ async fn show_config_form(
 ) -> impl IntoResponse + use<> {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
-    let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+    let logo_data = format!("data:image/png;base64,{encoded_logo}");
 
     // Use the provided config path instead of trying to get the default
     let current_config_path = config_path.to_path_buf();
@@ -731,7 +731,7 @@ fn render_config_template(template: ConfigTemplate) -> impl IntoResponse {
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -768,8 +768,7 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
     let version_info: VersionJson = response.json().await?;
     let latest_release_version_str = version_info.version;
     let release_notes_url = format!(
-        "https://github.com/xnorpx/blue-onyx/releases/{}",
-        latest_release_version_str
+        "https://github.com/xnorpx/blue-onyx/releases/{latest_release_version_str}"
     );
     Ok((latest_release_version_str, release_notes_url))
 }
@@ -824,7 +823,7 @@ impl Metrics {
         let days = elapsed.as_secs() / 86400;
         let hours = (elapsed.as_secs() % 86400) / 3600;
         let minutes = (elapsed.as_secs() % 3600) / 60;
-        format!("{} days, {} hours and {} minutes", days, hours, minutes)
+        format!("{days} days, {hours} hours and {minutes} minutes")
     }
 
     fn update_metrics(&mut self, response: &VisionDetectionResponse) {
@@ -877,7 +876,7 @@ impl Metrics {
         self.model_name = detector_info.model_name.clone();
         self.execution_provider_name = match &detector_info.execution_provider {
             ExecutionProvider::CPU => "CPU".to_string(),
-            ExecutionProvider::DirectML(index) => format!("DirectML(GPU {})", index),
+            ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
         };
     }
 }
@@ -959,7 +958,7 @@ async fn handle_upload(
                 DetectorReady::Failed(error_msg) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Detector initialization failed: {}", error_msg),
+                        format!("Detector initialization failed: {error_msg}"),
                     )
                         .into_response();
                 }
@@ -1008,7 +1007,7 @@ async fn handle_upload(
                     };
 
                     let encoded = general_purpose::STANDARD.encode(&data);
-                    let data_url = format!("data:image/jpeg;base64,{}", encoded);
+                    let data_url = format!("data:image/jpeg;base64,{encoded}");
 
                     let template = TestTemplate {
                         image_data: Some(&data_url),
@@ -1035,7 +1034,7 @@ async fn handle_upload(
                         Err(e) => {
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
-                                format!("Template error: {}", e),
+                                format!("Template error: {e}"),
                             )
                                 .into_response();
                         }

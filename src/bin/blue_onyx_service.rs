@@ -63,13 +63,13 @@ mod blue_onyx_service {
         let mut current_args = match Cli::for_service() {
             Ok(args) => args,
             Err(err) => {
-                eprintln!("Failed to load service configuration: {}", err);
+                eprintln!("Failed to load service configuration: {err}");
                 return;
             }
         };
         // Initialize service logging once
         if let Err(e) = init_service_logging(current_args.log_level) {
-            eprintln!("Failed to initialize logging: {}", e);
+            eprintln!("Failed to initialize logging: {e}");
             return;
         }
 
@@ -322,7 +322,7 @@ mod blue_onyx_service {
         let dlls_to_preload = ["DirectML.dll", "onnxruntime.dll"];
 
         for dll_name in &dlls_to_preload {
-            let dll_cstr = format!("{}\0", dll_name);
+            let dll_cstr = format!("{dll_name}\0");
             match unsafe { LoadLibraryA(PCSTR(dll_cstr.as_ptr())) } {
                 Ok(handle) => {
                     if !handle.is_invalid() {

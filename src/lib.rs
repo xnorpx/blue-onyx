@@ -290,7 +290,7 @@ fn level_to_filter_string(log_level: LogLevel) -> String {
 fn setup_ansi_support() {
     #[cfg(target_os = "windows")]
     if let Err(e) = ansi_term::enable_ansi_support() {
-        eprintln!("Failed to enable ANSI support: {}", e);
+        eprintln!("Failed to enable ANSI support: {e}");
     }
 }
 
