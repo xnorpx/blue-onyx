@@ -186,7 +186,9 @@ fn rt_detrv2_post_process(
     for (i, bbox) in bboxes.outer_iter().enumerate() {
         if scores[i] > confidence_threshold {
             // If object filter is set, skip objects that are not in the filter
-            if let Some(object_filter) = object_filter.as_ref() && !object_filter[labels[i] as usize] {
+            if let Some(object_filter) = object_filter.as_ref()
+                && !object_filter[labels[i] as usize]
+            {
                 continue;
             }
 
@@ -272,7 +274,9 @@ fn yolo5_post_process(
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
 
-            if let Some(object_filter) = object_filter && !object_filter[class_idx] {
+            if let Some(object_filter) = object_filter
+                && !object_filter[class_idx]
+            {
                 continue;
             }
 
@@ -537,7 +541,9 @@ impl Detector {
             );
         }
 
-        if let Some(image_name) = image_name.clone() && let Some(save_image_path) = self.save_image_path.clone() {
+        if let Some(image_name) = image_name.clone()
+            && let Some(save_image_path) = self.save_image_path.clone()
+        {
             let save_image_start_time = Instant::now();
             let save_image_path = save_image_path.to_path_buf();
             let image_name_od = create_od_image_name(&image_name, true)?;

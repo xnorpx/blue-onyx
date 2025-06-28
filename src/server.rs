@@ -429,7 +429,9 @@ async fn config_post_handler(
     let mut form_data = std::collections::HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name() && let Ok(value) = field.text().await {
+        if let Some(name) = field.name()
+            && let Ok(value) = field.text().await
+        {
             let name = name.to_string(); // Clone the name first
             form_data.insert(name, value);
         }
@@ -472,7 +474,9 @@ async fn config_restart_handler(
     let mut form_data = std::collections::HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name() && let Ok(value) = field.text().await {
+        if let Some(name) = field.name()
+            && let Ok(value) = field.text().await
+        {
             let name = name.to_string();
             form_data.insert(name, value);
         }
@@ -1106,11 +1110,15 @@ fn update_config_from_form_data(
     form_data: &std::collections::HashMap<String, String>,
 ) {
     // Basic server configuration
-    if let Some(port_str) = form_data.get("port") && let Ok(port) = port_str.parse::<u16>() {
+    if let Some(port_str) = form_data.get("port")
+        && let Ok(port) = port_str.parse::<u16>()
+    {
         config.port = port;
     }
 
-    if let Some(timeout_str) = form_data.get("request_timeout") && let Ok(timeout) = timeout_str.parse::<u64>() {
+    if let Some(timeout_str) = form_data.get("request_timeout")
+        && let Ok(timeout) = timeout_str.parse::<u64>()
+    {
         config.request_timeout = std::time::Duration::from_secs(timeout);
     }
 
@@ -1126,7 +1134,9 @@ fn update_config_from_form_data(
     if let Some(model_selection_type) = form_data.get("model_selection_type") {
         match model_selection_type.as_str() {
             "builtin" => {
-                if let Some(builtin_model) = form_data.get("builtin_model") && !builtin_model.is_empty() {
+                if let Some(builtin_model) = form_data.get("builtin_model")
+                    && !builtin_model.is_empty()
+                {
                     // Set the model path to just the filename (will be found in the executable directory)
                     config.model = Some(PathBuf::from(builtin_model));
 
@@ -1185,7 +1195,9 @@ fn update_config_from_form_data(
         };
     }
 
-    if let Some(confidence_str) = form_data.get("confidence_threshold") && let Ok(confidence) = confidence_str.parse::<f32>() {
+    if let Some(confidence_str) = form_data.get("confidence_threshold")
+        && let Ok(confidence) = confidence_str.parse::<f32>()
+    {
         config.confidence_threshold = confidence;
     }
 
@@ -1211,15 +1223,21 @@ fn update_config_from_form_data(
     // Performance configuration
     config.force_cpu = form_data.contains_key("force_cpu");
 
-    if let Some(gpu_str) = form_data.get("gpu_index") && let Ok(gpu_index) = gpu_str.parse::<i32>() {
+    if let Some(gpu_str) = form_data.get("gpu_index")
+        && let Ok(gpu_index) = gpu_str.parse::<i32>()
+    {
         config.gpu_index = gpu_index;
     }
 
-    if let Some(intra_str) = form_data.get("intra_threads") && let Ok(intra_threads) = intra_str.parse::<usize>() {
+    if let Some(intra_str) = form_data.get("intra_threads")
+        && let Ok(intra_threads) = intra_str.parse::<usize>()
+    {
         config.intra_threads = intra_threads;
     }
 
-    if let Some(inter_str) = form_data.get("inter_threads") && let Ok(inter_threads) = inter_str.parse::<usize>() {
+    if let Some(inter_str) = form_data.get("inter_threads")
+        && let Ok(inter_threads) = inter_str.parse::<usize>()
+    {
         config.inter_threads = inter_threads;
     }
 

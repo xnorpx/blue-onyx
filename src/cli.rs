@@ -173,7 +173,9 @@ impl Cli {
             let _guard = init_logging(args.log_level, &mut args.log_path)?;
             // Use specified path or default to current directory
             let download_path = args.download_model_path.unwrap_or_else(|| {
-                if let Ok(exe) = std::env::current_exe() && let Some(parent) = exe.parent() {
+                if let Ok(exe) = std::env::current_exe()
+                    && let Some(parent) = exe.parent()
+                {
                     parent.to_path_buf()
                 } else {
                     std::env::current_dir().unwrap_or_else(|_| ".".into())
