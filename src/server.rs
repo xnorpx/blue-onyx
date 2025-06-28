@@ -429,11 +429,11 @@ async fn config_post_handler(
     let mut form_data = std::collections::HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name()
-            && let Ok(value) = field.text().await
-        {
+        if let Some(name) = field.name() {
             let name = name.to_string(); // Clone the name first
-            form_data.insert(name, value);
+            if let Ok(value) = field.text().await {
+                form_data.insert(name, value);
+            }
         }
     }
 
@@ -474,11 +474,11 @@ async fn config_restart_handler(
     let mut form_data = std::collections::HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name()
-            && let Ok(value) = field.text().await
-        {
+        if let Some(name) = field.name() {
             let name = name.to_string();
-            form_data.insert(name, value);
+            if let Ok(value) = field.text().await {
+                form_data.insert(name, value);
+            }
         }
     }
 
