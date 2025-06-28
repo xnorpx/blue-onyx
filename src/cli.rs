@@ -173,10 +173,11 @@ impl Cli {
             let _guard = init_logging(args.log_level, &mut args.log_path)?;
             // Use specified path or default to current directory
             let download_path = args.download_model_path.unwrap_or_else(|| {
-                std::env::current_exe()
-                    .ok()
-                    .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
-                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ".".into()))
+                if let Ok(exe) = std::env::current_exe() && let Some(parent) = exe.parent() {
+                    parent.to_path_buf()
+                } else {
+                    std::env::current_dir().unwrap_or_else(|_| ".".into())
+                }
             }); // Determine what to download based on flags
             let model_type = match (
                 args.download_all_models,

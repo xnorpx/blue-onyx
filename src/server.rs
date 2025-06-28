@@ -429,11 +429,9 @@ async fn config_post_handler(
     let mut form_data = std::collections::HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name() {
+        if let Some(name) = field.name() && let Ok(value) = field.text().await {
             let name = name.to_string(); // Clone the name first
-            if let Ok(value) = field.text().await {
-                form_data.insert(name, value);
-            }
+            form_data.insert(name, value);
         }
     }
 
@@ -474,11 +472,9 @@ async fn config_restart_handler(
     let mut form_data = std::collections::HashMap::new();
 
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name() {
+        if let Some(name) = field.name() && let Ok(value) = field.text().await {
             let name = name.to_string();
-            if let Ok(value) = field.text().await {
-                form_data.insert(name, value);
-            }
+            form_data.insert(name, value);
         }
     }
 
@@ -625,39 +621,45 @@ async fn show_config_form(
         custom_model_type,
         custom_object_classes,
     ) = if let Some(model_path) = &config.model {
-        let model_filename = model_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("");
+        if let Some(model_filename) = model_path.file_name().and_then(|name| name.to_str()) {
+            // Check if this is a builtin model (just filename, no path, and matches known models)
+            let is_builtin = !model_filename.contains('\\')
+                && !model_filename.contains('/')
+                && (model_filename.starts_with("rt-detr")
+                    || model_filename == "delivery.onnx"
+                    || model_filename.starts_with("IPcam-")
+                    || model_filename.starts_with("ipcam-")
+                    || model_filename == "package.onnx");
 
-        // Check if this is a builtin model (just filename, no path, and matches known models)
-        let is_builtin = !model_filename.contains('\\')
-            && !model_filename.contains('/')
-            && (model_filename.starts_with("rt-detr")
-                || model_filename == "delivery.onnx"
-                || model_filename.starts_with("IPcam-")
-                || model_filename.starts_with("ipcam-")
-                || model_filename == "package.onnx");
-
-        if is_builtin {
+            if is_builtin {
+                (
+                    "builtin".to_string(),
+                    model_filename.to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                )
+            } else {
+                (
+                    "custom".to_string(),
+                    String::new(),
+                    model_path.to_string_lossy().to_string(),
+                    config.object_detection_model_type.to_string(),
+                    config
+                        .object_classes
+                        .as_ref()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default(),
+                )
+            }
+        } else {
+            // Invalid filename, default to builtin
             (
                 "builtin".to_string(),
-                model_filename.to_string(),
+                "rt-detrv2-s.onnx".to_string(),
                 String::new(),
                 String::new(),
                 String::new(),
-            )
-        } else {
-            (
-                "custom".to_string(),
-                String::new(),
-                model_path.to_string_lossy().to_string(),
-                config.object_detection_model_type.to_string(),
-                config
-                    .object_classes
-                    .as_ref()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_default(),
             )
         }
     } else {
@@ -767,9 +769,8 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
             .await?;
     let version_info: VersionJson = response.json().await?;
     let latest_release_version_str = version_info.version;
-    let release_notes_url = format!(
-        "https://github.com/xnorpx/blue-onyx/releases/{latest_release_version_str}"
-    );
+    let release_notes_url =
+        format!("https://github.com/xnorpx/blue-onyx/releases/{latest_release_version_str}");
     Ok((latest_release_version_str, release_notes_url))
 }
 
@@ -1105,16 +1106,12 @@ fn update_config_from_form_data(
     form_data: &std::collections::HashMap<String, String>,
 ) {
     // Basic server configuration
-    if let Some(port_str) = form_data.get("port") {
-        if let Ok(port) = port_str.parse::<u16>() {
-            config.port = port;
-        }
+    if let Some(port_str) = form_data.get("port") && let Ok(port) = port_str.parse::<u16>() {
+        config.port = port;
     }
 
-    if let Some(timeout_str) = form_data.get("request_timeout") {
-        if let Ok(timeout) = timeout_str.parse::<u64>() {
-            config.request_timeout = std::time::Duration::from_secs(timeout);
-        }
+    if let Some(timeout_str) = form_data.get("request_timeout") && let Ok(timeout) = timeout_str.parse::<u64>() {
+        config.request_timeout = std::time::Duration::from_secs(timeout);
     }
 
     if let Some(queue_str) = form_data.get("worker_queue_size") {
@@ -1129,24 +1126,22 @@ fn update_config_from_form_data(
     if let Some(model_selection_type) = form_data.get("model_selection_type") {
         match model_selection_type.as_str() {
             "builtin" => {
-                if let Some(builtin_model) = form_data.get("builtin_model") {
-                    if !builtin_model.is_empty() {
-                        // Set the model path to just the filename (will be found in the executable directory)
-                        config.model = Some(PathBuf::from(builtin_model));
+                if let Some(builtin_model) = form_data.get("builtin_model") && !builtin_model.is_empty() {
+                    // Set the model path to just the filename (will be found in the executable directory)
+                    config.model = Some(PathBuf::from(builtin_model));
 
-                        // Determine model type and set object classes based on the model
-                        if builtin_model.starts_with("rt-detr") {
-                            config.object_detection_model_type =
-                                crate::detector::ObjectDetectionModel::RtDetrv2;
-                        } else {
-                            config.object_detection_model_type =
-                                crate::detector::ObjectDetectionModel::Yolo5;
-                        }
-
-                        // Set corresponding YAML file
-                        let yaml_file = builtin_model.replace(".onnx", ".yaml");
-                        config.object_classes = Some(PathBuf::from(yaml_file));
+                    // Determine model type and set object classes based on the model
+                    if builtin_model.starts_with("rt-detr") {
+                        config.object_detection_model_type =
+                            crate::detector::ObjectDetectionModel::RtDetrv2;
+                    } else {
+                        config.object_detection_model_type =
+                            crate::detector::ObjectDetectionModel::Yolo5;
                     }
+
+                    // Set corresponding YAML file
+                    let yaml_file = builtin_model.replace(".onnx", ".yaml");
+                    config.object_classes = Some(PathBuf::from(yaml_file));
                 }
             }
             "custom" => {
@@ -1190,10 +1185,8 @@ fn update_config_from_form_data(
         };
     }
 
-    if let Some(confidence_str) = form_data.get("confidence_threshold") {
-        if let Ok(confidence) = confidence_str.parse::<f32>() {
-            config.confidence_threshold = confidence;
-        }
+    if let Some(confidence_str) = form_data.get("confidence_threshold") && let Ok(confidence) = confidence_str.parse::<f32>() {
+        config.confidence_threshold = confidence;
     }
 
     // Logging configuration
@@ -1218,22 +1211,16 @@ fn update_config_from_form_data(
     // Performance configuration
     config.force_cpu = form_data.contains_key("force_cpu");
 
-    if let Some(gpu_str) = form_data.get("gpu_index") {
-        if let Ok(gpu_index) = gpu_str.parse::<i32>() {
-            config.gpu_index = gpu_index;
-        }
+    if let Some(gpu_str) = form_data.get("gpu_index") && let Ok(gpu_index) = gpu_str.parse::<i32>() {
+        config.gpu_index = gpu_index;
     }
 
-    if let Some(intra_str) = form_data.get("intra_threads") {
-        if let Ok(intra_threads) = intra_str.parse::<usize>() {
-            config.intra_threads = intra_threads;
-        }
+    if let Some(intra_str) = form_data.get("intra_threads") && let Ok(intra_threads) = intra_str.parse::<usize>() {
+        config.intra_threads = intra_threads;
     }
 
-    if let Some(inter_str) = form_data.get("inter_threads") {
-        if let Ok(inter_threads) = inter_str.parse::<usize>() {
-            config.inter_threads = inter_threads;
-        }
+    if let Some(inter_str) = form_data.get("inter_threads") && let Ok(inter_threads) = inter_str.parse::<usize>() {
+        config.inter_threads = inter_threads;
     }
 
     // Output configuration

@@ -186,11 +186,8 @@ fn rt_detrv2_post_process(
     for (i, bbox) in bboxes.outer_iter().enumerate() {
         if scores[i] > confidence_threshold {
             // If object filter is set, skip objects that are not in the filter
-            if let Some(object_filter) = object_filter.as_ref() {
-                // If the object is not in the filter, skip it
-                if !object_filter[labels[i] as usize] {
-                    continue;
-                }
+            if let Some(object_filter) = object_filter.as_ref() && !object_filter[labels[i] as usize] {
+                continue;
             }
 
             let prediction = Prediction {
@@ -275,10 +272,8 @@ fn yolo5_post_process(
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
 
-            if let Some(object_filter) = object_filter {
-                if !object_filter[class_idx] {
-                    continue;
-                }
+            if let Some(object_filter) = object_filter && !object_filter[class_idx] {
+                continue;
             }
 
             let x_center = iter[0] * resize_factor_x;
@@ -542,21 +537,19 @@ impl Detector {
             );
         }
 
-        if let Some(image_name) = image_name.clone() {
-            if let Some(save_image_path) = self.save_image_path.clone() {
-                let save_image_start_time = Instant::now();
-                let save_image_path = save_image_path.to_path_buf();
-                let image_name_od = create_od_image_name(&image_name, true)?;
-                encode_maybe_draw_boundary_boxes_and_save_jpeg(
-                    &self.decoded_image,
-                    &save_image_path
-                        .join(image_name_od)
-                        .to_string_lossy()
-                        .to_string(),
-                    Some(predictions.as_slice()),
-                )?;
-                debug!("Save image time: {:?}", save_image_start_time.elapsed());
-            }
+        if let Some(image_name) = image_name.clone() && let Some(save_image_path) = self.save_image_path.clone() {
+            let save_image_start_time = Instant::now();
+            let save_image_path = save_image_path.to_path_buf();
+            let image_name_od = create_od_image_name(&image_name, true)?;
+            encode_maybe_draw_boundary_boxes_and_save_jpeg(
+                &self.decoded_image,
+                &save_image_path
+                    .join(image_name_od)
+                    .to_string_lossy()
+                    .to_string(),
+                Some(predictions.as_slice()),
+            )?;
+            debug!("Save image time: {:?}", save_image_start_time.elapsed());
         }
 
         Ok(DetectResult {
