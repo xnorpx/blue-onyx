@@ -110,12 +110,15 @@ pub fn create_od_image_name(image_name: &str, strip_path: bool) -> anyhow::Resul
     }
 
     let image_name = if strip_path {
-        Path::new(image_name)
-            .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Failed to strip path from image name"))?
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert image name to string"))?
-            .to_string()
+        if let Some(file_name) = Path::new(image_name).file_name()
+            && let Some(name_str) = file_name.to_str()
+        {
+            name_str.to_string()
+        } else {
+            return Err(anyhow::anyhow!(
+                "Failed to strip path from image name or convert to string"
+            ));
+        }
     } else {
         image_name.to_string()
     };

@@ -85,17 +85,16 @@ async fn main() -> anyhow::Result<()> {
     });
 
     assert!(inference_times.len() == args.number_of_requests as usize);
-    println!("{:#?}", vision_detection_response);
+    println!("{vision_detection_response:#?}");
 
-    println!("Runtime duration: {:?}", runtime_duration);
+    println!("Runtime duration: {runtime_duration:?}");
     if !request_times.is_empty() {
         let min_duration = request_times.iter().min().unwrap();
         let max_duration = request_times.iter().max().unwrap();
         let avg_duration = request_times.iter().sum::<Duration>() / request_times.len() as u32;
 
         println!(
-            "Request times -- min: {:?}, avg: {:?}, max: {:?}",
-            min_duration, avg_duration, max_duration
+            "Request times -- min: {min_duration:?}, avg: {avg_duration:?}, max: {max_duration:?}"
         );
     } else {
         println!("No request times to summarize");
@@ -107,8 +106,7 @@ async fn main() -> anyhow::Result<()> {
         let avg_inference = inference_times.iter().sum::<i32>() / inference_times.len() as i32;
 
         println!(
-            "Inference times -- min: {}, avg: {}, max: {}",
-            min_inference, avg_inference, max_inference
+            "Inference times -- min: {min_inference}, avg: {avg_inference}, max: {max_inference}"
         );
     } else {
         println!("No inference times to summarize");
@@ -120,8 +118,7 @@ async fn main() -> anyhow::Result<()> {
         let avg_processing = processing_times.iter().sum::<i32>() / processing_times.len() as i32;
 
         println!(
-            "Processing times -- min: {}, avg: {}, max: {}",
-            min_processing, avg_processing, max_processing
+            "Processing times -- min: {min_processing}, avg: {avg_processing}, max: {max_processing}"
         );
     } else {
         println!("No processing times to summarize");
@@ -155,7 +152,7 @@ async fn send_vision_detection_request(
     let response = match client.post(url).multipart(form).send().await {
         Ok(resp) => resp,
         Err(e) => {
-            eprintln!("Request send error: {}", e);
+            eprintln!("Request send error: {e}");
             return Err(anyhow::anyhow!(e));
         }
     };
@@ -164,17 +161,17 @@ async fn send_vision_detection_request(
         let body = match response.text().await {
             Ok(text) => text,
             Err(e) => {
-                eprintln!("Failed to read response body: {}", e);
+                eprintln!("Failed to read response body: {e}");
                 return Err(anyhow::anyhow!(e));
             }
         };
-        eprintln!("Error: Status: {}, Body: {}", status, body);
+        eprintln!("Error: Status: {status}, Body: {body}");
         return Err(anyhow::anyhow!("Request failed with status {}", status));
     }
     let response = match response.json::<VisionDetectionResponse>().await {
         Ok(json) => json,
         Err(e) => {
-            eprintln!("Failed to parse JSON: {}", e);
+            eprintln!("Failed to parse JSON: {e}");
             return Err(anyhow::anyhow!(e));
         }
     };

@@ -148,8 +148,7 @@ async fn download_repository_files(
                 }
             }
             Err(e) => {
-                let error_msg =
-                    format!("Failed to download {} from {}: {}", filename, repo_name, e);
+                let error_msg = format!("Failed to download {filename} from {repo_name}: {e}");
                 info!("Warning: {}", error_msg);
                 errors.push(error_msg);
             }

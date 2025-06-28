@@ -342,10 +342,8 @@ impl InferenceStats {
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect();
         let sanitized_model_name = self.model_name.replace(" ", "_").replace(".onnx", "");
-        let file_name = format!(
-            "blue_onyx_{}_{}_report.txt",
-            sanitized_device_name, sanitized_model_name
-        );
+        let file_name =
+            format!("blue_onyx_{sanitized_device_name}_{sanitized_model_name}_report.txt");
         let path = path.join(file_name);
         let mut file = std::fs::OpenOptions::new()
             .create(true)

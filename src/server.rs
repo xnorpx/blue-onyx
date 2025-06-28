@@ -181,7 +181,7 @@ struct WelcomeTemplate {
 async fn welcome_handler(State(server_state): State<Arc<ServerState>>) -> impl IntoResponse {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
-    let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+    let logo_data = format!("data:image/png;base64,{encoded_logo}");
     let metrics = {
         let metrics_guard = server_state.metrics.lock().await;
         metrics_guard.clone()
@@ -198,7 +198,7 @@ async fn welcome_handler(State(server_state): State<Arc<ServerState>>) -> impl I
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -349,7 +349,7 @@ async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl Int
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -368,7 +368,7 @@ async fn show_form() -> impl IntoResponse {
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -458,7 +458,7 @@ async fn config_post_handler(
         Err(e) => {
             show_config_form(
                 "".to_string(),
-                format!("Failed to save configuration: {}", e),
+                format!("Failed to save configuration: {e}"),
                 current_config_path,
             )
             .await
@@ -565,7 +565,7 @@ async fn config_restart_handler(
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to save configuration: {}", e),
+            format!("Failed to save configuration: {e}"),
         )
             .into_response(),
     }
@@ -611,7 +611,7 @@ async fn show_config_form(
 ) -> impl IntoResponse + use<> {
     const LOGO: &[u8] = include_bytes!("../assets/logo_large.png");
     let encoded_logo = general_purpose::STANDARD.encode(LOGO);
-    let logo_data = format!("data:image/png;base64,{}", encoded_logo);
+    let logo_data = format!("data:image/png;base64,{encoded_logo}");
 
     // Use the provided config path instead of trying to get the default
     let current_config_path = config_path.to_path_buf();
@@ -625,39 +625,45 @@ async fn show_config_form(
         custom_model_type,
         custom_object_classes,
     ) = if let Some(model_path) = &config.model {
-        let model_filename = model_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("");
+        if let Some(model_filename) = model_path.file_name().and_then(|name| name.to_str()) {
+            // Check if this is a builtin model (just filename, no path, and matches known models)
+            let is_builtin = !model_filename.contains('\\')
+                && !model_filename.contains('/')
+                && (model_filename.starts_with("rt-detr")
+                    || model_filename == "delivery.onnx"
+                    || model_filename.starts_with("IPcam-")
+                    || model_filename.starts_with("ipcam-")
+                    || model_filename == "package.onnx");
 
-        // Check if this is a builtin model (just filename, no path, and matches known models)
-        let is_builtin = !model_filename.contains('\\')
-            && !model_filename.contains('/')
-            && (model_filename.starts_with("rt-detr")
-                || model_filename == "delivery.onnx"
-                || model_filename.starts_with("IPcam-")
-                || model_filename.starts_with("ipcam-")
-                || model_filename == "package.onnx");
-
-        if is_builtin {
+            if is_builtin {
+                (
+                    "builtin".to_string(),
+                    model_filename.to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                )
+            } else {
+                (
+                    "custom".to_string(),
+                    String::new(),
+                    model_path.to_string_lossy().to_string(),
+                    config.object_detection_model_type.to_string(),
+                    config
+                        .object_classes
+                        .as_ref()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default(),
+                )
+            }
+        } else {
+            // Invalid filename, default to builtin
             (
                 "builtin".to_string(),
-                model_filename.to_string(),
+                "rt-detrv2-s.onnx".to_string(),
                 String::new(),
                 String::new(),
                 String::new(),
-            )
-        } else {
-            (
-                "custom".to_string(),
-                String::new(),
-                model_path.to_string_lossy().to_string(),
-                config.object_detection_model_type.to_string(),
-                config
-                    .object_classes
-                    .as_ref()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_default(),
             )
         }
     } else {
@@ -731,7 +737,7 @@ fn render_config_template(template: ConfigTemplate) -> impl IntoResponse {
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Template error: {}", e),
+            format!("Template error: {e}"),
         )
             .into_response(),
     }
@@ -767,10 +773,8 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
             .await?;
     let version_info: VersionJson = response.json().await?;
     let latest_release_version_str = version_info.version;
-    let release_notes_url = format!(
-        "https://github.com/xnorpx/blue-onyx/releases/{}",
-        latest_release_version_str
-    );
+    let release_notes_url =
+        format!("https://github.com/xnorpx/blue-onyx/releases/{latest_release_version_str}");
     Ok((latest_release_version_str, release_notes_url))
 }
 
@@ -824,7 +828,7 @@ impl Metrics {
         let days = elapsed.as_secs() / 86400;
         let hours = (elapsed.as_secs() % 86400) / 3600;
         let minutes = (elapsed.as_secs() % 3600) / 60;
-        format!("{} days, {} hours and {} minutes", days, hours, minutes)
+        format!("{days} days, {hours} hours and {minutes} minutes")
     }
 
     fn update_metrics(&mut self, response: &VisionDetectionResponse) {
@@ -877,7 +881,7 @@ impl Metrics {
         self.model_name = detector_info.model_name.clone();
         self.execution_provider_name = match &detector_info.execution_provider {
             ExecutionProvider::CPU => "CPU".to_string(),
-            ExecutionProvider::DirectML(index) => format!("DirectML(GPU {})", index),
+            ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
         };
     }
 }
@@ -959,7 +963,7 @@ async fn handle_upload(
                 DetectorReady::Failed(error_msg) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Detector initialization failed: {}", error_msg),
+                        format!("Detector initialization failed: {error_msg}"),
                     )
                         .into_response();
                 }
@@ -1008,7 +1012,7 @@ async fn handle_upload(
                     };
 
                     let encoded = general_purpose::STANDARD.encode(&data);
-                    let data_url = format!("data:image/jpeg;base64,{}", encoded);
+                    let data_url = format!("data:image/jpeg;base64,{encoded}");
 
                     let template = TestTemplate {
                         image_data: Some(&data_url),
@@ -1035,7 +1039,7 @@ async fn handle_upload(
                         Err(e) => {
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
-                                format!("Template error: {}", e),
+                                format!("Template error: {e}"),
                             )
                                 .into_response();
                         }
@@ -1106,16 +1110,16 @@ fn update_config_from_form_data(
     form_data: &std::collections::HashMap<String, String>,
 ) {
     // Basic server configuration
-    if let Some(port_str) = form_data.get("port") {
-        if let Ok(port) = port_str.parse::<u16>() {
-            config.port = port;
-        }
+    if let Some(port_str) = form_data.get("port")
+        && let Ok(port) = port_str.parse::<u16>()
+    {
+        config.port = port;
     }
 
-    if let Some(timeout_str) = form_data.get("request_timeout") {
-        if let Ok(timeout) = timeout_str.parse::<u64>() {
-            config.request_timeout = std::time::Duration::from_secs(timeout);
-        }
+    if let Some(timeout_str) = form_data.get("request_timeout")
+        && let Ok(timeout) = timeout_str.parse::<u64>()
+    {
+        config.request_timeout = std::time::Duration::from_secs(timeout);
     }
 
     if let Some(queue_str) = form_data.get("worker_queue_size") {
@@ -1130,24 +1134,24 @@ fn update_config_from_form_data(
     if let Some(model_selection_type) = form_data.get("model_selection_type") {
         match model_selection_type.as_str() {
             "builtin" => {
-                if let Some(builtin_model) = form_data.get("builtin_model") {
-                    if !builtin_model.is_empty() {
-                        // Set the model path to just the filename (will be found in the executable directory)
-                        config.model = Some(PathBuf::from(builtin_model));
+                if let Some(builtin_model) = form_data.get("builtin_model")
+                    && !builtin_model.is_empty()
+                {
+                    // Set the model path to just the filename (will be found in the executable directory)
+                    config.model = Some(PathBuf::from(builtin_model));
 
-                        // Determine model type and set object classes based on the model
-                        if builtin_model.starts_with("rt-detr") {
-                            config.object_detection_model_type =
-                                crate::detector::ObjectDetectionModel::RtDetrv2;
-                        } else {
-                            config.object_detection_model_type =
-                                crate::detector::ObjectDetectionModel::Yolo5;
-                        }
-
-                        // Set corresponding YAML file
-                        let yaml_file = builtin_model.replace(".onnx", ".yaml");
-                        config.object_classes = Some(PathBuf::from(yaml_file));
+                    // Determine model type and set object classes based on the model
+                    if builtin_model.starts_with("rt-detr") {
+                        config.object_detection_model_type =
+                            crate::detector::ObjectDetectionModel::RtDetrv2;
+                    } else {
+                        config.object_detection_model_type =
+                            crate::detector::ObjectDetectionModel::Yolo5;
                     }
+
+                    // Set corresponding YAML file
+                    let yaml_file = builtin_model.replace(".onnx", ".yaml");
+                    config.object_classes = Some(PathBuf::from(yaml_file));
                 }
             }
             "custom" => {
@@ -1191,10 +1195,10 @@ fn update_config_from_form_data(
         };
     }
 
-    if let Some(confidence_str) = form_data.get("confidence_threshold") {
-        if let Ok(confidence) = confidence_str.parse::<f32>() {
-            config.confidence_threshold = confidence;
-        }
+    if let Some(confidence_str) = form_data.get("confidence_threshold")
+        && let Ok(confidence) = confidence_str.parse::<f32>()
+    {
+        config.confidence_threshold = confidence;
     }
 
     // Logging configuration
@@ -1219,22 +1223,22 @@ fn update_config_from_form_data(
     // Performance configuration
     config.force_cpu = form_data.contains_key("force_cpu");
 
-    if let Some(gpu_str) = form_data.get("gpu_index") {
-        if let Ok(gpu_index) = gpu_str.parse::<i32>() {
-            config.gpu_index = gpu_index;
-        }
+    if let Some(gpu_str) = form_data.get("gpu_index")
+        && let Ok(gpu_index) = gpu_str.parse::<i32>()
+    {
+        config.gpu_index = gpu_index;
     }
 
-    if let Some(intra_str) = form_data.get("intra_threads") {
-        if let Ok(intra_threads) = intra_str.parse::<usize>() {
-            config.intra_threads = intra_threads;
-        }
+    if let Some(intra_str) = form_data.get("intra_threads")
+        && let Ok(intra_threads) = intra_str.parse::<usize>()
+    {
+        config.intra_threads = intra_threads;
     }
 
-    if let Some(inter_str) = form_data.get("inter_threads") {
-        if let Ok(inter_threads) = inter_str.parse::<usize>() {
-            config.inter_threads = inter_threads;
-        }
+    if let Some(inter_str) = form_data.get("inter_threads")
+        && let Ok(inter_threads) = inter_str.parse::<usize>()
+    {
+        config.inter_threads = inter_threads;
     }
 
     // Output configuration
