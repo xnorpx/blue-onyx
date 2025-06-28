@@ -2,23 +2,948 @@
 
 {% block title %}Blue Onyx - Image Test{% endblock %}
 
+{% block head %}
+<style>
+    .test-container {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .main-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 20px;
+    }
+
+    .left-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .right-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .upload-section {
+        background-color: var(--card-bg);
+        border: 2px dashed var(--primary-color);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: border-color var(--transition-speed);
+        position: relative;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .upload-section.drag-over {
+        border-color: var(--hover-bg);
+        background-color: rgba(0, 191, 255, 0.1);
+    }
+
+    .upload-section.has-image {
+        padding: 0;
+        border: none;
+        background: transparent;
+    }
+
+    .image-display {
+        max-width: 100%;
+        max-height: 300px;
+        border: 3px solid var(--primary-color);
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0, 191, 255, 0.3);
+        cursor: pointer;
+        transition: transform var(--transition-speed);
+    }
+
+    .image-display:hover {
+        transform: scale(1.02);
+    }
+
+    .change-image-hint {
+        text-align: center;
+        color: var(--secondary-color);
+        font-size: 0.8em;
+        margin-top: 5px;
+    }
+
+    .image-controls {
+        text-align: center;
+        margin-top: 10px;
+    }
+
+    .maximize-btn {
+        background: linear-gradient(45deg, var(--primary-color), var(--hover-bg));
+        border: none;
+        border-radius: 20px;
+        color: #121212;
+        font-weight: 600;
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        font-size: 0.9em;
+    }
+
+    .maximize-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 191, 255, 0.4);
+    }
+
+    .maximize-btn i {
+        margin-right: 5px;
+    }
+
+    /* Modal styles */
+    .image-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.95);
+        z-index: 1000;
+        cursor: pointer;
+    }
+
+    .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 95vw;
+        max-height: 95vh;
+        border: 3px solid var(--primary-color);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 191, 255, 0.5);
+    }
+
+    .modal-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 9px;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 191, 255, 0.9);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        color: #121212;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-close:hover {
+        background: var(--primary-color);
+        transform: scale(1.1);
+    }
+
+    .modal-instructions {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 191, 255, 0.9);
+        color: #121212;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9em;
+        font-weight: 600;
+    }
+
+    .detection-controls {
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 20px;
+        display: none;
+    }
+
+    .control-group {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 15px;
+    }
+
+    .control-group label {
+        color: var(--secondary-color);
+        font-weight: 600;
+        font-size: 0.9em;
+    }
+
+    .control-group input[type="number"] {
+        background-color: var(--background-color);
+        border: 2px solid var(--primary-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        padding: 6px 10px;
+        width: 80px;
+        text-align: center;
+        font-size: 0.9em;
+    }
+
+    .control-group input[type="number"]:focus {
+        outline: none;
+        border-color: var(--hover-bg);
+        box-shadow: 0 0 0 2px rgba(0, 191, 255, 0.2);
+    }
+
+    .detect-btn {
+        background: linear-gradient(45deg, var(--primary-color), var(--hover-bg));
+        border: none;
+        border-radius: 25px;
+        color: #121212;
+        font-weight: 700;
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        font-size: 1em;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .detect-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 191, 255, 0.4);
+    }
+
+    .detect-btn:disabled {
+        background: #666;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 4px;
+        background-color: var(--background-color);
+        border-radius: 2px;
+        overflow: hidden;
+        margin: 10px 0 0 0;
+        display: none;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary-color), var(--hover-bg));
+        border-radius: 2px;
+        transition: width var(--transition-speed);
+        width: 0%;
+    }
+
+    .stats-summary {
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 20px;
+        display: none;
+    }
+
+    .stats-header {
+        color: var(--primary-color);
+        font-weight: 700;
+        font-size: 1.1em;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+
+    .stat-item {
+        background-color: var(--background-color);
+        border: 1px solid var(--primary-color);
+        border-radius: 6px;
+        padding: 10px;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.2em;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 2px;
+    }
+
+    .stat-label {
+        color: var(--secondary-color);
+        font-size: 0.75em;
+    }
+
+    .detection-summary {
+        border-top: 1px solid var(--primary-color);
+        padding-top: 15px;
+        margin-top: 15px;
+    }
+
+    .detection-count {
+        color: var(--primary-color);
+        font-weight: 700;
+        font-size: 1em;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+
+    .predictions-list {
+        max-height: 150px;
+        overflow-y: auto;
+        background-color: var(--background-color);
+        border-radius: 6px;
+        padding: 8px;
+    }
+
+    .prediction-item {
+        background-color: var(--card-bg);
+        border-left: 3px solid var(--primary-color);
+        padding: 6px 10px;
+        margin-bottom: 6px;
+        border-radius: 3px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .prediction-label {
+        font-weight: 600;
+        color: var(--text-color);
+        font-size: 0.9em;
+    }
+
+    .prediction-confidence {
+        color: var(--secondary-color);
+        font-size: 0.8em;
+    }
+
+    .error-message {
+        background-color: #ff4444;
+        color: white;
+        padding: 10px;
+        border-radius: 6px;
+        margin: 10px 0;
+        display: none;
+        font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+        .main-content {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .control-group {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 5px;
+        }
+
+        .control-group label {
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Blue Onyx - Image Test</h1>
+<div class="test-container">
+    <h1>Blue Onyx - Image Test</h1>
 
-<div class="test-section">
-    <form action="/test" method="post" enctype="multipart/form-data">
-        <label for="image-upload" class="file-upload">
-            <i class="fas fa-upload"></i> Choose a JPEG Image
-        </label>
-        <input type="file" id="image-upload" name="image" accept="image/jpeg" required>
-        <input type="submit" value="Upload">
-    </form>
+    <div class="main-content">
+        <!-- Left Panel: Image and Controls -->
+        <div class="left-panel">
+            <!-- Upload/Image Display Section -->
+            <div class="upload-section" id="upload-section">
+                <div id="upload-prompt">
+                    <h3>Select an Image</h3>
+                    <label for="image-upload" class="file-upload">
+                        <i class="fas fa-upload"></i> Choose JPEG Image
+                    </label>
+                    <input type="file" id="image-upload" accept="image/jpeg" required>
+                    <p style="margin-top: 10px; color: var(--secondary-color); font-size: 0.8em;">
+                        Or drag and drop here
+                    </p>
+                </div>
+                <div id="image-container" style="display: none;">
+                    <img id="image-display" class="image-display" alt="Selected Image">
+                    <div class="change-image-hint">Click image to change</div>
+                    <div class="image-controls" id="image-controls" style="display: none;">
+                        <button class="maximize-btn" id="maximize-btn" title="Maximize image">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+            </div> <!-- Detection Controls -->
+            <div class="detection-controls" id="detection-controls">
+                <h3>Detection Settings</h3>
+                <div class="control-group">
+                    <label for="requests-per-second">Requests/Second:</label>
+                    <input type="number" id="requests-per-second" min="0.1" max="10" step="0.1" value="1">
+                </div>
+                <div class="control-group">
+                    <label for="duration">Duration (sec):</label>
+                    <input type="number" id="duration" min="1" max="60" value="1">
+                </div>
+                <div class="control-group">
+                    <label for="confidence">Min Confidence:</label>
+                    <input type="number" id="confidence" min="0.1" max="1.0" step="0.1" value="0.5">
+                </div>
+                <button class="detect-btn" id="detect-btn">
+                    <i class="fas fa-search"></i> Run Detection
+                </button>
+                <div class="progress-bar" id="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="error-message" id="error-message"></div>
+            </div>
+        </div>
 
-    {% if image_data.is_some() %}
-    <h2>Processed Image:</h2>
-    <img src="{{ image_data.unwrap() }}" alt="Processed Image" class="processed-image">
-    {% endif %}
+        <!-- Right Panel: Statistics and Results -->
+        <div class="right-panel">
+            <!-- Statistics Summary -->
+            <div class="stats-summary" id="stats-summary">
+                <div class="stats-header">Performance Statistics</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="request-count">0/0</div>
+                        <div class="stat-label">Requests</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="actual-rps">0.0</div>
+                        <div class="stat-label">Actual Req/Sec</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="total-duration">0s</div>
+                        <div class="stat-label">Duration</div>
+                    </div>
+
+                    <!-- Server Throughput -->
+                    <div class="stat-item">
+                        <div class="stat-value" id="server-throughput">0.0</div>
+                        <div class="stat-label">Server Req/Sec</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="concurrent-requests">0</div>
+                        <div class="stat-label">Avg Concurrent</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="target-interval">0ms</div>
+                        <div class="stat-label">Target Interval</div>
+                    </div>
+
+                    <!-- Inference Times -->
+                    <div class="stat-item">
+                        <div class="stat-value" id="min-inference">0ms</div>
+                        <div class="stat-label">Min Inference</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="max-inference">0ms</div>
+                        <div class="stat-label">Max Inference</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avg-inference">0ms</div>
+                        <div class="stat-label">Avg Inference</div>
+                    </div>
+
+                    <!-- Processing Times -->
+                    <div class="stat-item">
+                        <div class="stat-value" id="min-process">0ms</div>
+                        <div class="stat-label">Min Process</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="max-process">0ms</div>
+                        <div class="stat-label">Max Process</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avg-process">0ms</div>
+                        <div class="stat-label">Avg Process</div>
+                    </div>
+
+                    <!-- Request Times -->
+                    <div class="stat-item">
+                        <div class="stat-value" id="min-roundtrip">0ms</div>
+                        <div class="stat-label">Min Request</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="max-roundtrip">0ms</div>
+                        <div class="stat-label">Max Request</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avg-roundtrip">0ms</div>
+                        <div class="stat-label">Avg Request</div>
+                    </div>
+                </div>
+
+                <!-- Detection Results -->
+                <div class="detection-summary" id="detection-summary" style="display: none;">
+                    <div class="detection-count" id="detection-count">Objects detected: 0</div>
+                    <div class="predictions-list" id="predictions-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Image Modal -->
+<div class="image-modal" id="image-modal">
+    <button class="modal-close" id="modal-close">
+        <i class="fas fa-times"></i>
+    </button>
+    <div class="modal-content">
+        <img id="modal-image" class="modal-image" alt="Maximized Image">
+    </div>
+    <div class="modal-instructions">Click anywhere to close or press ESC</div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const uploadSection = document.getElementById('upload-section');
+        const imageUpload = document.getElementById('image-upload');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const imageContainer = document.getElementById('image-container');
+        const imageDisplay = document.getElementById('image-display');
+        const detectionControls = document.getElementById('detection-controls');
+        const detectBtn = document.getElementById('detect-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+        const statsSummary = document.getElementById('stats-summary');
+        const detectionSummary = document.getElementById('detection-summary');
+        const errorMessage = document.getElementById('error-message');
+        const imageControls = document.getElementById('image-controls');
+        const maximizeBtn = document.getElementById('maximize-btn');
+        const imageModal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const modalClose = document.getElementById('modal-close');
+
+        let selectedImageData = null;
+        let originalImageSrc = null;
+
+        let detectionStats = {
+            requestCount: 0,
+            expectedTotalRequests: 0,
+            inferenceTimes: [],
+            processTimes: [],
+            roundTripTimes: [],
+            startTime: null,
+            endTime: null,
+            targetIntervalMs: 0
+        };
+
+        // File upload handling
+        imageUpload.addEventListener('change', handleFileSelect);
+
+        // Image click to change
+        imageDisplay.addEventListener('click', function () {
+            imageUpload.click();
+        });
+
+        // Drag and drop handling
+        uploadSection.addEventListener('dragover', handleDragOver);
+        uploadSection.addEventListener('dragleave', handleDragLeave);
+        uploadSection.addEventListener('drop', handleDrop);
+
+        // Detection button
+        detectBtn.addEventListener('click', function () {
+            console.log('Detect button clicked');
+            runDetection();
+        });
+
+        // Modal functionality
+        maximizeBtn.addEventListener('click', function () {
+            modalImage.src = imageDisplay.src;
+            imageModal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        });
+
+        modalClose.addEventListener('click', closeModal);
+        imageModal.addEventListener('click', closeModal);
+
+        // Prevent closing when clicking on the image itself
+        modalImage.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+
+        // ESC key to close modal
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && imageModal.style.display === 'block') {
+                closeModal();
+            }
+        });
+
+        function closeModal() {
+            imageModal.style.display = 'none';
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'image/jpeg') {
+                displayImage(file);
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            uploadSection.classList.add('drag-over');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            uploadSection.classList.remove('drag-over');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            uploadSection.classList.remove('drag-over');
+
+            const files = event.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'image/jpeg') {
+                displayImage(files[0]);
+            }
+        }
+
+        function displayImage(file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                originalImageSrc = e.target.result;
+                imageDisplay.src = originalImageSrc;
+
+                // Switch to image view
+                uploadPrompt.style.display = 'none';
+                imageContainer.style.display = 'block';
+                uploadSection.classList.add('has-image');
+
+                // Show controls and stats
+                detectionControls.style.display = 'block';
+                statsSummary.style.display = 'block';
+
+                // Store the file data for detection
+                selectedImageData = file;
+
+                // Reset any previous detection results
+                resetStats();
+                detectionSummary.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        } function resetStats() {
+            detectionStats = {
+                requestCount: 0,
+                expectedTotalRequests: 0,
+                inferenceTimes: [],
+                processTimes: [],
+                roundTripTimes: [],
+                startTime: null,
+                endTime: null,
+                targetIntervalMs: 0
+            };
+            updateStatistics();
+        }
+
+        async function runDetection() {
+            console.log('runDetection called, selectedImageData:', selectedImageData);
+            if (!selectedImageData) {
+                console.log('No image selected, returning');
+                return;
+            }
+
+            const requestsPerSecond = parseFloat(document.getElementById('requests-per-second').value);
+            const durationSeconds = parseInt(document.getElementById('duration').value);
+            const confidence = parseFloat(document.getElementById('confidence').value);
+
+            const targetIntervalMs = 1000 / requestsPerSecond;
+            const totalDurationMs = durationSeconds * 1000;
+
+            detectBtn.disabled = true;
+            progressBar.style.display = 'block';
+            errorMessage.style.display = 'none';
+
+            // Reset stats
+            resetStats();
+            detectionStats.startTime = Date.now();
+            detectionStats.targetIntervalMs = targetIntervalMs;
+
+            // Calculate expected total requests
+            detectionStats.expectedTotalRequests = Math.ceil(requestsPerSecond * durationSeconds);
+
+            let lastResponse = null;
+            let nextRequestTime = Date.now(); // Time when next request should be sent
+            let startTime = Date.now();
+            let isRunning = true;
+
+            // Function to run a single detection request
+            const runSingleDetection = async () => {
+                try {
+                    const formData = new FormData();
+                    formData.append('image', selectedImageData);
+                    formData.append('min_confidence', confidence.toString());
+
+                    const response = await fetch('/v1/vision/detection', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        let errorMessage = `HTTP error! status: ${response.status}`;
+
+                        // Try to get the response body for more details
+                        try {
+                            const errorText = await response.text();
+                            if (errorText) {
+                                errorMessage += ` - ${errorText}`;
+                            }
+                        } catch (textError) {
+                            // If we can't read the response body, just use the status
+                            console.warn('Could not read error response body:', textError);
+                        }
+
+                        throw new Error(errorMessage);
+                    }
+
+                    const result = await response.json();
+
+                    lastResponse = result;
+
+                    // Update stats
+                    detectionStats.requestCount++;
+                    detectionStats.inferenceTimes.push(result.inferenceMs);
+                    detectionStats.processTimes.push(result.processMs);
+                    detectionStats.roundTripTimes.push(result.analysisRoundTripMs);
+
+                    // Update progress based on time elapsed
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min((elapsed / totalDurationMs) * 100, 100);
+                    progressFill.style.width = progress + '%';
+
+                    // Update statistics display
+                    updateStatistics();
+
+                    return true;
+
+                } catch (error) {
+                    console.error('Detection error:', error);
+                    showError('Error during detection: ' + error.message);
+                    return false;
+                }
+            };
+
+            // Main control loop with precise timing
+            const controlLoop = async () => {
+                while (isRunning) {
+                    const currentTime = Date.now();
+                    const elapsed = currentTime - startTime;
+
+                    // Check if we've exceeded the total duration
+                    if (elapsed >= totalDurationMs) {
+                        isRunning = false;
+                        detectionStats.endTime = currentTime;
+
+                        // Show final results with bounding boxes
+                        if (lastResponse && lastResponse.success) {
+                            await displayResults(lastResponse);
+                        }
+
+                        detectBtn.disabled = false;
+                        progressBar.style.display = 'none';
+                        progressFill.style.width = '0%';
+                        updateStatistics();
+                        break;
+                    }
+
+                    // Check if it's time for the next request
+                    if (currentTime >= nextRequestTime) {
+                        // Schedule next request
+                        nextRequestTime = currentTime + targetIntervalMs;
+
+                        // Run the request (don't await - let it run concurrently)
+                        runSingleDetection().then(success => {
+                            if (!success) {
+                                isRunning = false;
+                                detectBtn.disabled = false;
+                                progressBar.style.display = 'none';
+                                progressFill.style.width = '0%';
+                            }
+                        });
+                    }
+
+                    // Wait a short time before checking again
+                    await new Promise(resolve => setTimeout(resolve, 5));
+                }
+            };
+
+            // Start the control loop
+            controlLoop();
+        }
+
+        function updateStatistics() {
+            const stats = detectionStats;
+
+            document.getElementById('request-count').textContent = `${stats.requestCount}/${stats.expectedTotalRequests}`;
+
+            // Calculate actual requests per second and duration
+            if (stats.startTime && stats.requestCount > 0) {
+                const currentTime = stats.endTime || Date.now();
+                const elapsedSeconds = (currentTime - stats.startTime) / 1000;
+                const actualRps = stats.requestCount / elapsedSeconds;
+
+                document.getElementById('actual-rps').textContent = actualRps.toFixed(1);
+                document.getElementById('total-duration').textContent = elapsedSeconds.toFixed(1) + 's';
+
+                // Calculate server throughput (requests per second per connection)
+                if (stats.roundTripTimes.length > 0) {
+                    const avgRoundTripMs = stats.roundTripTimes.reduce((a, b) => a + b, 0) / stats.roundTripTimes.length;
+                    const serverThroughput = 1000 / avgRoundTripMs; // requests per second per connection
+                    document.getElementById('server-throughput').textContent = serverThroughput.toFixed(1);
+
+                    // Calculate average concurrent requests
+                    const avgConcurrent = actualRps / serverThroughput;
+                    document.getElementById('concurrent-requests').textContent = Math.round(avgConcurrent);
+                }
+            }
+
+            // Display target interval
+            document.getElementById('target-interval').textContent = stats.targetIntervalMs + 'ms';
+
+            // Inference times
+            if (stats.inferenceTimes.length > 0) {
+                const minInference = Math.min(...stats.inferenceTimes);
+                const maxInference = Math.max(...stats.inferenceTimes);
+                const avgInference = Math.round(stats.inferenceTimes.reduce((a, b) => a + b, 0) / stats.inferenceTimes.length);
+
+                document.getElementById('min-inference').textContent = minInference + 'ms';
+                document.getElementById('max-inference').textContent = maxInference + 'ms';
+                document.getElementById('avg-inference').textContent = avgInference + 'ms';
+            }
+
+            // Processing times
+            if (stats.processTimes.length > 0) {
+                const minProcess = Math.min(...stats.processTimes);
+                const maxProcess = Math.max(...stats.processTimes);
+                const avgProcess = Math.round(stats.processTimes.reduce((a, b) => a + b, 0) / stats.processTimes.length);
+
+                document.getElementById('min-process').textContent = minProcess + 'ms';
+                document.getElementById('max-process').textContent = maxProcess + 'ms';
+                document.getElementById('avg-process').textContent = avgProcess + 'ms';
+            }
+
+            // Round trip times
+            if (stats.roundTripTimes.length > 0) {
+                const minRoundTrip = Math.min(...stats.roundTripTimes);
+                const maxRoundTrip = Math.max(...stats.roundTripTimes);
+                const avgRoundTrip = Math.round(stats.roundTripTimes.reduce((a, b) => a + b, 0) / stats.roundTripTimes.length);
+
+                document.getElementById('min-roundtrip').textContent = minRoundTrip + 'ms';
+                document.getElementById('max-roundtrip').textContent = maxRoundTrip + 'ms';
+                document.getElementById('avg-roundtrip').textContent = avgRoundTrip + 'ms';
+            }
+        }
+
+        async function displayResults(response) {
+            // Create a canvas to draw bounding boxes
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Load the original image
+            const img = new Image();
+            img.onload = function () {
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                // Draw the original image
+                ctx.drawImage(img, 0, 0);
+
+                // Draw bounding boxes
+                ctx.strokeStyle = '#00BFFF';
+                ctx.lineWidth = 3;
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = '#00BFFF';
+
+                response.predictions.forEach(prediction => {
+                    const x = prediction.x_min;
+                    const y = prediction.y_min;
+                    const width = prediction.x_max - prediction.x_min;
+                    const height = prediction.y_max - prediction.y_min;
+
+                    // Draw bounding box
+                    ctx.strokeRect(x, y, width, height);
+
+                    // Draw label background
+                    const label = `${prediction.label} (${(prediction.confidence * 100).toFixed(1)}%)`;
+                    const textMetrics = ctx.measureText(label);
+                    ctx.fillStyle = 'rgba(0, 191, 255, 0.9)';
+                    ctx.fillRect(x, y - 25, textMetrics.width + 10, 25);
+
+                    // Draw label text
+                    ctx.fillStyle = '#121212';
+                    ctx.fillText(label, x + 5, y - 8);
+                    ctx.fillStyle = '#00BFFF';
+                });
+                // Replace the image with the processed version
+                imageDisplay.src = canvas.toDataURL();
+
+                // Show maximize button after detection
+                imageControls.style.display = 'block';
+
+                // Update detection info
+                document.getElementById('detection-count').textContent = `Objects detected: ${response.count}`;
+
+                // Update predictions list
+                const predictionsList = document.getElementById('predictions-list');
+                predictionsList.innerHTML = '';
+
+                if (response.predictions.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.style.textAlign = 'center';
+                    noResults.style.color = 'var(--secondary-color)';
+                    noResults.style.fontStyle = 'italic';
+                    noResults.textContent = 'No objects detected';
+                    predictionsList.appendChild(noResults);
+                } else {
+                    response.predictions.forEach(prediction => {
+                        const item = document.createElement('div');
+                        item.className = 'prediction-item';
+                        item.innerHTML = `
+                        <span class="prediction-label">${prediction.label}</span>
+                        <span class="prediction-confidence">${(prediction.confidence * 100).toFixed(1)}%</span>
+                    `;
+                        predictionsList.appendChild(item);
+                    });
+                }
+
+                detectionSummary.style.display = 'block';
+            };
+            img.src = originalImageSrc;
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+    });
+</script>
 {% endblock %}
 
 {% block links %}

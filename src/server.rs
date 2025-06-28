@@ -4,7 +4,6 @@ use crate::{
         VisionDetectionResponse,
     },
     detector::ExecutionProvider,
-    image::draw_boundary_boxes_on_encoded_image,
     startup_coordinator::{DetectorInfo, InitResult},
 };
 use askama::Template;
@@ -356,7 +355,7 @@ async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl Int
 }
 
 async fn show_form() -> impl IntoResponse {
-    let template = TestTemplate { image_data: None };
+    let template = TestTemplate;
     match template.render() {
         Ok(body) => (
             [
@@ -911,9 +910,7 @@ async fn update_dropped_requests(server_state: Arc<ServerState>) {
 
 #[derive(Template)]
 #[template(path = "test.html")]
-struct TestTemplate<'a> {
-    image_data: Option<&'a str>,
-}
+struct TestTemplate;
 
 async fn handle_upload(
     State(server_state): State<Arc<ServerState>>,
@@ -1000,23 +997,7 @@ async fn handle_upload(
                         }
                     };
 
-                    let data = match draw_boundary_boxes_on_encoded_image(
-                        data,
-                        vision_response.predictions.as_slice(),
-                    ) {
-                        Ok(d) => d,
-                        Err(_) => {
-                            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to draw boxes")
-                                .into_response();
-                        }
-                    };
-
-                    let encoded = general_purpose::STANDARD.encode(&data);
-                    let data_url = format!("data:image/jpeg;base64,{encoded}");
-
-                    let template = TestTemplate {
-                        image_data: Some(&data_url),
-                    };
+                    let template = TestTemplate;
 
                     vision_response.analysisRoundTripMs =
                         request_start_time.elapsed().as_millis() as i32;
