@@ -881,6 +881,7 @@ impl Metrics {
         self.execution_provider_name = match &detector_info.execution_provider {
             ExecutionProvider::CPU => "CPU".to_string(),
             ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
+            ExecutionProvider::OpenVINO(index) => format!("OpenVINO(GPU {index})"),
         };
     }
 }

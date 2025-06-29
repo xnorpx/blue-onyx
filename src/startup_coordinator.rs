@@ -66,9 +66,15 @@ fn startup_worker_thread(
             {
                 ExecutionProvider::CPU
             } else {
-                ExecutionProvider::DirectML(
-                    detector_config.object_detection_onnx_config.gpu_index as usize,
-                )
+                match detector.get_endpoint_provider() {
+                    crate::detector::EndpointProvider::DirectML => ExecutionProvider::DirectML(
+                        detector_config.object_detection_onnx_config.gpu_index as usize,
+                    ),
+                    crate::detector::EndpointProvider::OpenVINO => ExecutionProvider::OpenVINO(
+                        detector_config.object_detection_onnx_config.gpu_index as usize,
+                    ),
+                    crate::detector::EndpointProvider::CPU => ExecutionProvider::CPU,
+                }
             };
 
             let detector_info = DetectorInfo {

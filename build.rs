@@ -98,6 +98,25 @@ fn main() {
                 .expect("Failed to copy DirectML.dll to output directory");
             build_warning!("Copied DirectML.dll to output directory");
         }
+    } else if cfg!(target_os = "linux") {
+        // On Linux, copy OpenVINO provider libraries
+        let openvino_libs = [
+            "libonnxruntime_providers_openvino.so",
+            "libonnxruntime_providers_shared.so",
+        ];
+
+        let lib_source_dir = expected_binary.parent().unwrap();
+
+        for lib_name in &openvino_libs {
+            let source_lib = lib_source_dir.join(lib_name);
+            let output_lib = output_dir.join(lib_name);
+
+            if source_lib.exists() && !output_lib.exists() {
+                std::fs::copy(&source_lib, &output_lib)
+                    .expect(&format!("Failed to copy {} to output directory", lib_name));
+                build_warning!("Copied {} to output directory", lib_name);
+            }
+        }
     }
 
     println!(
@@ -274,9 +293,12 @@ fn build_onnx(target_dir: &str) {
     } else if cfg!(target_os = "macos") {
         // Enable Core ML on macOS
         build_commands.push("--use_coreml".to_string());
+    } else if cfg!(target_os = "linux") {
+        build_commands.push("--use_openvino=CPU".to_string());
     }
 
     build_warning!("Running ONNX Runtime build script");
+    build_warning!("Build commands: {:?}", build_commands);
     let status = Command::new(build_script)
         .args(&build_commands)
         .current_dir(&onnx_dir)

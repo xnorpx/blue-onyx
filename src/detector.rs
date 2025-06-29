@@ -1,6 +1,6 @@
 use crate::{
     api::Prediction,
-    direct_ml_available, get_object_classes,
+    direct_ml_available, openvino_available, get_object_classes,
     image::{
         Image, Resizer, create_od_image_name, decode_jpeg,
         encode_maybe_draw_boundary_boxes_and_save_jpeg,
@@ -10,11 +10,16 @@ use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
 use ort::{
-    execution_providers::DirectMLExecutionProvider,
     inputs,
     session::{Session, SessionInputs, SessionOutputs},
     value::Value,
 };
+
+#[cfg(windows)]
+use ort::execution_providers::DirectMLExecutionProvider;
+
+#[cfg(target_os = "linux")]
+use ort::execution_providers::OpenVINOExecutionProvider;
 use smallvec::SmallVec;
 use std::{
     fmt::Debug,
@@ -596,6 +601,10 @@ impl Detector {
         self.endpoint_provider.to_string()
     }
 
+    pub fn get_endpoint_provider(&self) -> EndpointProvider {
+        self.endpoint_provider
+    }
+
     pub fn is_using_gpu(&self) -> bool {
         self.device_type == DeviceType::GPU
     }
@@ -613,10 +622,17 @@ fn initialize_onnx(
     ),
     anyhow::Error,
 > {
+    debug!("=== ONNX Initialization Debug ===");
+    debug!("ONNX Config: {:?}", onnx_config);
+    debug!("Force CPU: {}", onnx_config.force_cpu);
+    debug!("Target OS: {}", std::env::consts::OS);
+    debug!("Available physical CPUs: {}", num_cpus::get_physical());
+
     let mut providers = Vec::new();
     let mut device_type = DeviceType::CPU;
 
     let (num_intra_threads, num_inter_threads) = if onnx_config.force_cpu {
+        debug!("FORCE_CPU is TRUE - skipping all GPU providers");
         let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
         let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
         info!(
@@ -624,28 +640,75 @@ fn initialize_onnx(
             num_intra_threads, num_inter_threads
         );
         (num_intra_threads, num_inter_threads)
-    } else if direct_ml_available() {
-        info!(
-            gpu_index = onnx_config.gpu_index,
-            "DirectML available, using DirectML for inference"
-        );
-        providers.push(
-            DirectMLExecutionProvider::default()
-                .with_device_id(onnx_config.gpu_index)
-                .build()
-                .error_on_failure(),
-        );
-
-        device_type = DeviceType::GPU;
-        (1, 1) // For GPU we just hardcode to 1 thread
     } else {
-        let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-        let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-        warn!(
-            "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
-            num_intra_threads, num_inter_threads
-        );
-        (onnx_config.intra_threads, onnx_config.inter_threads)
+        debug!("FORCE_CPU is FALSE - checking for GPU providers");
+        let mut gpu_provider_added = false;
+
+        #[cfg(windows)]
+        {
+            debug!("Checking DirectML availability on Windows...");
+            if direct_ml_available() {
+                debug!("DirectML is available!");
+                info!(
+                    gpu_index = onnx_config.gpu_index,
+                    "DirectML available, using DirectML for inference"
+                );
+                providers.push(
+                    DirectMLExecutionProvider::default()
+                        .with_device_id(onnx_config.gpu_index)
+                        .build()
+                        .error_on_failure(),
+                );
+                device_type = DeviceType::GPU;
+                gpu_provider_added = true;
+                debug!("DirectML provider added successfully");
+            } else {
+                debug!("DirectML is NOT available");
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            debug!("Checking OpenVINO availability on Linux...");
+            if openvino_available() {
+                debug!("OpenVINO is available!");
+                info!("OpenVINO libraries found, attempting to use OpenVINO for inference");
+
+                // Try to create OpenVINO provider
+                let provider = OpenVINOExecutionProvider::default()
+                    .with_device_type("AUTO")
+                    .build();
+                providers.push(provider);
+                device_type = DeviceType::GPU;
+                gpu_provider_added = true;
+                info!("OpenVINO provider successfully added");
+                debug!("OpenVINO provider added successfully");
+            } else {
+                debug!("OpenVINO is NOT available");
+            }
+        }
+
+        #[cfg(not(any(windows, target_os = "linux")))]
+        {
+            debug!("Platform does not support GPU acceleration (not Windows or Linux)");
+        }
+
+        debug!("GPU provider added: {}", gpu_provider_added);
+        debug!("Total providers added: {}", providers.len());
+
+        if gpu_provider_added {
+            debug!("Using GPU inference with 1 intra and 1 inter thread");
+            (1, 1) // For GPU we just hardcode to 1 thread
+        } else {
+            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+            warn!(
+                "No GPU acceleration available, falling back to CPU for inference with {} intra and {} inter threads",
+                num_intra_threads, num_inter_threads
+            );
+            debug!("Using CPU inference with {} intra and {} inter threads", num_intra_threads, num_inter_threads);
+            (num_intra_threads, num_inter_threads)
+        }
     };
 
     // Simple model and yaml file handling
@@ -656,7 +719,11 @@ fn initialize_onnx(
         .and_then(|n| n.to_str())
         .map(|s| s.to_string());
 
+    debug!("Model filename from config: {:?}", model_filename);
     let (model_path, yaml_path) = crate::ensure_model_files(model_filename)?;
+    debug!("Model path: {:?}", model_path);
+    debug!("YAML path: {:?}", yaml_path);
+
     let model_bytes = std::fs::read(&model_path)?;
     let model_name = model_path
         .file_name()
@@ -664,21 +731,85 @@ fn initialize_onnx(
         .unwrap_or("unknown")
         .to_string();
 
+    debug!("Model name: {}", model_name);
+    debug!("Model size: {} bytes", model_bytes.len());
+    debug!("Final device type: {:?}", device_type);
+    debug!("Final thread config: intra={}, inter={}", num_intra_threads, num_inter_threads);
+
     info!(
         "Initializing detector with model: {:?} and inference running on {}",
         model_name, device_type,
     );
 
-    let session = Session::builder()?
-        .with_execution_providers(providers)?
-        .with_intra_threads(num_intra_threads)?
-        .with_inter_threads(num_inter_threads)?
-        .commit_from_memory(model_bytes.as_slice())?;
+    debug!("Creating ONNX Runtime session...");
 
-    let endpoint_provider = match device_type {
-        DeviceType::GPU => EndpointProvider::DirectML,
-        DeviceType::CPU => EndpointProvider::CPU,
+    // Try to create session with providers first, fall back to CPU-only if it fails
+    let (session, final_device_type) = if !providers.is_empty() {
+        match Session::builder()?
+            .with_execution_providers(providers.clone())?
+            .with_intra_threads(num_intra_threads)?
+            .with_inter_threads(num_inter_threads)?
+            .commit_from_memory(model_bytes.as_slice())
+        {
+            Ok(session) => {
+                debug!("ONNX Runtime session created successfully with GPU provider");
+                (session, device_type)
+            }
+            Err(e) => {
+                warn!("Failed to create session with GPU provider: {}", e);
+                warn!("This may be due to ONNX Runtime version incompatibility with installed libraries");
+                warn!("Falling back to CPU-only inference");
+
+                // Use CPU settings
+                let cpu_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+                let cpu_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+
+                info!("Using CPU for inference with {} intra and {} inter threads", cpu_intra_threads, cpu_inter_threads);
+
+                let cpu_session = Session::builder()?
+                    .with_intra_threads(cpu_intra_threads)?
+                    .with_inter_threads(cpu_inter_threads)?
+                    .commit_from_memory(model_bytes.as_slice())?;
+
+                (cpu_session, DeviceType::CPU)
+            }
+        }
+    } else {
+        let cpu_session = Session::builder()?
+            .with_intra_threads(num_intra_threads)?
+            .with_inter_threads(num_inter_threads)?
+            .commit_from_memory(model_bytes.as_slice())?;
+        (cpu_session, device_type)
     };
+
+    // Update device_type with the final result
+    let device_type = final_device_type;
+
+    debug!("ONNX Runtime session created successfully");
+
+    debug!("Determining endpoint provider...");
+    let endpoint_provider = match device_type {
+        DeviceType::GPU => {
+            if cfg!(windows) && direct_ml_available() {
+                debug!("Selected DirectML endpoint provider");
+                EndpointProvider::DirectML
+            } else if cfg!(target_os = "linux") && openvino_available() {
+                debug!("Selected OpenVINO endpoint provider");
+                EndpointProvider::OpenVINO
+            } else {
+                debug!("GPU device type but no GPU provider available - falling back to CPU endpoint");
+                EndpointProvider::CPU
+            }
+        }
+        DeviceType::CPU => {
+            debug!("Selected CPU endpoint provider");
+            EndpointProvider::CPU
+        }
+    };
+
+    debug!("Final endpoint provider: {:?}", endpoint_provider);
+    debug!("=== ONNX Initialization Complete ===");
+
     Ok((
         device_type,
         model_name,
@@ -692,6 +823,7 @@ fn initialize_onnx(
 pub enum EndpointProvider {
     CPU,
     DirectML,
+    OpenVINO,
 }
 
 impl std::fmt::Display for EndpointProvider {
@@ -699,6 +831,7 @@ impl std::fmt::Display for EndpointProvider {
         match self {
             EndpointProvider::CPU => write!(f, "CPU"),
             EndpointProvider::DirectML => write!(f, "DirectML"),
+            EndpointProvider::OpenVINO => write!(f, "OpenVINO"),
         }
     }
 }
@@ -723,4 +856,5 @@ impl std::fmt::Display for DeviceType {
 pub enum ExecutionProvider {
     CPU,
     DirectML(usize), // GPU index
+    OpenVINO(usize), // GPU index
 }

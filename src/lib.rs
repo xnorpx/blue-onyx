@@ -108,12 +108,84 @@ pub fn direct_ml_available() -> bool {
     }
 }
 
+pub fn openvino_available() -> bool {
+    #[cfg(not(target_os = "linux"))]
+    {
+        tracing::debug!("openvino_available: Not on Linux, returning false");
+        false
+    }
+    #[cfg(target_os = "linux")]
+    {
+        tracing::debug!("openvino_available: Checking OpenVINO availability on Linux");
+
+        let Ok(exe_path) = std::env::current_exe() else {
+            tracing::debug!("openvino_available: Failed to get current executable path");
+            return false;
+        };
+        tracing::debug!("openvino_available: Executable path: {:?}", exe_path);
+
+        let Some(exe_dir) = exe_path.parent() else {
+            tracing::debug!("openvino_available: Failed to get executable directory");
+            return false;
+        };
+        tracing::debug!("openvino_available: Executable directory: {:?}", exe_dir);
+
+        // Check if the required OpenVINO provider libraries exist
+        let openvino_provider = exe_dir.join("libonnxruntime_providers_openvino.so");
+        let shared_provider = exe_dir.join("libonnxruntime_providers_shared.so");
+
+        tracing::debug!("openvino_available: Checking for OpenVINO provider: {:?}", openvino_provider);
+        tracing::debug!("openvino_available: Checking for shared provider: {:?}", shared_provider);
+
+        let openvino_exists = openvino_provider.exists();
+        let shared_exists = shared_provider.exists();
+
+        tracing::debug!("openvino_available: OpenVINO provider exists: {}", openvino_exists);
+        tracing::debug!("openvino_available: Shared provider exists: {}", shared_exists);
+
+        let libraries_exist = openvino_exists && shared_exists;
+
+        if !libraries_exist {
+            tracing::debug!("openvino_available: Required libraries do not exist, returning false");
+            return false;
+        }
+
+        // Basic validation: check if the libraries are readable and not empty
+        if let Ok(metadata) = std::fs::metadata(&openvino_provider) {
+            tracing::debug!("openvino_available: OpenVINO provider size: {} bytes", metadata.len());
+            if metadata.len() == 0 {
+                tracing::debug!("openvino_available: OpenVINO provider is empty, returning false");
+                return false;
+            }
+        } else {
+            tracing::debug!("openvino_available: Failed to get OpenVINO provider metadata, returning false");
+            return false;
+        }
+
+        if let Ok(metadata) = std::fs::metadata(&shared_provider) {
+            tracing::debug!("openvino_available: Shared provider size: {} bytes", metadata.len());
+            if metadata.len() == 0 {
+                tracing::debug!("openvino_available: Shared provider is empty, returning false");
+                return false;
+            }
+        } else {
+            tracing::debug!("openvino_available: Failed to get shared provider metadata, returning false");
+            return false;
+        }
+
+        tracing::debug!("openvino_available: All checks passed, returning true");
+        true
+    }
+}
+
 /// Log information about available GPU devices
 pub fn log_available_gpus() {
     if direct_ml_available() {
         info!("DirectML is available for GPU inference");
+    } else if openvino_available() {
+        info!("OpenVINO is available for GPU inference");
     } else {
-        info!("DirectML is not available - only CPU inference will be supported");
+        info!("No GPU acceleration available - only CPU inference will be supported");
     }
 
     // Log available GPU devices
