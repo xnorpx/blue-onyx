@@ -66,9 +66,16 @@ fn startup_worker_thread(
             {
                 ExecutionProvider::CPU
             } else {
-                ExecutionProvider::DirectML(
-                    detector_config.object_detection_onnx_config.gpu_index as usize,
-                )
+                #[cfg(windows)]
+                {
+                    ExecutionProvider::DirectML(
+                        detector_config.object_detection_onnx_config.gpu_index as usize,
+                    )
+                }
+                #[cfg(not(windows))]
+                {
+                    ExecutionProvider::CPU
+                }
             };
 
             let detector_info = DetectorInfo {

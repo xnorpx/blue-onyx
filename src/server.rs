@@ -880,6 +880,7 @@ impl Metrics {
         self.model_name = detector_info.model_name.clone();
         self.execution_provider_name = match &detector_info.execution_provider {
             ExecutionProvider::CPU => "CPU".to_string(),
+            #[cfg(windows)]
             ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
         };
     }

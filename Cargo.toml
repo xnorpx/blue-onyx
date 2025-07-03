@@ -47,11 +47,6 @@ jpeg-encoder = { version = "0", default-features = false, features = [
 mime = { version = "0", default-features = false }
 ndarray = { version = "0", default-features = false }
 num_cpus = { version = "1", default-features = false }
-ort = { version = "2.0.0-rc.10", default-features = false, features = [
-    "ndarray",
-    "load-dynamic",
-    "directml",
-] }
 raw-cpuid = { version = "11", default-features = false }
 reqwest = { version = "0", default-features = false, features = [
     "stream",
@@ -72,8 +67,19 @@ uuid = { version = "1", default-features = false, features = ["v4"] }
 zune-core = { version = "0", default-features = false, features = ["std"] }
 zune-jpeg = { version = "0", default-features = false, features = ["std"] }
 
+[target.'cfg(unix)'.dependencies]
+ort = { version = "2.0.0-rc.10", default-features = false, features = [
+    "ndarray",
+    "load-dynamic",
+] }
+
 [target.'cfg(windows)'.dependencies]
 ansi_term = { version = "0", default-features = false }
+ort = { version = "2.0.0-rc.10", default-features = false, features = [
+    "ndarray",
+    "load-dynamic",
+    "directml",
+] }
 tracing-layer-win-eventlog = { version = "1", default-features = false }
 windows = { version = "0", default-features = false, features = [
     "Win32_Foundation",
