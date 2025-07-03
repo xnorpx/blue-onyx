@@ -73,11 +73,16 @@ mod blue_onyx_service {
             return;
         }
 
-        // Preload required DLLs for faster startup
+        // Preload required DLLs for faster startup (Windows-specific)
+        #[cfg(windows)]
         preload_service_dlls();
 
-        // Validate GPU environment for DirectML
-        validate_gpu_environment();
+        // Validate GPU environment for DirectML only if not forcing CPU
+        if !current_args.force_cpu {
+            validate_gpu_environment();
+        } else {
+            info!("GPU validation skipped - force_cpu mode is enabled");
+        }
 
         info!(
             "Starting {} service with config from blue_onyx_config_service.json",
@@ -257,6 +262,7 @@ mod blue_onyx_service {
         Ok((should_restart, status_handle))
     }
     /// Validate GPU environment for DirectML access in service context
+    #[cfg(windows)]
     fn validate_gpu_environment() {
         // Check session information
         info!("Validating GPU environment for service context");
@@ -268,7 +274,14 @@ mod blue_onyx_service {
         // Validate DirectX 12 availability
         validate_directx12_support();
     }
+
+    #[cfg(not(windows))]
+    fn validate_gpu_environment() {
+        // No DirectML/GPU environment to validate on non-Windows platforms
+        info!("GPU validation skipped - DirectML not available on this platform");
+    }
     /// Validate DirectX 12 support
+    #[cfg(windows)]
     fn validate_directx12_support() {
         use windows::Win32::Graphics::Dxgi::*;
 
@@ -312,14 +325,21 @@ mod blue_onyx_service {
         }
     }
     /// Preload required DLLs for faster service startup
+    #[cfg(windows)]
     fn preload_service_dlls() {
         use windows::Win32::System::LibraryLoader::LoadLibraryA;
         use windows::core::PCSTR;
 
         info!("Preloading service DLLs for optimized startup");
 
-        // List of DLLs to preload - add your specific DLLs here
-        let dlls_to_preload = ["DirectML.dll", "onnxruntime.dll"];
+        // Always preload the core ONNX runtime DLL
+        let mut dlls_to_preload = vec!["onnxruntime.dll"];
+
+        // Only preload DirectML.dll if not forcing CPU mode
+        let cli_args = Cli::for_service().unwrap_or_default();
+        if !cli_args.force_cpu {
+            dlls_to_preload.push("DirectML.dll");
+        }
 
         for dll_name in &dlls_to_preload {
             let dll_cstr = format!("{dll_name}\0");

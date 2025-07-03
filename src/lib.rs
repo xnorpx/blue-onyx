@@ -110,11 +110,15 @@ pub fn direct_ml_available() -> bool {
 
 /// Log information about available GPU devices
 pub fn log_available_gpus() {
+    #[cfg(windows)]
     if direct_ml_available() {
         info!("DirectML is available for GPU inference");
     } else {
         info!("DirectML is not available - only CPU inference will be supported");
     }
+
+    #[cfg(not(windows))]
+    info!("GPU acceleration not available on this platform - only CPU inference will be supported");
 
     // Log available GPU devices
     match system_info::gpu_info(true) {
