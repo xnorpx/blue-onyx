@@ -636,17 +636,37 @@ fn initialize_onnx(
         if direct_ml_available() {
             info!(
                 gpu_index = onnx_config.gpu_index,
-                "DirectML available, using DirectML for inference"
-            );
-            providers.push(
-                DirectMLExecutionProvider::default()
-                    .with_device_id(onnx_config.gpu_index)
-                    .build()
-                    .error_on_failure(),
+                "DirectML available, attempting to use DirectML for inference"
             );
 
-            device_type = DeviceType::GPU;
-            (1, 1) // For GPU we just hardcode to 1 thread
+            // Try to initialize DirectML provider, but handle any errors
+            match DirectMLExecutionProvider::default()
+                .with_device_id(onnx_config.gpu_index)
+                .build()
+            {
+                Ok(provider) => {
+                    providers.push(provider);
+                    device_type = DeviceType::GPU;
+                    info!("DirectML initialization successful");
+                    (1, 1) // For GPU we just hardcode to 1 thread
+                }
+                Err(e) => {
+                    // If DirectML fails, log an error and fall back to CPU
+                    let num_intra_threads =
+                        onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+                    let num_inter_threads =
+                        onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+
+                    warn!(
+                        error = ?e,
+                        "Failed to initialize DirectML: {}. Falling back to CPU execution provider with {} intra and {} inter threads",
+                        e, num_intra_threads, num_inter_threads
+                    );
+
+                    // Return CPU thread configuration
+                    (num_intra_threads, num_inter_threads)
+                }
+            }
         } else {
             let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
             let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
