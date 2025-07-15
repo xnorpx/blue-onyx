@@ -1,6 +1,8 @@
+#[cfg(windows)]
+use crate::direct_ml_available;
 use crate::{
     api::Prediction,
-    direct_ml_available, get_object_classes,
+    get_object_classes,
     image::{
         Image, Resizer, create_od_image_name, decode_jpeg,
         encode_maybe_draw_boundary_boxes_and_save_jpeg,
@@ -9,8 +11,9 @@ use crate::{
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
+#[cfg(windows)]
+use ort::execution_providers::DirectMLExecutionProvider;
 use ort::{
-    execution_providers::DirectMLExecutionProvider,
     inputs,
     session::{Session, SessionInputs, SessionOutputs},
     value::Value,
@@ -613,7 +616,9 @@ fn initialize_onnx(
     ),
     anyhow::Error,
 > {
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut providers = Vec::new();
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut device_type = DeviceType::CPU;
 
     let (num_intra_threads, num_inter_threads) = if onnx_config.force_cpu {
@@ -623,29 +628,51 @@ fn initialize_onnx(
             "Forcing CPU for inference with {} intra and {} inter threads",
             num_intra_threads, num_inter_threads
         );
+        // When forcing CPU, ensure no other providers are used
+        // providers list will remain empty, which means CPU provider is used by default
         (num_intra_threads, num_inter_threads)
-    } else if direct_ml_available() {
-        info!(
-            gpu_index = onnx_config.gpu_index,
-            "DirectML available, using DirectML for inference"
-        );
-        providers.push(
-            DirectMLExecutionProvider::default()
-                .with_device_id(onnx_config.gpu_index)
-                .build()
-                .error_on_failure(),
-        );
-
-        device_type = DeviceType::GPU;
-        (1, 1) // For GPU we just hardcode to 1 thread
     } else {
-        let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-        let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-        warn!(
-            "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
-            num_intra_threads, num_inter_threads
-        );
-        (onnx_config.intra_threads, onnx_config.inter_threads)
+        #[cfg(windows)]
+        if direct_ml_available() {
+            info!(
+                gpu_index = onnx_config.gpu_index,
+                "DirectML available, attempting to use DirectML for inference"
+            );
+
+            // Try to initialize DirectML provider, but handle any errors
+            let provider = DirectMLExecutionProvider::default()
+                .with_device_id(onnx_config.gpu_index)
+                .build();
+            providers.push(provider);
+            device_type = DeviceType::GPU;
+            info!("DirectML initialization successful");
+            (1, 1) // For GPU we just hardcode to 1 thread
+        } else {
+            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+            #[cfg(windows)]
+            warn!(
+                "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
+                num_intra_threads, num_inter_threads
+            );
+            #[cfg(not(windows))]
+            warn!(
+                "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
+                num_intra_threads, num_inter_threads
+            );
+            (onnx_config.intra_threads, onnx_config.inter_threads)
+        }
+
+        #[cfg(not(windows))]
+        {
+            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+            warn!(
+                "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
+                num_intra_threads, num_inter_threads
+            );
+            (onnx_config.intra_threads, onnx_config.inter_threads)
+        }
     };
 
     // Simple model and yaml file handling
@@ -669,6 +696,9 @@ fn initialize_onnx(
         model_name, device_type,
     );
 
+    // Build the session with the appropriate execution providers
+    // Note: When providers list is empty (which is the case when force_cpu=true),
+    // ONNX Runtime will default to CPU execution provider
     let session = Session::builder()?
         .with_execution_providers(providers)?
         .with_intra_threads(num_intra_threads)?
@@ -676,8 +706,9 @@ fn initialize_onnx(
         .commit_from_memory(model_bytes.as_slice())?;
 
     let endpoint_provider = match device_type {
+        #[cfg(windows)]
         DeviceType::GPU => EndpointProvider::DirectML,
-        DeviceType::CPU => EndpointProvider::CPU,
+        _ => EndpointProvider::CPU,
     };
     Ok((
         device_type,
@@ -691,6 +722,7 @@ fn initialize_onnx(
 #[derive(Debug, Clone, Copy)]
 pub enum EndpointProvider {
     CPU,
+    #[cfg(windows)]
     DirectML,
 }
 
@@ -698,6 +730,7 @@ impl std::fmt::Display for EndpointProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EndpointProvider::CPU => write!(f, "CPU"),
+            #[cfg(windows)]
             EndpointProvider::DirectML => write!(f, "DirectML"),
         }
     }
@@ -722,5 +755,6 @@ impl std::fmt::Display for DeviceType {
 #[derive(Debug, Clone)]
 pub enum ExecutionProvider {
     CPU,
+    #[cfg(windows)]
     DirectML(usize), // GPU index
 }

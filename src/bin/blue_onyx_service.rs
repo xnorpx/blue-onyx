@@ -40,7 +40,7 @@ mod blue_onyx_service {
     };
     use std::{ffi::OsString, future::Future, time::Duration};
     use tokio_util::sync::CancellationToken;
-    use tracing::{error, info};
+    use tracing::{error, info, warn};
     use windows_service::{
         Result, define_windows_service,
         service::{
@@ -76,8 +76,12 @@ mod blue_onyx_service {
         // Preload required DLLs for faster startup
         preload_service_dlls();
 
-        // Validate GPU environment for DirectML
-        validate_gpu_environment();
+        // Validate GPU environment for DirectML only if not forcing CPU
+        if !current_args.force_cpu {
+            validate_gpu_environment();
+        } else {
+            info!("GPU validation skipped - force_cpu mode is enabled");
+        }
 
         info!(
             "Starting {} service with config from blue_onyx_config_service.json",
@@ -272,43 +276,87 @@ mod blue_onyx_service {
     fn validate_directx12_support() {
         use windows::Win32::Graphics::Dxgi::*;
 
-        match unsafe { CreateDXGIFactory2::<IDXGIFactory4>(DXGI_CREATE_FACTORY_DEBUG) } {
-            Ok(factory) => {
-                // Check for adapters
-                let mut adapter_count = 0;
-                for i in 0..8 {
-                    match unsafe { factory.EnumAdapters1(i) } {
-                        Ok(adapter) => {
-                            adapter_count += 1;
-                            match unsafe { adapter.GetDesc1() } {
-                                Ok(desc) => {
-                                    let desc_string = String::from_utf16_lossy(&desc.Description);
-                                    info!(
-                                        "GPU Adapter {}: {}",
-                                        i,
-                                        desc_string.trim_end_matches('\0')
-                                    );
-                                }
-                                Err(_) => {
-                                    info!("GPU Adapter {}: Description unavailable", i);
-                                }
-                            }
-                        }
-                        Err(_) => break, // No more adapters
+        // First try with debug flag which provides more information
+        let factory_result =
+            unsafe { CreateDXGIFactory2::<IDXGIFactory4>(DXGI_CREATE_FACTORY_DEBUG) };
+
+        // If debug fails, try without debug
+        let factory = match factory_result {
+            Ok(f) => f,
+            Err(e) => {
+                info!(
+                    "DirectX 12 debug factory creation failed: {:?}. Trying without debug flag.",
+                    e
+                );
+                match unsafe {
+                    CreateDXGIFactory2::<IDXGIFactory4>(
+                        windows::Win32::Graphics::Dxgi::DXGI_CREATE_FACTORY_FLAGS(0),
+                    )
+                } {
+                    Ok(f) => f,
+                    Err(e) => {
+                        error!(
+                            "DirectX 12 factory creation failed: {:?}. GPU acceleration will not be available.",
+                            e
+                        );
+                        error!(
+                            "Possible causes: outdated graphics driver, no compatible GPU, or running in a remote desktop session."
+                        );
+                        error!("DirectML will fall back to CPU execution.");
+                        return;
                     }
                 }
-                if adapter_count > 0 {
-                    info!(
-                        "Found {} GPU adapter(s) - DirectX 12 support available",
-                        adapter_count
-                    );
-                } else {
-                    error!("No GPU adapters found");
+            }
+        };
+
+        // Check for adapters
+        let mut adapter_count = 0;
+        let mut has_compatible_adapter = false;
+
+        for i in 0..8 {
+            match unsafe { factory.EnumAdapters1(i) } {
+                Ok(adapter) => {
+                    adapter_count += 1;
+                    match unsafe { adapter.GetDesc1() } {
+                        Ok(desc) => {
+                            let desc_string = String::from_utf16_lossy(&desc.Description);
+                            let adapter_name = desc_string.trim_end_matches('\0');
+                            let dedicated_video_memory_mb =
+                                desc.DedicatedVideoMemory / (1024 * 1024);
+
+                            info!(
+                                "GPU Adapter {}: {} (VRAM: {} MB)",
+                                i, adapter_name, dedicated_video_memory_mb
+                            );
+
+                            // Check if this is likely a compatible adapter
+                            // DirectML typically works well with dedicated GPUs with sufficient VRAM
+                            if dedicated_video_memory_mb >= 1024 {
+                                has_compatible_adapter = true;
+                            }
+                        }
+                        Err(e) => {
+                            info!("GPU Adapter {}: Description unavailable - {:?}", i, e);
+                        }
+                    }
                 }
+                Err(_) => break, // No more adapters
             }
-            Err(e) => {
-                error!("DirectX 12 validation failed: {:?} - GPU may still work", e);
-            }
+        }
+
+        if adapter_count == 0 {
+            error!("No GPU adapters found. DirectML will fall back to CPU execution.");
+        } else if !has_compatible_adapter {
+            warn!(
+                "Found {} GPU adapter(s) but none seem to have sufficient VRAM (>=1GB).",
+                adapter_count
+            );
+            warn!("DirectML may still work but performance could be limited.");
+        } else {
+            info!(
+                "Found {} compatible GPU adapter(s) - DirectX 12 support available",
+                adapter_count
+            );
         }
     }
     /// Preload required DLLs for faster service startup
@@ -318,8 +366,9 @@ mod blue_onyx_service {
 
         info!("Preloading service DLLs for optimized startup");
 
-        // List of DLLs to preload - add your specific DLLs here
+        // List of DLLs to preload
         let dlls_to_preload = ["DirectML.dll", "onnxruntime.dll"];
+        let mut directml_available = false;
 
         for dll_name in &dlls_to_preload {
             let dll_cstr = format!("{dll_name}\0");
@@ -327,17 +376,37 @@ mod blue_onyx_service {
                 Ok(handle) => {
                     if !handle.is_invalid() {
                         info!("Successfully preloaded: {}", dll_name);
+                        if dll_name == &"DirectML.dll" {
+                            directml_available = true;
+                        }
                     } else {
-                        info!(
-                            "Failed to preload: {} (library not found or invalid)",
-                            dll_name
-                        );
+                        if dll_name == &"DirectML.dll" {
+                            warn!(
+                                "Failed to preload DirectML.dll - GPU acceleration will not be available"
+                            );
+                        } else {
+                            warn!(
+                                "Failed to preload: {} (library not found or invalid)",
+                                dll_name
+                            );
+                        }
                     }
                 }
                 Err(e) => {
-                    info!("Failed to preload {}: {:?}", dll_name, e);
+                    if dll_name == &"DirectML.dll" {
+                        warn!(
+                            "Failed to preload DirectML.dll: {:?} - GPU acceleration will not be available",
+                            e
+                        );
+                    } else {
+                        warn!("Failed to preload {}: {:?}", dll_name, e);
+                    }
                 }
             }
+        }
+
+        if !directml_available {
+            info!("DirectML is not available - CPU inference will be used");
         }
 
         // Set DLL search optimization
