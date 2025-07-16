@@ -131,6 +131,13 @@
         height: 100%;
         object-fit: contain;
         border-radius: 9px;
+        cursor: zoom-in;
+        transition: transform 0.3s ease;
+        transform-origin: center;
+    }
+
+    .modal-image.zoomed {
+        cursor: zoom-out;
     }
 
     .modal-close {
@@ -169,6 +176,34 @@
         font-weight: 600;
     }
 
+    .zoom-controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .zoom-btn {
+        background: rgba(0, 191, 255, 0.9);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        color: #121212;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .zoom-btn:hover {
+        background: var(--primary-color);
+        transform: scale(1.1);
+    }
+
     .detection-controls {
         background-color: var(--card-bg);
         border-radius: 12px;
@@ -200,7 +235,18 @@
         font-size: 0.9em;
     }
 
-    .control-group input[type="number"]:focus {
+    .control-group select {
+        background-color: var(--background-color);
+        border: 2px solid var(--primary-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        padding: 6px 10px;
+        width: 100px;
+        font-size: 0.9em;
+    }
+
+    .control-group input[type="number"]:focus,
+    .control-group select:focus {
         outline: none;
         border-color: var(--hover-bg);
         box-shadow: 0 0 0 2px rgba(0, 191, 255, 0.2);
@@ -230,6 +276,16 @@
         cursor: not-allowed;
         transform: none;
         box-shadow: none;
+    }
+
+    .oneshot-btn {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        margin-top: 10px;
+    }
+
+    .oneshot-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(40, 167, 69, 0.4);
     }
 
     .progress-bar {
@@ -397,24 +453,46 @@
                         </button>
                     </div>
                 </div>
-            </div> <!-- Detection Controls -->
+            </div>            <!-- Detection Controls -->
             <div class="detection-controls" id="detection-controls">
                 <h3>Detection Settings</h3>
-                <div class="control-group">
-                    <label for="requests-per-second">Requests/Second:</label>
-                    <input type="number" id="requests-per-second" min="0.1" max="10" step="0.1" value="1">
-                </div>
-                <div class="control-group">
-                    <label for="duration">Duration (sec):</label>
-                    <input type="number" id="duration" min="1" max="60" value="1">
-                </div>
                 <div class="control-group">
                     <label for="confidence">Min Confidence:</label>
                     <input type="number" id="confidence" min="0.1" max="1.0" step="0.1" value="0.5">
                 </div>
-                <button class="detect-btn" id="detect-btn">
-                    <i class="fas fa-search"></i> Run Detection
-                </button>
+                <div class="control-group">
+                    <label for="bbox-color">Box Color:</label>
+                    <select id="bbox-color">
+                        <option value="red" selected>Red</option>
+                        <option value="green">Green</option>
+                        <option value="blue">Blue</option>
+                        <option value="yellow">Yellow</option>
+                    </select>
+                </div>
+                
+                <!-- Benchmark Controls -->
+                <div class="benchmark-controls" id="benchmark-controls">
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--secondary-color);">Benchmark Mode</h4>
+                    <div class="control-group">
+                        <label for="requests-per-second">Requests/Second:</label>
+                        <input type="number" id="requests-per-second" min="0.1" max="10" step="0.1" value="1">
+                    </div>
+                    <div class="control-group">
+                        <label for="duration">Duration (sec):</label>
+                        <input type="number" id="duration" min="1" max="60" value="1">
+                    </div>
+                    <button class="detect-btn" id="benchmark-btn">
+                        <i class="fas fa-chart-line"></i> Run Benchmark
+                    </button>
+                </div>
+                
+                <!-- One-shot Controls -->
+                <div class="oneshot-controls" id="oneshot-controls">
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--secondary-color);">One-shot Analysis</h4>
+                    <button class="detect-btn oneshot-btn" id="oneshot-btn">
+                        <i class="fas fa-search"></i> Single Detection
+                    </button>
+                </div>
                 <div class="progress-bar" id="progress-bar">
                     <div class="progress-fill" id="progress-fill"></div>
                 </div>
@@ -510,13 +588,24 @@
 
 <!-- Image Modal -->
 <div class="image-modal" id="image-modal">
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in-btn" title="Zoom In">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="zoom-btn" id="zoom-out-btn" title="Zoom Out">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="zoom-btn" id="zoom-reset-btn" title="Reset Zoom">
+            <i class="fas fa-expand-arrows-alt"></i>
+        </button>
+    </div>
     <button class="modal-close" id="modal-close">
         <i class="fas fa-times"></i>
     </button>
     <div class="modal-content">
         <img id="modal-image" class="modal-image" alt="Maximized Image">
     </div>
-    <div class="modal-instructions">Click anywhere to close or press ESC</div>
+    <div class="modal-instructions">Click image to zoom • Scroll wheel to zoom • Click outside to close • Press ESC to exit</div>
 </div>
 
 <script>
@@ -527,7 +616,8 @@
         const imageContainer = document.getElementById('image-container');
         const imageDisplay = document.getElementById('image-display');
         const detectionControls = document.getElementById('detection-controls');
-        const detectBtn = document.getElementById('detect-btn');
+        const benchmarkBtn = document.getElementById('benchmark-btn');
+        const oneshotBtn = document.getElementById('oneshot-btn');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
         const statsSummary = document.getElementById('stats-summary');
@@ -538,9 +628,16 @@
         const imageModal = document.getElementById('image-modal');
         const modalImage = document.getElementById('modal-image');
         const modalClose = document.getElementById('modal-close');
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        const zoomResetBtn = document.getElementById('zoom-reset-btn');
 
         let selectedImageData = null;
         let originalImageSrc = null;
+        let currentZoom = 1;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let imageOffset = { x: 0, y: 0 };
 
         let detectionStats = {
             requestCount: 0,
@@ -567,9 +664,15 @@
         uploadSection.addEventListener('drop', handleDrop);
 
         // Detection button
-        detectBtn.addEventListener('click', function () {
-            console.log('Detect button clicked');
-            runDetection();
+        benchmarkBtn.addEventListener('click', function () {
+            console.log('Benchmark button clicked');
+            runBenchmark();
+        });
+
+        // One-shot button
+        oneshotBtn.addEventListener('click', function () {
+            console.log('One-shot button clicked');
+            runOneShot();
         });
 
         // Modal functionality
@@ -577,14 +680,77 @@
             modalImage.src = imageDisplay.src;
             imageModal.style.display = 'block';
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            resetZoom();
         });
 
         modalClose.addEventListener('click', closeModal);
-        imageModal.addEventListener('click', closeModal);
+        imageModal.addEventListener('click', function(e) {
+            // Only close if clicking on the modal background, not the image or controls
+            if (e.target === imageModal) {
+                closeModal();
+            }
+        });
 
-        // Prevent closing when clicking on the image itself
+        // Zoom controls
+        zoomInBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            zoomIn();
+        });
+
+        zoomOutBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            zoomOut();
+        });
+
+        zoomResetBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            resetZoom();
+        });
+
+        // Image click to zoom
         modalImage.addEventListener('click', function (e) {
             e.stopPropagation();
+            if (currentZoom === 1) {
+                zoomIn();
+            } else {
+                zoomOut();
+            }
+        });
+
+        // Mouse wheel zoom
+        modalImage.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                zoomIn();
+            } else {
+                zoomOut();
+            }
+        });
+
+        // Drag functionality for zoomed image
+        modalImage.addEventListener('mousedown', function(e) {
+            if (currentZoom > 1) {
+                isDragging = true;
+                dragStart.x = e.clientX - imageOffset.x;
+                dragStart.y = e.clientY - imageOffset.y;
+                modalImage.style.cursor = 'grabbing';
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging && currentZoom > 1) {
+                imageOffset.x = e.clientX - dragStart.x;
+                imageOffset.y = e.clientY - dragStart.y;
+                updateImageTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                modalImage.style.cursor = currentZoom > 1 ? 'grab' : 'zoom-in';
+            }
         });
 
         // ESC key to close modal
@@ -597,6 +763,45 @@
         function closeModal() {
             imageModal.style.display = 'none';
             document.body.style.overflow = 'auto'; // Restore scrolling
+            resetZoom();
+        }
+
+        function zoomIn() {
+            currentZoom = Math.min(currentZoom * 1.5, 5); // Max zoom 5x
+            updateImageTransform();
+            updateZoomCursor();
+        }
+
+        function zoomOut() {
+            currentZoom = Math.max(currentZoom / 1.5, 1); // Min zoom 1x
+            if (currentZoom === 1) {
+                imageOffset.x = 0;
+                imageOffset.y = 0;
+            }
+            updateImageTransform();
+            updateZoomCursor();
+        }
+
+        function resetZoom() {
+            currentZoom = 1;
+            imageOffset.x = 0;
+            imageOffset.y = 0;
+            updateImageTransform();
+            updateZoomCursor();
+        }
+
+        function updateImageTransform() {
+            modalImage.style.transform = `scale(${currentZoom}) translate(${imageOffset.x / currentZoom}px, ${imageOffset.y / currentZoom}px)`;
+        }
+
+        function updateZoomCursor() {
+            if (currentZoom === 1) {
+                modalImage.style.cursor = 'zoom-in';
+                modalImage.classList.remove('zoomed');
+            } else {
+                modalImage.style.cursor = isDragging ? 'grabbing' : 'grab';
+                modalImage.classList.add('zoomed');
+            }
         }
 
         function handleFileSelect(event) {
@@ -663,8 +868,85 @@
             updateStatistics();
         }
 
-        async function runDetection() {
-            console.log('runDetection called, selectedImageData:', selectedImageData);
+        async function runOneShot() {
+            console.log('runOneShot called, selectedImageData:', selectedImageData);
+            if (!selectedImageData) {
+                console.log('No image selected, returning');
+                return;
+            }
+
+            const confidence = parseFloat(document.getElementById('confidence').value);
+
+            oneshotBtn.disabled = true;
+            benchmarkBtn.disabled = true;
+            progressBar.style.display = 'block';
+            progressFill.style.width = '100%';
+            errorMessage.style.display = 'none';
+
+            // Reset stats for single request
+            resetStats();
+            detectionStats.startTime = Date.now();
+            detectionStats.expectedTotalRequests = 1;
+
+            try {
+                const formData = new FormData();
+                formData.append('image', selectedImageData);
+                formData.append('min_confidence', confidence.toString());
+
+                // Set timeout to 15 seconds
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000)
+                );
+
+                const fetchPromise = fetch('/v1/vision/detection', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+                if (!response.ok) {
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorText = await response.text();
+                        if (errorText) {
+                            errorMessage += ` - ${errorText}`;
+                        }
+                    } catch (textError) {
+                        console.warn('Could not read error response body:', textError);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                detectionStats.endTime = Date.now();
+
+                // Update stats
+                detectionStats.requestCount = 1;
+                detectionStats.inferenceTimes.push(result.inferenceMs);
+                detectionStats.processTimes.push(result.processMs);
+                detectionStats.roundTripTimes.push(result.analysisRoundTripMs);
+
+                // Show results with bounding boxes
+                if (result.success) {
+                    await displayResults(result);
+                }
+
+                updateStatistics();
+
+            } catch (error) {
+                console.error('One-shot detection error:', error);
+                showError('Error during one-shot detection: ' + error.message);
+            } finally {
+                oneshotBtn.disabled = false;
+                benchmarkBtn.disabled = false;
+                progressBar.style.display = 'none';
+                progressFill.style.width = '0%';
+            }
+        }
+
+        async function runBenchmark() {
+            console.log('runBenchmark called, selectedImageData:', selectedImageData);
             if (!selectedImageData) {
                 console.log('No image selected, returning');
                 return;
@@ -677,7 +959,8 @@
             const targetIntervalMs = 1000 / requestsPerSecond;
             const totalDurationMs = durationSeconds * 1000;
 
-            detectBtn.disabled = true;
+            benchmarkBtn.disabled = true;
+            oneshotBtn.disabled = true;
             progressBar.style.display = 'block';
             errorMessage.style.display = 'none';
 
@@ -733,10 +1016,9 @@
                     detectionStats.processTimes.push(result.processMs);
                     detectionStats.roundTripTimes.push(result.analysisRoundTripMs);
 
-                    // Update progress based on time elapsed
-                    const elapsed = Date.now() - startTime;
-                    const progress = Math.min((elapsed / totalDurationMs) * 100, 100);
-                    progressFill.style.width = progress + '%';
+                    // Update progress based on request count
+                    const progress = (detectionStats.requestCount / detectionStats.expectedTotalRequests) * 100;
+                    progressFill.style.width = Math.min(progress, 100) + '%';
 
                     // Update statistics display
                     updateStatistics();
@@ -766,7 +1048,8 @@
                             await displayResults(lastResponse);
                         }
 
-                        detectBtn.disabled = false;
+                        benchmarkBtn.disabled = false;
+                        oneshotBtn.disabled = false;
                         progressBar.style.display = 'none';
                         progressFill.style.width = '0%';
                         updateStatistics();
@@ -775,22 +1058,24 @@
 
                     // Check if it's time for the next request
                     if (currentTime >= nextRequestTime) {
-                        // Schedule next request
+                        // Schedule next request time
                         nextRequestTime = currentTime + targetIntervalMs;
 
-                        // Run the request (don't await - let it run concurrently)
-                        runSingleDetection().then(success => {
-                            if (!success) {
-                                isRunning = false;
-                                detectBtn.disabled = false;
-                                progressBar.style.display = 'none';
-                                progressFill.style.width = '0%';
-                            }
-                        });
+                        // Run the request and wait for it to complete before continuing
+                        const success = await runSingleDetection();
+                        if (!success) {
+                            isRunning = false;
+                            benchmarkBtn.disabled = false;
+                            oneshotBtn.disabled = false;
+                            progressBar.style.display = 'none';
+                            progressFill.style.width = '0%';
+                            break;
+                        }
+                    } else {
+                        // Wait until it's time for the next request
+                        const timeToWait = Math.max(1, nextRequestTime - currentTime);
+                        await new Promise(resolve => setTimeout(resolve, timeToWait));
                     }
-
-                    // Wait a short time before checking again
-                    await new Promise(resolve => setTimeout(resolve, 5));
                 }
             };
 
@@ -866,6 +1151,16 @@
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
 
+            // Get selected color
+            const selectedColor = document.getElementById('bbox-color').value;
+            const colorMap = {
+                'red': '#FF0000',
+                'green': '#00FF00',
+                'blue': '#0000FF',
+                'yellow': '#FFFF00'
+            };
+            const boxColor = colorMap[selectedColor] || '#FF0000';
+
             // Load the original image
             const img = new Image();
             img.onload = function () {
@@ -876,10 +1171,9 @@
                 ctx.drawImage(img, 0, 0);
 
                 // Draw bounding boxes
-                ctx.strokeStyle = '#00BFFF';
+                ctx.strokeStyle = boxColor;
                 ctx.lineWidth = 3;
                 ctx.font = 'bold 16px Arial';
-                ctx.fillStyle = '#00BFFF';
 
                 response.predictions.forEach(prediction => {
                     const x = prediction.x_min;
@@ -893,13 +1187,15 @@
                     // Draw label background
                     const label = `${prediction.label} (${(prediction.confidence * 100).toFixed(1)}%)`;
                     const textMetrics = ctx.measureText(label);
-                    ctx.fillStyle = 'rgba(0, 191, 255, 0.9)';
+                    
+                    // Use semi-transparent version of the selected color for background
+                    const rgbColor = hexToRgb(boxColor);
+                    ctx.fillStyle = `rgba(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b}, 0.9)`;
                     ctx.fillRect(x, y - 25, textMetrics.width + 10, 25);
 
-                    // Draw label text
-                    ctx.fillStyle = '#121212';
+                    // Draw label text in contrasting color
+                    ctx.fillStyle = getContrastColor(boxColor);
                     ctx.fillText(label, x + 5, y - 8);
-                    ctx.fillStyle = '#00BFFF';
                 });
                 // Replace the image with the processed version
                 imageDisplay.src = canvas.toDataURL();
@@ -936,6 +1232,26 @@
                 detectionSummary.style.display = 'block';
             };
             img.src = originalImageSrc;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function getContrastColor(hexColor) {
+            const rgb = hexToRgb(hexColor);
+            if (!rgb) return '#000000';
+            
+            // Calculate luminance
+            const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+            
+            // Return black for light colors, white for dark colors
+            return luminance > 0.5 ? '#000000' : '#FFFFFF';
         }
 
         function showError(message) {
