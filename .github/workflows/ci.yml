@@ -50,6 +50,12 @@ jobs:
           rust: stable
 
     steps:
+    - uses: Jimver/cuda-toolkit@v0.2.24
+      if: matrix.os == 'ubuntu-latest'
+      id: cuda-toolkit
+      with:
+        cuda: '12.8.0'
+
     - name: Checkout repository
       uses: actions/checkout@v4
 

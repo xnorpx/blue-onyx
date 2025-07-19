@@ -3,8 +3,6 @@ FROM debian:trixie-slim
 LABEL maintainer="xnorpx@outlook.com"
 LABEL description="Blue Onyx docker container"
 
-ENV TARGET_FOLDER=/models
-
 # Install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends openssl && \
@@ -17,10 +15,7 @@ RUN useradd --create-home --no-log-init blueonyx
 WORKDIR /app
 
 # Copy application files and set ownership
-COPY --chown=blueonyx:blueonyx blue_onyx libonnxruntime.so ./
-
-# Copy model files and set ownership
-COPY --chown=blueonyx:blueonyx models/* ./
+COPY --chown=blueonyx:blueonyx blue_onyx libonnxruntime.so libonnxruntime_providers_cuda.so* libonnxruntime_providers_shared.so* ./
 
 # Switch to non-root user
 USER blueonyx

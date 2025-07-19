@@ -96,6 +96,12 @@ jobs:
           rust: stable
 
     steps:
+    - uses: Jimver/cuda-toolkit@v0.2.24
+      if: matrix.os == 'ubuntu-latest'
+      id: cuda-toolkit
+      with:
+        cuda: '12.8.0'
+
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -138,6 +144,13 @@ jobs:
           BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
         else
           BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark"
+          # Add CUDA libraries if they exist
+          if [ -f "target/release/libonnxruntime_providers_cuda.so" ]; then
+            BIN="$BIN target/release/libonnxruntime_providers_cuda.so"
+          fi
+          if [ -f "target/release/libonnxruntime_providers_shared.so" ]; then
+            BIN="$BIN target/release/libonnxruntime_providers_shared.so"
+          fi
         fi
         echo "BIN=$BIN" >> $GITHUB_ENV
 
