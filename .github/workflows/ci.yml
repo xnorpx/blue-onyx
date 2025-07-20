@@ -6,68 +6,9 @@ on:
     - master
   schedule:
   - cron: '00 01 * * *'
-  wo  rustfmt:
-    runs-on: ubuntu-latest  rustfmt:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@      run: cargo clippy --all-targets -- -D warnings
+  workflow_dispatch:
 
-  docs:
-    runs-on: ubuntu-22.04
-    steps:    
-    - name: Install CUDA 12.8 and cuDNN 9 via apt (Linux only)
-      if: runner.os == 'Linux'
-      run: |
-        # Add NVIDIA's repository
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-        sudo dpkg -i cuda-keyring_1.0-1_all.deb
-        sudo apt-get update
-        
-        # Install CUDA 12.8
-        sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
-        
-        # Install cuDNN 9 (runtime and development)
-        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
-        
-        # Create symlink for CUDA (build script expects /usr/local/cuda/)
-        sudo ln -sf /usr/local/cuda-12.8 /usr/local/cudaame:   clippy:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Install CUDA 12.8 and cuDNN 9 via apt (Linux only)
-      if: runner.os == 'Linux'
-      run: |
-        # Add NVIDIA's repository
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-        sudo dpkg -i cuda-keyring_1.0-1_all.deb
-        sudo apt-get update
-        
-        # Install CUDA 12.8
-        sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
-        
-        # Install cuDNN 9 (runtime and development)
-        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
-        
-        # Create symlink for CUDA (build script expects /usr/local/cuda/)
-        sudo ln -sf /usr/local/cuda-12.8 /usr/local/cuda libcudnn9-dev-cuda-12
-      uses: actions/checkout@v4
-      
-    - name: Install CUDA 12.8 and cuDNN 9 via apt (Linux only)
-      if: runner.os == 'Linux'
-      run: |
-        # Add NVIDIA's repository
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-        sudo dpkg -i cuda-keyring_1.0-1_all.deb
-        sudo apt-get update
-        
-        # Install CUDA 12.8
-        sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
-        
-        # Install cuDNN 9 (runtime and development)
-        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12ermissions:
+permissions:
   # to fetch code (actions/checkout)
   contents: read
 
@@ -181,8 +122,11 @@ jobs:
         # Install CUDA 12.8
         sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
         
-        # Install cuDNN 9
-        sudo apt-get install -y libcudnn9-cuda-12
+        # Install cuDNN 9 (runtime and development)
+        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
+        
+        # Create symlink for CUDA (build script expects /usr/local/cuda/)
+        sudo ln -sf /usr/local/cuda-12.8 /usr/local/cuda
         
     - name: Set up environment variables
       if: runner.os == 'Linux'
@@ -191,15 +135,6 @@ jobs:
         echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "CUDNN_PATH=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
         echo "PATH=/usr/local/cuda/bin:$PATH" >> $GITHUB_ENV
-        
-    - name: Verify installations
-      if: runner.os == 'Linux'
-      run: |
-        echo "CUDA_PATH: $CUDA_PATH"
-        echo "CUDNN_PATH: $CUDNN_PATH"
-        nvcc --version
-        # Check cuDNN
-        find /usr -name "libcudnn*" 2>/dev/null | head -5
         
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
@@ -226,8 +161,11 @@ jobs:
         # Install CUDA 12.8
         sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
         
-        # Install cuDNN 9
-        sudo apt-get install -y libcudnn9-cuda-12
+        # Install cuDNN 9 (runtime and development)
+        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
+        
+        # Create symlink for CUDA (build script expects /usr/local/cuda/)
+        sudo ln -sf /usr/local/cuda-12.8 /usr/local/cuda
         
     - name: Set up environment variables
       if: runner.os == 'Linux'
@@ -236,15 +174,6 @@ jobs:
         echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "CUDNN_PATH=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
         echo "PATH=/usr/local/cuda/bin:$PATH" >> $GITHUB_ENV
-        
-    - name: Verify installations
-      if: runner.os == 'Linux'
-      run: |
-        echo "CUDA_PATH: $CUDA_PATH"
-        echo "CUDNN_PATH: $CUDNN_PATH"
-        nvcc --version
-        # Check cuDNN
-        find /usr -name "libcudnn*" 2>/dev/null | head -5
         
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
@@ -255,7 +184,7 @@ jobs:
       run: cargo clippy --all-targets -- -D warnings
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -284,15 +213,6 @@ jobs:
           echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           echo "CUDNN_PATH=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
           echo "PATH=/usr/local/cuda/bin:$PATH" >> $GITHUB_ENV
-          
-      - name: Verify installations
-        if: runner.os == 'Linux'
-        run: |
-          echo "CUDA_PATH: $CUDA_PATH"
-          echo "CUDNN_PATH: $CUDNN_PATH"
-          nvcc --version
-          # Check cuDNN
-          find /usr -name "libcudnn*" 2>/dev/null | head -5
           
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
