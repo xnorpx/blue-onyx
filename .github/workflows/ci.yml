@@ -65,7 +65,7 @@ jobs:
         sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
         
         # Install cuDNN 9
-        sudo apt-get install -y libcudnn9-dev libcudnn9-cuda-12
+        sudo apt-get install -y libcudnn9-cuda-12
         
     - name: Set up environment variables
       if: matrix.os == 'ubuntu-latest'
@@ -120,7 +120,7 @@ jobs:
         sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
         
         # Install cuDNN 9
-        sudo apt-get install -y libcudnn9-dev libcudnn9-cuda-12
+        sudo apt-get install -y libcudnn9-cuda-12
         
     - name: Set up environment variables
       if: runner.os == 'Linux'
@@ -165,7 +165,7 @@ jobs:
         sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
         
         # Install cuDNN 9
-        sudo apt-get install -y libcudnn9-dev libcudnn9-cuda-12
+        sudo apt-get install -y libcudnn9-cuda-12
         
     - name: Set up environment variables
       if: runner.os == 'Linux'
@@ -210,7 +210,7 @@ jobs:
           sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
           
           # Install cuDNN 9
-          sudo apt-get install -y libcudnn9-dev libcudnn9-cuda-12
+          sudo apt-get install -y libcudnn9-cuda-12
           
       - name: Set up environment variables
         if: runner.os == 'Linux'
