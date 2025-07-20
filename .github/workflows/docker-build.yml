@@ -13,7 +13,7 @@ permissions:
 jobs:
   build:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -29,15 +29,18 @@ jobs:
           # Install CUDA 12.8
           sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
           
-          # Install cuDNN 9
-          sudo apt-get install -y libcudnn9-cuda-12
+          # Install cuDNN 9 (runtime and development)
+          sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
+          
+          # Create symlink for CUDA (build script expects /usr/local/cuda/)
+          sudo ln -sf /usr/local/cuda-12.8 /usr/local/cuda
           
       - name: Set up environment variables
         run: |
-          echo "CUDA_PATH=/usr/local/cuda-12.8" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "CUDA_PATH=/usr/local/cuda" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           echo "CUDNN_PATH=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
-          echo "PATH=/usr/local/cuda-12.8/bin:$PATH" >> $GITHUB_ENV
+          echo "PATH=/usr/local/cuda/bin:$PATH" >> $GITHUB_ENV
           
       - name: Verify installations
         run: |

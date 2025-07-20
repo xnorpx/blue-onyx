@@ -92,7 +92,7 @@ jobs:
           os: windows-latest
           rust: stable
         - build: linux
-          os: ubuntu-latest
+          os: ubuntu-22.04
           rust: stable
 
     steps:
@@ -100,7 +100,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Install CUDA 12.8 and cuDNN 9 via apt (Linux only)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
         # Add NVIDIA's repository
         wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
@@ -110,19 +110,22 @@ jobs:
         # Install CUDA 12.8
         sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
         
-        # Install cuDNN 9
-        sudo apt-get install -y libcudnn9-cuda-12
+        # Install cuDNN 9 (runtime and development)
+        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
+        
+        # Create symlink for CUDA (build script expects /usr/local/cuda/)
+        sudo ln -sf /usr/local/cuda-12.8 /usr/local/cuda
         
     - name: Set up environment variables
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
-        echo "CUDA_PATH=/usr/local/cuda-12.8" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "CUDA_PATH=/usr/local/cuda" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
         echo "CUDNN_PATH=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
-        echo "PATH=/usr/local/cuda-12.8/bin:$PATH" >> $GITHUB_ENV
+        echo "PATH=/usr/local/cuda/bin:$PATH" >> $GITHUB_ENV
         
     - name: Verify installations
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
         echo "CUDA_PATH: $CUDA_PATH"
         echo "CUDNN_PATH: $CUDNN_PATH"
