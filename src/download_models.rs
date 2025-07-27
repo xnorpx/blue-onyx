@@ -7,6 +7,7 @@ pub enum Model {
     Model(String),
     AllRtDetr2,
     AllYolo5,
+    AllRfDetr,
     All,
 }
 
@@ -46,8 +47,20 @@ pub const YOLO5_MODELS: (&str, &[&str]) = (
     ],
 );
 
-pub fn get_all_models() -> [(&'static str, &'static [&'static str]); 2] {
-    [RT_DETR2_MODELS, YOLO5_MODELS]
+pub const RF_DETR_MODELS: (&str, &[&str]) = (
+    "xnorpx/rf-detr",
+    &[
+        "rf-detr-n.onnx",
+        "rf-detr-n.yaml",
+        "rf-detr-s.onnx",
+        "rf-detr-s.yaml",
+        "rf-detr-m.onnx",
+        "rf-detr-m.yaml",
+    ],
+);
+
+pub fn get_all_models() -> [(&'static str, &'static [&'static str]); 3] {
+    [RT_DETR2_MODELS, YOLO5_MODELS, RF_DETR_MODELS]
 }
 
 pub fn get_all_model_names() -> Vec<String> {
@@ -100,6 +113,9 @@ pub async fn download_model(model_path: PathBuf, model: Model) -> anyhow::Result
         }
         Model::AllYolo5 => {
             download_repository_files(YOLO5_MODELS, &model_path, &mut downloaded_models).await?;
+        }
+        Model::AllRfDetr => {
+            download_repository_files(RF_DETR_MODELS, &model_path, &mut downloaded_models).await?;
         }
         Model::All => {
             let all_models = get_all_models();

@@ -18,7 +18,7 @@ pub mod system_info;
 pub mod worker;
 
 pub static DOG_BIKE_CAR_BYTES: &[u8] = include_bytes!("../assets/dog_bike_car.jpg");
-pub static SMALL_RT_DETR_V2_MODEL_FILE_NAME: &str = "rt-detrv2-s.onnx";
+pub static NANO_RF_DETR_MODEL_FILE_NAME: &str = "rf-detr-n.onnx";
 pub static COCO_CLASSES_STR: &str = include_str!("../assets/coco_classes.yaml");
 
 #[allow(non_snake_case)]
@@ -63,11 +63,8 @@ pub fn blue_onyx_service(
     // Start the detector initialization in the background
     let detector_init_receiver =
         spawn_detector_initialization(detector_config, args.worker_queue_size); // Create placeholder metrics (will be updated when detector is ready)
-    let metrics = server::Metrics::new(
-        "Initializing...".to_string(),
-        "Initializing...".to_string(),
-        args.log_path,
-    );
+    let metrics =
+        server::Metrics::new("Initializing...".to_string(), "Initializing...".to_string());
 
     let cancel_token = CancellationToken::new();
     let restart_token = CancellationToken::new();
@@ -334,7 +331,7 @@ impl From<LogLevel> for Level {
 /// Returns the paths to the model and yaml files
 pub fn ensure_model_files(model_name: Option<String>) -> anyhow::Result<(PathBuf, PathBuf)> {
     // Use default model if none provided
-    let model_filename = model_name.unwrap_or_else(|| SMALL_RT_DETR_V2_MODEL_FILE_NAME.to_string());
+    let model_filename = model_name.unwrap_or_else(|| NANO_RF_DETR_MODEL_FILE_NAME.to_string());
 
     // Get the directory where models are stored (next to the executable)
     let exe_path = std::env::current_exe()?;

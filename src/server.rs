@@ -629,6 +629,7 @@ async fn show_config_form(
             let is_builtin = !model_filename.contains('\\')
                 && !model_filename.contains('/')
                 && (model_filename.starts_with("rt-detr")
+                    || model_filename.starts_with("rf-detr")
                     || model_filename == "delivery.onnx"
                     || model_filename.starts_with("IPcam-")
                     || model_filename.starts_with("ipcam-")
@@ -780,7 +781,6 @@ pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
 #[derive(Debug, Clone)]
 pub struct Metrics {
     version: String,
-    log_path: String,
     start_time: Instant,
     model_name: String,
     execution_provider_name: String,
@@ -798,13 +798,9 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new(model_name: String, execution_provider: String, log_path: Option<PathBuf>) -> Self {
+    pub fn new(model_name: String, execution_provider: String) -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            log_path: log_path
-                .unwrap_or_else(|| PathBuf::from("stdout"))
-                .to_string_lossy()
-                .to_string(),
             start_time: Instant::now(),
             model_name,
             execution_provider_name: execution_provider,
@@ -1126,6 +1122,9 @@ fn update_config_from_form_data(
                     if builtin_model.starts_with("rt-detr") {
                         config.object_detection_model_type =
                             crate::detector::ObjectDetectionModel::RtDetrv2;
+                    } else if builtin_model.starts_with("rf-detr") {
+                        config.object_detection_model_type =
+                            crate::detector::ObjectDetectionModel::RfDetr;
                     } else {
                         config.object_detection_model_type =
                             crate::detector::ObjectDetectionModel::Yolo5;
@@ -1149,6 +1148,7 @@ fn update_config_from_form_data(
                 if let Some(custom_model_type) = form_data.get("custom_model_type") {
                     config.object_detection_model_type = match custom_model_type.as_str() {
                         "Yolo5" => crate::detector::ObjectDetectionModel::Yolo5,
+                        "RfDetr" => crate::detector::ObjectDetectionModel::RfDetr,
                         _ => crate::detector::ObjectDetectionModel::RtDetrv2,
                     };
                 }

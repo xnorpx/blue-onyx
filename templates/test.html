@@ -8,6 +8,9 @@
         width: 100%;
         max-width: 900px;
         margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     .main-content {
@@ -15,6 +18,22 @@
         grid-template-columns: 1fr 1fr;
         gap: 30px;
         margin-bottom: 20px;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+
+    .main-content.no-image {
+        grid-template-columns: 1fr;
+        place-items: center;
+    }
+
+    .main-content.no-image .left-panel {
+        max-width: 450px;
+        width: 100%;
+    }
+
+    .main-content.no-image .right-panel {
+        display: none;
     }
 
     .left-panel {
@@ -37,10 +56,32 @@
         text-align: center;
         transition: border-color var(--transition-speed);
         position: relative;
-        min-height: 120px;
+        min-height: 200px;
         display: flex;
         flex-direction: column;
         justify-content: center;
+        align-items: center;
+    }
+
+    #upload-prompt {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        flex: 1;
+        text-align: center;
+    }
+
+    #upload-prompt h3 {
+        margin: 0 0 15px 0;
+        text-align: center;
+    }
+
+    #upload-prompt p {
+        margin: 10px 0 0 0;
+        text-align: center;
     }
 
     .upload-section.drag-over {
@@ -66,6 +107,36 @@
 
     .image-display:hover {
         transform: scale(1.02);
+    }
+
+    .choose-image-section {
+        text-align: center;
+    }
+
+    .choose-image-btn {
+        background: linear-gradient(45deg, var(--primary-color), var(--hover-bg));
+        border: none;
+        border-radius: 25px;
+        color: #121212;
+        font-weight: 600;
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        font-size: 1em;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .choose-image-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 191, 255, 0.4);
+    }
+
+    .choose-image-btn i {
+        font-size: 1.1em;
     }
 
     .change-image-hint {
@@ -427,7 +498,7 @@
 
 {% block content %}
 <div class="test-container">
-    <h1>Blue Onyx - Image Test</h1>
+    <h1 style="text-align: center; width: 100%;">Blue Onyx - Image Test</h1>
 
     <div class="main-content">
         <!-- Left Panel: Image and Controls -->
@@ -445,14 +516,15 @@
                     </p>
                 </div>
                 <div id="image-container" style="display: none;">
-                    <img id="image-display" class="image-display" alt="Selected Image">
-                    <div class="change-image-hint">Click image to change</div>
-                    <div class="image-controls" id="image-controls" style="display: none;">
-                        <button class="maximize-btn" id="maximize-btn" title="Maximize image">
-                            <i class="fas fa-expand"></i>
-                        </button>
-                    </div>
+                    <img id="image-display" class="image-display" alt="Selected Image" title="Click to maximize image">
                 </div>
+            </div>
+            
+            <!-- Always visible Choose Image Button -->
+            <div class="choose-image-section">
+                <button class="choose-image-btn" id="choose-image-btn">
+                    <i class="fas fa-images"></i> Choose Different Image
+                </button>
             </div>            <!-- Detection Controls -->
             <div class="detection-controls" id="detection-controls">
                 <h3>Detection Settings</h3>
@@ -623,14 +695,17 @@
         const statsSummary = document.getElementById('stats-summary');
         const detectionSummary = document.getElementById('detection-summary');
         const errorMessage = document.getElementById('error-message');
-        const imageControls = document.getElementById('image-controls');
-        const maximizeBtn = document.getElementById('maximize-btn');
+        const chooseImageBtn = document.getElementById('choose-image-btn');
         const imageModal = document.getElementById('image-modal');
         const modalImage = document.getElementById('modal-image');
         const modalClose = document.getElementById('modal-close');
         const zoomInBtn = document.getElementById('zoom-in-btn');
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         const zoomResetBtn = document.getElementById('zoom-reset-btn');
+        const mainContent = document.querySelector('.main-content');
+
+        // Initialize with no-image class
+        mainContent.classList.add('no-image');
 
         let selectedImageData = null;
         let originalImageSrc = null;
@@ -653,9 +728,19 @@
         // File upload handling
         imageUpload.addEventListener('change', handleFileSelect);
 
-        // Image click to change
-        imageDisplay.addEventListener('click', function () {
+        // Choose image button
+        chooseImageBtn.addEventListener('click', function () {
             imageUpload.click();
+        });
+
+        // Image click to maximize
+        imageDisplay.addEventListener('click', function () {
+            if (selectedImageData) {
+                modalImage.src = imageDisplay.src;
+                imageModal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                resetZoom();
+            }
         });
 
         // Drag and drop handling
@@ -676,13 +761,6 @@
         });
 
         // Modal functionality
-        maximizeBtn.addEventListener('click', function () {
-            modalImage.src = imageDisplay.src;
-            imageModal.style.display = 'block';
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-            resetZoom();
-        });
-
         modalClose.addEventListener('click', closeModal);
         imageModal.addEventListener('click', function(e) {
             // Only close if clicking on the modal background, not the image or controls
@@ -842,6 +920,9 @@
                 imageContainer.style.display = 'block';
                 uploadSection.classList.add('has-image');
 
+                // Switch to two-column layout
+                mainContent.classList.remove('no-image');
+
                 // Show controls and stats
                 detectionControls.style.display = 'block';
                 statsSummary.style.display = 'block';
@@ -958,6 +1039,7 @@
 
             const targetIntervalMs = 1000 / requestsPerSecond;
             const totalDurationMs = durationSeconds * 1000;
+            const timeoutMs = 15000; // 15 second timeout period to process queued jobs
 
             benchmarkBtn.disabled = true;
             oneshotBtn.disabled = true;
@@ -976,6 +1058,7 @@
             let nextRequestTime = Date.now(); // Time when next request should be sent
             let startTime = Date.now();
             let isRunning = true;
+            let sendingPhase = true; // Track if we're still sending requests or just waiting for completion
 
             // Function to run a single detection request
             const runSingleDetection = async () => {
@@ -1038,8 +1121,14 @@
                     const currentTime = Date.now();
                     const elapsed = currentTime - startTime;
 
-                    // Check if we've exceeded the total duration
-                    if (elapsed >= totalDurationMs) {
+                    // Check if we've exceeded the sending duration
+                    if (sendingPhase && elapsed >= totalDurationMs) {
+                        sendingPhase = false;
+                        console.log(`Sending phase completed after ${elapsed}ms. Waiting for queued requests to complete...`);
+                    }
+
+                    // Check if we've exceeded the total duration + timeout
+                    if (!sendingPhase && elapsed >= totalDurationMs + timeoutMs) {
                         isRunning = false;
                         detectionStats.endTime = currentTime;
 
@@ -1053,11 +1142,12 @@
                         progressBar.style.display = 'none';
                         progressFill.style.width = '0%';
                         updateStatistics();
+                        console.log(`Benchmark completed. Total requests processed: ${detectionStats.requestCount}/${detectionStats.expectedTotalRequests}`);
                         break;
                     }
 
-                    // Check if it's time for the next request
-                    if (currentTime >= nextRequestTime) {
+                    // Only send new requests during the sending phase
+                    if (sendingPhase && currentTime >= nextRequestTime) {
                         // Schedule next request time
                         nextRequestTime = currentTime + targetIntervalMs;
 
@@ -1072,8 +1162,8 @@
                             break;
                         }
                     } else {
-                        // Wait until it's time for the next request
-                        const timeToWait = Math.max(1, nextRequestTime - currentTime);
+                        // Wait until it's time for the next request or we're in completion phase
+                        const timeToWait = sendingPhase ? Math.max(1, nextRequestTime - currentTime) : 100;
                         await new Promise(resolve => setTimeout(resolve, timeToWait));
                     }
                 }
@@ -1175,11 +1265,15 @@
                 ctx.lineWidth = 3;
                 ctx.font = 'bold 16px Arial';
 
+                console.log('Response predictions:', response.predictions);
                 response.predictions.forEach(prediction => {
+                    console.log('Processing prediction:', prediction);
                     const x = prediction.x_min;
                     const y = prediction.y_min;
                     const width = prediction.x_max - prediction.x_min;
                     const height = prediction.y_max - prediction.y_min;
+
+                    console.log(`Box coordinates: x=${x}, y=${y}, width=${width}, height=${height}`);
 
                     // Draw bounding box
                     ctx.strokeRect(x, y, width, height);
@@ -1199,9 +1293,6 @@
                 });
                 // Replace the image with the processed version
                 imageDisplay.src = canvas.toDataURL();
-
-                // Show maximize button after detection
-                imageControls.style.display = 'block';
 
                 // Update detection info
                 document.getElementById('detection-count').textContent = `Objects detected: ${response.count}`;
