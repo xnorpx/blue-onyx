@@ -78,10 +78,13 @@ pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
     image: &Image,
     jpeg_file: &String,
     predictions: Option<&[Prediction]>,
+    base_width: u32,
+    base_height: u32,
 ) -> anyhow::Result<()> {
     let encode_image_start_time = Instant::now();
 
-    let image = create_dynamic_image_maybe_with_boundary_box(predictions, image)?;
+    let image =
+        create_dynamic_image_maybe_with_boundary_box(predictions, image, base_width, base_height)?;
 
     let encoder = Encoder::new_file(jpeg_file, 100)?;
     encoder.encode(
@@ -143,9 +146,15 @@ pub fn create_od_image_name(image_name: &str, strip_path: bool) -> anyhow::Resul
 pub fn create_dynamic_image_maybe_with_boundary_box(
     predictions: Option<&[Prediction]>,
     decoded_image: &Image,
+    base_width: u32,
+    base_height: u32,
 ) -> anyhow::Result<DynamicImage> {
-    let (thickness, legend_size) =
-        boundary_box_config(decoded_image.width as u32, decoded_image.height as u32);
+    let (thickness, legend_size) = boundary_box_config(
+        decoded_image.width as u32,
+        decoded_image.height as u32,
+        base_width,
+        base_height,
+    );
     let mut img = ImageBuffer::from_vec(
         decoded_image.width as u32,
         decoded_image.height as u32,
@@ -206,36 +215,25 @@ pub fn create_dynamic_image_maybe_with_boundary_box(
     Ok(DynamicImage::ImageRgb8(img))
 }
 
-fn boundary_box_config(width: u32, height: u32) -> (usize, u64) {
-    let base_width = 640.0;
-    let base_height = 480.0;
-    let base_thickness = 1.0;
-    let base_fontsize = 20.0;
+fn boundary_box_config(width: u32, height: u32, base_width: u32, base_height: u32) -> (usize, u64) {
+    // Use dynamic scaling based on the ratio between original image and model input size
+    let scale_width = width as f32 / base_width as f32;
+    let scale_height = height as f32 / base_height as f32;
+    let scale = scale_width.max(scale_height).max(0.5); // Minimum scale of 0.5
 
-    let scale_width = width as f32 / base_width;
-    let scale_height = height as f32 / base_height;
-    let scale = scale_width.max(scale_height).max(1.0);
+    let base_thickness = 1.0;
+    let base_fontsize = 16.0;
 
     let thickness = (base_thickness * scale).ceil() as usize;
-    let fontsize = (base_fontsize + (scale.ceil() * 3.)) as u64;
+    let fontsize = (base_fontsize * scale).ceil() as u64;
 
-    (thickness.max(1), fontsize)
+    (thickness.max(1), fontsize.max(12))
 }
 
 pub struct Resizer {
     resizer: fast_image_resize::Resizer,
     target_width: usize,
     target_height: usize,
-}
-
-impl Default for Resizer {
-    fn default() -> Self {
-        Self {
-            resizer: fast_image_resize::Resizer::new(),
-            target_width: 640,
-            target_height: 640,
-        }
-    }
 }
 
 impl Resizer {
@@ -290,11 +288,17 @@ impl Resizer {
 pub fn draw_boundary_boxes_on_encoded_image(
     data: Bytes,
     predictions: &[Prediction],
+    base_width: u32,
+    base_height: u32,
 ) -> anyhow::Result<Bytes> {
     let mut image = Image::default();
     decode_jpeg(None, data, &mut image)?;
-    let dynamic_image_with_boundary_box =
-        create_dynamic_image_maybe_with_boundary_box(Some(predictions), &image)?;
+    let dynamic_image_with_boundary_box = create_dynamic_image_maybe_with_boundary_box(
+        Some(predictions),
+        &image,
+        base_width,
+        base_height,
+    )?;
     let mut encoded_image = Vec::new();
     let encoder = Encoder::new(&mut encoded_image, 100);
     encoder.encode(

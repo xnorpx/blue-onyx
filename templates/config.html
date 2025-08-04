@@ -53,17 +53,13 @@
             <label for="builtin_model">Built-in Model:</label>
             <select id="builtin_model" name="builtin_model">
                 <option value="">Select a built-in model...</option>
-                <optgroup label="RT-DETR v2 Models">
-                    <option value="rt-detrv2-s.onnx" {% if config.builtin_model=="rt-detrv2-s.onnx" %}selected{% endif
-                        %}>RT-DETR v2 Small (rt-detrv2-s.onnx)</option>
-                    <option value="rt-detrv2-ms.onnx" {% if config.builtin_model=="rt-detrv2-ms.onnx" %}selected{% endif
-                        %}>RT-DETR v2 Medium-Small (rt-detrv2-ms.onnx)</option>
-                    <option value="rt-detrv2-m.onnx" {% if config.builtin_model=="rt-detrv2-m.onnx" %}selected{% endif
-                        %}>RT-DETR v2 Medium (rt-detrv2-m.onnx)</option>
-                    <option value="rt-detrv2-l.onnx" {% if config.builtin_model=="rt-detrv2-l.onnx" %}selected{% endif
-                        %}>RT-DETR v2 Large (rt-detrv2-l.onnx)</option>
-                    <option value="rt-detrv2-x.onnx" {% if config.builtin_model=="rt-detrv2-x.onnx" %}selected{% endif
-                        %}>RT-DETR v2 Extra Large (rt-detrv2-x.onnx)</option>
+                <optgroup label="RF-DETR Models">
+                    <option value="rf-detr-n.onnx" {% if config.builtin_model=="rf-detr-n.onnx" %}selected{% endif
+                        %}>RF-DETR Nano (rf-detr-n.onnx)</option>
+                    <option value="rf-detr-s.onnx" {% if config.builtin_model=="rf-detr-s.onnx" %}selected{% endif
+                        %}>RF-DETR Small (rf-detr-s.onnx)</option>
+                    <option value="rf-detr-m.onnx" {% if config.builtin_model=="rf-detr-m.onnx" %}selected{% endif
+                        %}>RF-DETR Medium (rf-detr-m.onnx)</option>
                 </optgroup>
                 <optgroup label="YOLO v5 Specialized Models">
                     <option value="delivery.onnx" {% if config.builtin_model=="delivery.onnx" %}selected{% endif %}>
@@ -80,6 +76,18 @@
                         endif %}>General Purpose (IPcam-general.onnx)</option>
                     <option value="package.onnx" {% if config.builtin_model=="package.onnx" %}selected{% endif %}>
                         Package Detection (package.onnx)</option>
+                </optgroup>
+                <optgroup label="RT-DETR v2 Models">
+                    <option value="rt-detrv2-s.onnx" {% if config.builtin_model=="rt-detrv2-s.onnx" %}selected{% endif
+                        %}>RT-DETR v2 Small (rt-detrv2-s.onnx)</option>
+                    <option value="rt-detrv2-ms.onnx" {% if config.builtin_model=="rt-detrv2-ms.onnx" %}selected{% endif
+                        %}>RT-DETR v2 Medium-Small (rt-detrv2-ms.onnx)</option>
+                    <option value="rt-detrv2-m.onnx" {% if config.builtin_model=="rt-detrv2-m.onnx" %}selected{% endif
+                        %}>RT-DETR v2 Medium (rt-detrv2-m.onnx)</option>
+                    <option value="rt-detrv2-l.onnx" {% if config.builtin_model=="rt-detrv2-l.onnx" %}selected{% endif
+                        %}>RT-DETR v2 Large (rt-detrv2-l.onnx)</option>
+                    <option value="rt-detrv2-x.onnx" {% if config.builtin_model=="rt-detrv2-x.onnx" %}selected{% endif
+                        %}>RT-DETR v2 Extra Large (rt-detrv2-x.onnx)</option>
                 </optgroup>
             </select>
             <span class="help-text">Select from available built-in models. The corresponding YAML classes file will be
@@ -102,6 +110,7 @@
             <select id="custom_model_type" name="custom_model_type">
                 <option value="RtDetrv2" {% if config.custom_model_type=="RtDetrv2" %}selected{% endif %}>RT-DETR v2
                 </option>
+                <option value="RfDetr" {% if config.custom_model_type=="RfDetr" %}selected{% endif %}>RF-DETR</option>
                 <option value="Yolo5" {% if config.custom_model_type=="Yolo5" %}selected{% endif %}>YOLO v5</option>
             </select>
             <span class="help-text">Type of your custom model</span>

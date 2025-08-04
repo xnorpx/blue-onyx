@@ -1,0 +1,96 @@
+# COCO dataset class names with gaps preserved for proper RF-DETR mapping
+# The COCO dataset has gaps in category IDs (no 12, 26, 29, 30, 45, etc.)
+# Reference: https://github.com/roboflow/rf-detr/issues/85
+# "empty" placeholders maintain correct index-to-COCO-ID alignment
+NAMES:
+    - empty           # 0 - no class 0 in COCO
+    - person          # 1
+    - bicycle         # 2
+    - car             # 3
+    - motorcycle      # 4
+    - airplane        # 5
+    - bus             # 6
+    - train           # 7
+    - truck           # 8
+    - boat            # 9
+    - traffic light   # 10
+    - fire hydrant    # 11
+    - empty           # 12 - gap in COCO
+    - stop sign       # 13
+    - parking meter   # 14
+    - bench           # 15
+    - bird            # 16
+    - cat             # 17
+    - dog             # 18
+    - horse           # 19
+    - sheep           # 20
+    - cow             # 21
+    - elephant        # 22
+    - bear            # 23
+    - zebra           # 24
+    - giraffe         # 25
+    - empty           # 26 - gap in COCO
+    - backpack        # 27
+    - umbrella        # 28
+    - empty           # 29 - gap in COCO
+    - empty           # 30 - gap in COCO
+    - handbag         # 31
+    - tie             # 32
+    - suitcase        # 33
+    - frisbee         # 34
+    - skis            # 35
+    - snowboard       # 36
+    - sports ball     # 37
+    - kite            # 38
+    - baseball bat    # 39
+    - baseball glove  # 40
+    - skateboard      # 41
+    - surfboard       # 42
+    - tennis racket   # 43
+    - bottle          # 44
+    - empty           # 45 - gap in COCO
+    - wine glass      # 46
+    - cup             # 47
+    - fork            # 48
+    - knife           # 49
+    - spoon           # 50
+    - bowl            # 51
+    - banana          # 52
+    - apple           # 53
+    - sandwich        # 54
+    - orange          # 55
+    - broccoli        # 56
+    - carrot          # 57
+    - hot dog         # 58
+    - pizza           # 59
+    - donut           # 60
+    - cake            # 61
+    - chair           # 62
+    - couch           # 63
+    - potted plant    # 64
+    - bed             # 65
+    - empty           # 66 - gap in COCO
+    - dining table    # 67
+    - empty           # 68 - gap in COCO
+    - empty           # 69 - gap in COCO
+    - toilet          # 70
+    - empty           # 71 - gap in COCO
+    - tv              # 72
+    - laptop          # 73
+    - mouse           # 74
+    - remote          # 75
+    - keyboard        # 76
+    - cell phone      # 77
+    - microwave       # 78
+    - oven            # 79
+    - toaster         # 80
+    - sink            # 81
+    - refrigerator    # 82
+    - empty           # 83 - gap in COCO
+    - book            # 84
+    - clock           # 85
+    - vase            # 86
+    - scissors        # 87
+    - teddy bear      # 88
+    - hair drier      # 89
+    - toothbrush      # 90

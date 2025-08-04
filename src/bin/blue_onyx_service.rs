@@ -379,17 +379,15 @@ mod blue_onyx_service {
                         if dll_name == &"DirectML.dll" {
                             directml_available = true;
                         }
+                    } else if dll_name == &"DirectML.dll" {
+                        warn!(
+                            "Failed to preload DirectML.dll - GPU acceleration will not be available"
+                        );
                     } else {
-                        if dll_name == &"DirectML.dll" {
-                            warn!(
-                                "Failed to preload DirectML.dll - GPU acceleration will not be available"
-                            );
-                        } else {
-                            warn!(
-                                "Failed to preload: {} (library not found or invalid)",
-                                dll_name
-                            );
-                        }
+                        warn!(
+                            "Failed to preload: {} (library not found or invalid)",
+                            dll_name
+                        );
                     }
                 }
                 Err(e) => {

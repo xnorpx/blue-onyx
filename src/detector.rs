@@ -68,6 +68,8 @@ pub struct Detector {
     save_ref_image: bool,
     model_name: String,
     object_detection_model: ObjectDetectionModel,
+    input_width: usize,
+    input_height: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -79,12 +81,24 @@ pub struct OnnxConfig {
     pub model: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone)]
+pub struct PostProcessParams<'a> {
+    pub confidence_threshold: f32,
+    pub resize_factor_x: f32,
+    pub resize_factor_y: f32,
+    pub object_filter: &'a Option<Vec<bool>>,
+    pub object_classes: &'a [String],
+    pub input_width: u32,
+    pub input_height: u32,
+}
+
 #[derive(
     Debug, Clone, Default, PartialEq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
 )]
 pub enum ObjectDetectionModel {
-    #[default]
     RtDetrv2,
+    #[default]
+    RfDetr,
     Yolo5,
 }
 
@@ -92,6 +106,7 @@ impl std::fmt::Display for ObjectDetectionModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ObjectDetectionModel::RtDetrv2 => write!(f, "rt-detrv2"),
+            ObjectDetectionModel::RfDetr => write!(f, "rf-detr"),
             ObjectDetectionModel::Yolo5 => write!(f, "yolo5"),
         }
     }
@@ -105,35 +120,34 @@ impl ObjectDetectionModel {
     ) -> anyhow::Result<SessionInputs<'a, 'a>> {
         match self {
             Self::RtDetrv2 => rt_detrv2_pre_process(input, orig_size),
+            Self::RfDetr => rf_detr_pre_process(input, orig_size),
             Self::Yolo5 => yolo5_pre_process(input),
         }
     }
     pub fn post_process(
         &self,
         outputs: SessionOutputs<'_>,
-        confidence_threshold: f32,
-        resize_factor_x: f32,
-        resize_factor_y: f32,
-        object_filter: &Option<Vec<bool>>,
-        object_classes: &[String],
+        params: &PostProcessParams,
     ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
         match self {
             Self::RtDetrv2 => rt_detrv2_post_process(
                 outputs,
-                confidence_threshold,
-                resize_factor_x,
-                resize_factor_y,
-                object_filter,
-                object_classes,
+                params.confidence_threshold,
+                params.resize_factor_x,
+                params.resize_factor_y,
+                params.object_filter,
+                params.object_classes,
             ),
+
+            Self::RfDetr => rf_detr_post_process(outputs, params),
 
             Self::Yolo5 => yolo5_post_process(
                 outputs,
-                confidence_threshold,
-                resize_factor_x,
-                resize_factor_y,
-                object_filter,
-                object_classes,
+                params.confidence_threshold,
+                params.resize_factor_x,
+                params.resize_factor_y,
+                params.object_filter,
+                params.object_classes,
             ),
         }
     }
@@ -146,6 +160,16 @@ fn rt_detrv2_pre_process<'a>(
     Ok(inputs![
         "images" => Value::from_array(input.clone())?,
         "orig_target_sizes" => Value::from_array(orig_size.clone())?,
+    ]
+    .into())
+}
+
+fn rf_detr_pre_process<'a>(
+    input: &'a mut Array<f32, ndarray::Dim<[usize; 4]>>,
+    _orig_size: &'a Array<i64, ndarray::Dim<[usize; 2]>>,
+) -> anyhow::Result<SessionInputs<'a, 'a>> {
+    Ok(inputs![
+        "input" => Value::from_array(input.clone())?,
     ]
     .into())
 }
@@ -208,6 +232,130 @@ fn rt_detrv2_post_process(
 
             predictions.push(prediction);
         }
+    }
+
+    Ok(predictions)
+}
+
+fn rf_detr_post_process(
+    outputs: SessionOutputs<'_>,
+    params: &PostProcessParams,
+) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
+    let (dets_shape, dets_data) = outputs["dets"].try_extract_tensor::<f32>()?;
+    let (labels_shape, labels_data) = outputs["labels"].try_extract_tensor::<f32>()?;
+
+    // Convert shapes to ndarray dimensions
+    let dets_dims: Vec<usize> = dets_shape.iter().map(|&dim| dim as usize).collect();
+    let dets = ArrayView::from_shape(dets_dims.as_slice(), dets_data)
+        .map_err(|e| anyhow!("Failed to create dets array view: {}", e))?;
+    let labels_dims: Vec<usize> = labels_shape.iter().map(|&dim| dim as usize).collect();
+    let labels = ArrayView::from_shape(labels_dims.as_slice(), labels_data)
+        .map_err(|e| anyhow!("Failed to create labels array view: {}", e))?;
+
+    // Get the first batch (assuming batch size is 1)
+    let dets = dets.index_axis(Axis(0), 0); // Shape: [num_queries, 4] - boxes in cxcywh format
+    let labels = labels.index_axis(Axis(0), 0); // Shape: [num_queries, num_classes] - logits
+
+    // Apply sigmoid and flatten to find top-k predictions across all queries and classes
+    let num_queries = labels.shape()[0];
+    let num_classes = labels.shape()[1];
+    let total_predictions = num_queries * num_classes;
+
+    // Apply sigmoid to convert logits to probabilities and collect all scores
+    let mut all_scores = Vec::with_capacity(total_predictions);
+    for query_idx in 0..num_queries {
+        for class_idx in 0..num_classes {
+            let logit = labels[[query_idx, class_idx]];
+            let prob = 1.0 / (1.0 + (-logit).exp()); // sigmoid
+            all_scores.push((prob, query_idx, class_idx));
+        }
+    }
+
+    // Sort by score (descending) and take top predictions
+    all_scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    let mut predictions = SmallVec::<[Prediction; 10]>::new();
+
+    // Process top predictions above confidence threshold
+    for (score, query_idx, class_idx) in all_scores.iter().take(300) {
+        if *score <= params.confidence_threshold {
+            break;
+        }
+
+        // If object filter is set, skip objects that are not in the filter
+        if let Some(object_filter) = params.object_filter.as_ref()
+            && *class_idx < object_filter.len()
+            && !object_filter[*class_idx]
+        {
+            continue;
+        }
+
+        // Extract bounding box coordinates in cxcywh format (normalized 0-1)
+        let det = dets.index_axis(Axis(0), *query_idx);
+
+        // RF-DETR outputs normalized coordinates (0-1), scale to original image dimensions
+        let orig_img_width = params.resize_factor_x * params.input_width as f32;
+        let orig_img_height = params.resize_factor_y * params.input_height as f32;
+
+        let center_x = det[0] * orig_img_width;
+        let center_y = det[1] * orig_img_height;
+        let width = det[2] * orig_img_width;
+        let height = det[3] * orig_img_height;
+
+        // Convert from center_x, center_y, width, height to x_min, y_min, x_max, y_max
+        let x_min = (center_x - width / 2.0).max(0.0);
+        let x_max = center_x + width / 2.0;
+        let y_min = (center_y - height / 2.0).max(0.0);
+        let y_max = center_y + height / 2.0;
+
+        let prediction = Prediction {
+            x_min: x_min.round() as usize,
+            x_max: x_max.round() as usize,
+            y_min: y_min.round() as usize,
+            y_max: y_max.round() as usize,
+            confidence: *score,
+            label: if *class_idx < params.object_classes.len() {
+                params.object_classes[*class_idx].clone()
+            } else {
+                format!("class_{class_idx}")
+            },
+        };
+
+        debug!(
+            "RF-DETR Detection - {}: {:?}",
+            predictions.len() + 1,
+            prediction
+        );
+        debug!(
+            "  Query {}, Class {}: {:.4} -> {:.4} (COCO ID {})",
+            query_idx,
+            class_idx,
+            labels[[*query_idx, *class_idx]],
+            score,
+            class_idx
+        );
+        debug!(
+            "  Raw bbox: center=({:.4}, {:.4}), size=({:.4}, {:.4})",
+            det[0], det[1], det[2], det[3]
+        );
+        debug!(
+            "  Model input: {}x{}, Original image: {:.0}x{:.0}",
+            params.input_width, params.input_height, orig_img_width, orig_img_height
+        );
+        debug!(
+            "  Scaled bbox: center=({:.2}, {:.2}), size=({:.2}, {:.2})",
+            center_x, center_y, width, height
+        );
+        debug!(
+            "  Float coords: ({:.2}, {:.2}) to ({:.2}, {:.2})",
+            x_min, y_min, x_max, y_max
+        );
+        debug!(
+            "  Final coords: ({}, {}) to ({}, {})",
+            prediction.x_min, prediction.y_min, prediction.x_max, prediction.y_max
+        );
+
+        predictions.push(prediction);
     }
 
     Ok(predictions)
@@ -369,6 +517,62 @@ fn calculate_iou(a: &Prediction, b: &Prediction) -> f32 {
     }
 }
 
+fn query_image_input_size(session: &Session) -> anyhow::Result<(usize, usize)> {
+    let inputs = &session.inputs;
+
+    info!("Model inputs:");
+    for (i, input) in inputs.iter().enumerate() {
+        info!(
+            "  Input {}: name='{}', type={:?}",
+            i, input.name, input.input_type
+        );
+    }
+
+    // Try to extract dimensions from the input type information
+    for input in inputs.iter() {
+        // Look for image input (typically named "input" or "images")
+        if input.name == "input" || input.name == "images" {
+            // Parse the input type string to extract dimensions
+            let type_str = format!("{:?}", input.input_type);
+
+            // Look for shape pattern like "shape: [1, 3, 384, 384]"
+            if let Some(shape_start) = type_str.find("shape: [") {
+                let shape_part = &type_str[shape_start + 8..];
+                if let Some(shape_end) = shape_part.find(']') {
+                    let shape_str = &shape_part[..shape_end];
+                    let dims: Vec<&str> = shape_str.split(',').map(|s| s.trim()).collect();
+
+                    // Expect format [batch_size, channels, height, width]
+                    if dims.len() == 4 {
+                        if let (Ok(height), Ok(width)) =
+                            (dims[2].parse::<usize>(), dims[3].parse::<usize>())
+                        {
+                            info!(
+                                "Extracted input size from model '{}': {}x{}",
+                                input.name, width, height
+                            );
+                            return Ok((width, height));
+                        }
+                    }
+                }
+            }
+
+            // Fallback: use heuristic based on input name
+            if input.name == "input" {
+                info!("Could not parse dimensions, using RF-DETR default: 384x384");
+                return Ok((384, 384));
+            } else if input.name == "images" {
+                info!("Could not parse dimensions, using RT-DETR/YOLO default: 640x640");
+                return Ok((640, 640));
+            }
+        }
+    }
+
+    // Fallback to 640x640 if we can't detect the size
+    warn!("Could not detect input size from model, falling back to 640x640");
+    Ok((640, 640))
+}
+
 #[derive(Debug, Clone)]
 pub struct DetectorConfig {
     pub object_classes: Option<PathBuf>,
@@ -383,7 +587,7 @@ pub struct DetectorConfig {
 
 impl Detector {
     pub fn new(detector_config: DetectorConfig) -> anyhow::Result<Self> {
-        let (device_type, model_name, session, endpoint_provider, model_yaml_path) =
+        let (device_type, model_name, session, endpoint_provider, model_yaml_path, (width, height)) =
             initialize_onnx(&detector_config.object_detection_onnx_config)?; // Prioritize the YAML file that comes with the model over the configured one
         let yaml_path_to_use = model_yaml_path.or(detector_config.object_classes);
 
@@ -414,10 +618,10 @@ impl Detector {
             model_name,
             endpoint_provider,
             session,
-            resizer: Resizer::default(),
+            resizer: Resizer::new(width, height)?,
             decoded_image: Image::default(),
             resized_image: Image::default(),
-            input: Array::zeros((1, 3, 640, 640)),
+            input: Array::zeros((1, 3, height, width)),
             object_classes,
             object_filter,
             confidence_threshold: detector_config.confidence_threshold,
@@ -425,6 +629,8 @@ impl Detector {
             save_image_path: detector_config.save_image_path,
             save_ref_image: detector_config.save_ref_image,
             object_detection_model: detector_config.object_detection_model,
+            input_width: width,
+            input_height: height,
         };
 
         // Warmup
@@ -471,24 +677,85 @@ impl Detector {
             decode_image_time, self.decoded_image.width, self.decoded_image.height
         );
 
-        let resize_factor_x = self.decoded_image.width as f32 / 640.0;
-        let resize_factor_y = self.decoded_image.height as f32 / 640.0;
+        let resize_factor_x = self.decoded_image.width as f32 / self.input_width as f32;
+        let resize_factor_y = self.decoded_image.height as f32 / self.input_height as f32;
+        debug!(
+            "Image resize factors: width_factor={:.3} ({}->{}), height_factor={:.3} ({}->{})",
+            resize_factor_x,
+            self.input_width,
+            self.decoded_image.width,
+            resize_factor_y,
+            self.input_height,
+            self.decoded_image.height
+        );
+
         let orig_size = Array::from_shape_vec(
             (1, 2),
-            vec![
-                self.resized_image.width as i64,
-                self.resized_image.height as i64,
-            ],
+            vec![self.input_height as i64, self.input_width as i64],
         )?;
         let resize_image_start_time = Instant::now();
         self.resizer
             .resize_image(&mut self.decoded_image, &mut self.resized_image)?;
         let resize_image_time = resize_image_start_time.elapsed();
         debug!("Resize image time: {:#?}", resize_image_time);
+
+        // Ensure resized image dimensions match input tensor dimensions
+        if self.resized_image.width != self.input_width
+            || self.resized_image.height != self.input_height
+        {
+            bail!(
+                "Resized image dimensions ({}x{}) don't match input tensor dimensions ({}x{})",
+                self.resized_image.width,
+                self.resized_image.height,
+                self.input_width,
+                self.input_height
+            );
+        }
+
+        debug!(
+            "Resized image dimensions: {}x{}, Input tensor dimensions: {}x{}",
+            self.resized_image.width,
+            self.resized_image.height,
+            self.input_width,
+            self.input_height
+        );
+
         let copy_pixels_to_input_start = Instant::now();
+        let expected_pixels = self.input_width * self.input_height;
+        let actual_pixels = self.resized_image.pixels.len() / 3; // RGB channels
+
+        debug!(
+            "Expected pixels: {}, Actual pixels: {}",
+            expected_pixels, actual_pixels
+        );
+        debug!(
+            "Input tensor shape: [1, 3, {}, {}]",
+            self.input_height, self.input_width
+        );
+
+        if actual_pixels != expected_pixels {
+            bail!(
+                "Pixel count mismatch: expected {} pixels but got {} pixels",
+                expected_pixels,
+                actual_pixels
+            );
+        }
+
         for (index, chunk) in self.resized_image.pixels.chunks_exact(3).enumerate() {
-            let y = index / 640;
-            let x = index % 640;
+            let y = index / self.input_width;
+            let x = index % self.input_width;
+
+            // Check bounds before accessing
+            if y >= self.input_height || x >= self.input_width {
+                bail!(
+                    "Index out of bounds: trying to access ({}, {}) but tensor is {}x{}",
+                    x,
+                    y,
+                    self.input_width,
+                    self.input_height
+                );
+            }
+
             self.input[[0, 0, y, x]] = chunk[0] as f32 / 255.0;
             self.input[[0, 1, y, x]] = chunk[1] as f32 / 255.0;
             self.input[[0, 2, y, x]] = chunk[2] as f32 / 255.0;
@@ -516,14 +783,16 @@ impl Detector {
         debug!("Inference time: {:?}", inference_time);
         let post_processing_time_start = Instant::now();
         let confidence_threshold = min_confidence.unwrap_or(self.confidence_threshold);
-        let predictions = self.object_detection_model.post_process(
-            outputs,
+        let params = PostProcessParams {
             confidence_threshold,
             resize_factor_x,
             resize_factor_y,
-            &self.object_filter,
-            &self.object_classes,
-        )?;
+            object_filter: &self.object_filter,
+            object_classes: &self.object_classes,
+            input_width: self.input_width as u32,
+            input_height: self.input_height as u32,
+        };
+        let predictions = self.object_detection_model.post_process(outputs, &params)?;
 
         let now = Instant::now();
         let post_processing_time = now.duration_since(post_processing_time_start);
@@ -536,29 +805,38 @@ impl Detector {
         //  3. Inference time
 
         debug!("Processing time: {:?}", processing_time);
-        if !predictions.is_empty() && image_name.is_some() {
-            debug!(
-                "Detected {} objects in image {:?}",
-                predictions.len(),
-                image_name
-            );
-        }
 
         if let Some(image_name) = image_name.clone()
             && let Some(save_image_path) = self.save_image_path.clone()
         {
+            info!(
+                "Saving detection result with {} predictions to disk",
+                predictions.len()
+            );
             let save_image_start_time = Instant::now();
             let save_image_path = save_image_path.to_path_buf();
             let image_name_od = create_od_image_name(&image_name, true)?;
+            let output_path = save_image_path
+                .join(&image_name_od)
+                .to_string_lossy()
+                .to_string();
+            info!("Output path: {}", output_path);
+
             encode_maybe_draw_boundary_boxes_and_save_jpeg(
                 &self.decoded_image,
-                &save_image_path
-                    .join(image_name_od)
-                    .to_string_lossy()
-                    .to_string(),
+                &output_path,
                 Some(predictions.as_slice()),
+                self.input_width as u32,
+                self.input_height as u32,
             )?;
             debug!("Save image time: {:?}", save_image_start_time.elapsed());
+        } else {
+            if image_name.is_none() {
+                debug!("No image name provided, skipping image save");
+            }
+            if self.save_image_path.is_none() {
+                debug!("No save path configured, skipping image save");
+            }
         }
 
         Ok(DetectResult {
@@ -602,20 +880,25 @@ impl Detector {
     pub fn is_using_gpu(&self) -> bool {
         self.device_type == DeviceType::GPU
     }
+
+    pub fn get_input_size(&self) -> (usize, usize) {
+        (self.input_width, self.input_height)
+    }
 }
 
-fn initialize_onnx(
-    onnx_config: &OnnxConfig,
-) -> Result<
+type InitializeOnnxResult = Result<
     (
         DeviceType,
         String,
         Session,
         EndpointProvider,
         Option<PathBuf>,
+        (usize, usize), // (width, height)
     ),
     anyhow::Error,
-> {
+>;
+
+fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     #[cfg_attr(not(windows), allow(unused_mut))]
     let mut providers = Vec::new();
     #[cfg_attr(not(windows), allow(unused_mut))]
@@ -705,6 +988,14 @@ fn initialize_onnx(
         .with_inter_threads(num_inter_threads)?
         .commit_from_memory(model_bytes.as_slice())?;
 
+    // Query the input size from the model
+    let (width, height) = query_image_input_size(&session)?;
+
+    info!(
+        "Model '{}' configured with input size: {}x{} ({}x{} tensor)",
+        model_name, width, height, height, width
+    );
+
     let endpoint_provider = match device_type {
         #[cfg(windows)]
         DeviceType::GPU => EndpointProvider::DirectML,
@@ -716,6 +1007,7 @@ fn initialize_onnx(
         session,
         endpoint_provider,
         Some(yaml_path),
+        (width, height),
     ))
 }
 

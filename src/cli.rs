@@ -34,7 +34,7 @@ pub struct Cli {
     pub model: Option<PathBuf>,
     /// Type of model type to use.
     /// Default: rt-detrv2
-    #[clap(long, default_value_t = ObjectDetectionModel::RtDetrv2)]
+    #[clap(long, default_value_t = ObjectDetectionModel::RfDetr)]
     pub object_detection_model_type: ObjectDetectionModel,
     /// Path to the object classes yaml file
     /// Default: coco_classes.yaml which is the 80 standard COCO classes
@@ -399,7 +399,7 @@ impl Cli {
         if let Some(model_path) = &self.model {
             tracing::info!("  Custom model path: {}", model_path.display());
         } else {
-            tracing::info!("  Model: default (rt-detrv2-s.onnx)");
+            tracing::info!("  Model: default (rf-detr-n.onnx)");
         }
 
         if let Some(classes_path) = &self.object_classes {
