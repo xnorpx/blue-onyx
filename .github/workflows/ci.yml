@@ -3,14 +3,25 @@ on:
   pull_request:
   push:
     branches:
-    - master
+    - main
   schedule:
   - cron: '00 01 * * *'
   workflow_dispatch:
+    inputs:
+      test_installer:
+        description: 'Test installer build (will create pre-release)'
+        required: false
+        default: false
+        type: boolean
+      test_branch:
+        description: 'Simulate main branch behavior on this branch'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   # to fetch code (actions/checkout)
-  contents: read
+  contents: write  # Changed from 'read' to 'write' to allow creating releases
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -114,9 +125,14 @@ jobs:
   installer:
     name: windows-installer
     runs-on: windows-latest
+    # Always run the installer job (build installer on all runs)
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Get short commit hash
+      shell: bash
+      run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
@@ -145,10 +161,61 @@ jobs:
         # Add NSIS to PATH for current session
         echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
 
-    - name: Test Windows installer build
+    - name: Build Windows installer
       shell: bash
       run: |
-        # Build the NSIS installer to ensure it doesn't break
+        # Build the NSIS installer
         cargo packager --release --formats nsis
-        # Verify the installer was created
-        ls -la target/release/blue_onyx_*_x64-setup.exe
+        # Get the version from Cargo.toml
+        VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+        
+        # Sanitize branch name by replacing / with - and other problematic characters
+        CLEAN_BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[\/:]/-/g' | sed 's/[^a-zA-Z0-9._-]/-/g')
+        
+        # Determine naming based on branch and trigger type
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          # Main branch: normal naming
+          INSTALLER_NAME="blue_onyx-${VERSION}-${SHORT_SHA}-installer.exe"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual test: add -test- prefix and clean branch name
+          INSTALLER_NAME="blue_onyx-${VERSION}-test-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer.exe"
+        else
+          # Feature branch: add -dev- prefix and clean branch name  
+          INSTALLER_NAME="blue_onyx-${VERSION}-dev-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer.exe"
+        fi
+        
+        # Rename the installer
+        mv target/release/blue_onyx_*_x64-setup.exe "${INSTALLER_NAME}"
+        echo "INSTALLER_NAME=${INSTALLER_NAME}" >> $GITHUB_ENV
+
+    - name: Upload installer as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: blue-onyx-installer-${{ env.SHORT_SHA }}
+        path: blue_onyx-*-installer.exe
+        retention-days: 30
+
+    - name: Create pre-release with installer
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_installer == 'true')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: |
+        # Get version and create pre-release tag
+        VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+        TAG_NAME="v${VERSION}-${SHORT_SHA}"
+        
+        # Check if release with this commit already exists
+        if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+          echo "Release ${TAG_NAME} already exists for commit ${SHORT_SHA}, skipping..."
+          exit 0
+        fi
+        
+        # Create or update pre-release
+        gh release create "${TAG_NAME}" \
+          --title "Development Build ${VERSION}-${SHORT_SHA}" \
+          --notes "Automated development build from commit ${SHORT_SHA}" \
+          --prerelease \
+          --target ${{ github.sha }} \
+          "${INSTALLER_NAME}" || \
+        gh release upload "${TAG_NAME}" "${INSTALLER_NAME}" --clobber
