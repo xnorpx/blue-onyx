@@ -72,7 +72,13 @@ fn startup_worker_thread(
                         detector_config.object_detection_onnx_config.gpu_index as usize,
                     )
                 }
-                #[cfg(not(windows))]
+                #[cfg(target_os = "linux")]
+                {
+                    ExecutionProvider::CUDA(
+                        detector_config.object_detection_onnx_config.gpu_index as usize,
+                    )
+                }
+                #[cfg(not(any(windows, target_os = "linux")))]
                 {
                     ExecutionProvider::CPU
                 }

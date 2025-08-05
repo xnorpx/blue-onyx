@@ -93,12 +93,54 @@ jobs:
           os: windows-latest
           rust: stable
         - build: linux
-          os: ubuntu-latest
+          os: ubuntu-22.04
           rust: stable
 
     steps:
+    - run: df -h
+    - name: "node-cleanup"
+      if: matrix.os == 'ubuntu-22.04'
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        sudo docker image prune --all --force
+        sudo docker builder prune -a
+    - run: df -h
     - name: Checkout repository
       uses: actions/checkout@v4
+      
+    - name: Install CUDA 12.8 and cuDNN 9 via apt (Linux only)
+      if: matrix.os == 'ubuntu-22.04'
+      run: |
+        # Add NVIDIA's repository
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
+        sudo dpkg -i cuda-keyring_1.0-1_all.deb
+        sudo apt-get update
+        
+        # Install CUDA 12.8
+        sudo apt-get install -y cuda-toolkit-12-8 cuda-runtime-12-8
+        
+        # Install cuDNN 9 (runtime and development)
+        sudo apt-get install -y libcudnn9-cuda-12 libcudnn9-dev-cuda-12
+        
+        # Create symlink for CUDA (build script expects /usr/local/cuda/)
+        sudo ln -sf /usr/local/cuda-12.8 /usr/local/cuda
+        
+    - name: Set up environment variables
+      if: matrix.os == 'ubuntu-22.04'
+      run: |
+        echo "CUDA_PATH=/usr/local/cuda" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "CUDNN_PATH=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
+        echo "PATH=/usr/local/cuda/bin:$PATH" >> $GITHUB_ENV
+        
+    - name: Verify installations
+      if: matrix.os == 'ubuntu-22.04'
+      run: |
+        echo "CUDA_PATH: $CUDA_PATH"
+        echo "CUDNN_PATH: $CUDNN_PATH"
+        nvcc --version
+        # Check cuDNN
+        find /usr -name "libcudnn*" 2>/dev/null | head -5
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
@@ -139,6 +181,13 @@ jobs:
           BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
         else
           BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark"
+          # Add CUDA libraries if they exist
+          if [ -f "target/release/libonnxruntime_providers_cuda.so" ]; then
+            BIN="$BIN target/release/libonnxruntime_providers_cuda.so"
+          fi
+          if [ -f "target/release/libonnxruntime_providers_shared.so" ]; then
+            BIN="$BIN target/release/libonnxruntime_providers_shared.so"
+          fi
         fi
         echo "BIN=$BIN" >> $GITHUB_ENV
 

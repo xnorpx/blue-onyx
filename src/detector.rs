@@ -11,6 +11,8 @@ use crate::{
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
+#[cfg(target_os = "linux")]
+use ort::execution_providers::CUDAExecutionProvider;
 #[cfg(windows)]
 use ort::execution_providers::DirectMLExecutionProvider;
 use ort::{
@@ -24,7 +26,7 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 pub struct DetectResult {
     pub predictions: SmallVec<[Prediction; 10]>,
@@ -904,59 +906,53 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     #[cfg_attr(not(windows), allow(unused_mut))]
     let mut device_type = DeviceType::CPU;
 
-    let (num_intra_threads, num_inter_threads) = if onnx_config.force_cpu {
-        let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-        let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-        info!(
-            "Forcing CPU for inference with {} intra and {} inter threads",
-            num_intra_threads, num_inter_threads
-        );
-        // When forcing CPU, ensure no other providers are used
-        // providers list will remain empty, which means CPU provider is used by default
-        (num_intra_threads, num_inter_threads)
-    } else {
+    // Always calculate thread counts first
+    let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
+    let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+
+    if !onnx_config.force_cpu {
+        // Try to add GPU providers first
+        #[cfg(target_os = "linux")]
+        {
+            info!(
+                gpu_index = onnx_config.gpu_index,
+                "Adding CUDA provider for Linux"
+            );
+            let cuda_provider = CUDAExecutionProvider::default()
+                .with_device_id(onnx_config.gpu_index)
+                .build();
+            providers.push(cuda_provider);
+            device_type = DeviceType::GPU;
+        }
+
         #[cfg(windows)]
         if direct_ml_available() {
             info!(
                 gpu_index = onnx_config.gpu_index,
-                "DirectML available, attempting to use DirectML for inference"
+                "Adding DirectML provider for Windows"
             );
-
-            // Try to initialize DirectML provider, but handle any errors
             let provider = DirectMLExecutionProvider::default()
                 .with_device_id(onnx_config.gpu_index)
                 .build();
             providers.push(provider);
             device_type = DeviceType::GPU;
-            info!("DirectML initialization successful");
-            (1, 1) // For GPU we just hardcode to 1 thread
-        } else {
-            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-            #[cfg(windows)]
-            warn!(
-                "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
-                num_intra_threads, num_inter_threads
-            );
-            #[cfg(not(windows))]
-            warn!(
-                "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
-                num_intra_threads, num_inter_threads
-            );
-            (onnx_config.intra_threads, onnx_config.inter_threads)
         }
+    }
 
-        #[cfg(not(windows))]
-        {
-            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
-            warn!(
-                "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
-                num_intra_threads, num_inter_threads
-            );
-            (onnx_config.intra_threads, onnx_config.inter_threads)
-        }
-    };
+    // Always add CPU provider as fallback (happens automatically in ONNX Runtime)
+    if device_type == DeviceType::GPU {
+        info!("GPU provider added with CPU fallback");
+    } else if onnx_config.force_cpu {
+        info!(
+            "Forcing CPU for inference with {} intra and {} inter threads",
+            num_intra_threads, num_inter_threads
+        );
+    } else {
+        info!(
+            "Using CPU for inference with {} intra and {} inter threads",
+            num_intra_threads, num_inter_threads
+        );
+    }
 
     // Simple model and yaml file handling
     let model_filename = onnx_config
@@ -980,8 +976,8 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     );
 
     // Build the session with the appropriate execution providers
-    // Note: When providers list is empty (which is the case when force_cpu=true),
-    // ONNX Runtime will default to CPU execution provider
+    // CPU provider is always available as fallback when providers list has GPU providers
+    // When providers list is empty (force_cpu=true), ONNX Runtime defaults to CPU provider
     let session = Session::builder()?
         .with_execution_providers(providers)?
         .with_intra_threads(num_intra_threads)?
@@ -999,6 +995,8 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     let endpoint_provider = match device_type {
         #[cfg(windows)]
         DeviceType::GPU => EndpointProvider::DirectML,
+        #[cfg(target_os = "linux")]
+        DeviceType::GPU => EndpointProvider::CUDA,
         _ => EndpointProvider::CPU,
     };
     Ok((
@@ -1016,6 +1014,8 @@ pub enum EndpointProvider {
     CPU,
     #[cfg(windows)]
     DirectML,
+    #[cfg(target_os = "linux")]
+    CUDA,
 }
 
 impl std::fmt::Display for EndpointProvider {
@@ -1024,6 +1024,8 @@ impl std::fmt::Display for EndpointProvider {
             EndpointProvider::CPU => write!(f, "CPU"),
             #[cfg(windows)]
             EndpointProvider::DirectML => write!(f, "DirectML"),
+            #[cfg(target_os = "linux")]
+            EndpointProvider::CUDA => write!(f, "CUDA"),
         }
     }
 }
@@ -1049,4 +1051,6 @@ pub enum ExecutionProvider {
     CPU,
     #[cfg(windows)]
     DirectML(usize), // GPU index
+    #[cfg(target_os = "linux")]
+    CUDA(usize), // GPU index
 }

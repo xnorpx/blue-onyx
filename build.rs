@@ -100,6 +100,32 @@ fn main() {
         }
     }
 
+    // On Linux, also copy CUDA provider libraries to the output directory
+    if cfg!(target_os = "linux") {
+        let cuda_provider_libs = [
+            "libonnxruntime_providers_cuda.so",
+            "libonnxruntime_providers_shared.so",
+        ];
+
+        let lib_source_dir = expected_binary.parent().unwrap();
+
+        for lib_name in &cuda_provider_libs {
+            let source_lib = lib_source_dir.join(lib_name);
+            let output_lib = output_dir.join(lib_name);
+
+            if source_lib.exists() && !output_lib.exists() {
+                std::fs::copy(&source_lib, &output_lib)
+                    .unwrap_or_else(|_| panic!("Failed to copy {lib_name} to output directory"));
+                build_warning!("Copied {} to output directory", lib_name);
+            } else if !source_lib.exists() {
+                build_warning!(
+                    "CUDA provider library {} not found, skipping copy",
+                    lib_name
+                );
+            }
+        }
+    }
+
     println!(
         "cargo:rustc-env=ORT_LIB_LOCATION={:?}",
         expected_binary.parent().unwrap()
@@ -249,12 +275,20 @@ fn build_onnx(target_dir: &str) {
         panic!("ONNX Runtime build script missing");
     }
 
+    let parallel_jobs = if cfg!(target_os = "linux") {
+        // Limit to 4 CPUs on Linux to avoid resource exhaustion
+        std::cmp::min(4, num_cpus::get_physical())
+    } else {
+        // Use all available CPUs on Windows and macOS
+        num_cpus::get_physical()
+    };
+
     let mut build_commands = vec![
         "--config".to_string(),
         get_build_config().to_string(),
         "--build_shared_lib".to_string(),
         "--parallel".to_string(),
-        num_cpus::get_physical().to_string(),
+        parallel_jobs.to_string(),
         "--compile_no_warning_as_error".to_string(),
         "--skip_tests".to_string(),
         "--enable_lto".to_string(),
@@ -274,6 +308,15 @@ fn build_onnx(target_dir: &str) {
     } else if cfg!(target_os = "macos") {
         // Enable Core ML on macOS
         build_commands.push("--use_coreml".to_string());
+    } else if cfg!(target_os = "linux") {
+        // Enable CUDA on Linux
+        build_commands.extend([
+            "--use_cuda".to_string(),
+            "--cudnn_home".to_string(),
+            "/usr/lib/x86_64-linux-gnu/".to_string(),
+            "--cuda_home".to_string(),
+            "/usr/local/cuda/".to_string(),
+        ]);
     }
 
     build_warning!("Running ONNX Runtime build script");
