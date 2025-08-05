@@ -45,7 +45,8 @@ jobs:
           if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
             echo "version does not match Cargo.toml" >&2
             exit 1
-          fi      - name: Create GitHub release
+          fi
+      - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create $VERSION --draft --verify-tag --title $VERSION
@@ -151,7 +152,8 @@ jobs:
       shell: bash
       run: |
         mkdir -p "$ARCHIVE"/
-        cp $BIN "$ARCHIVE"/    - name: Build archive (Windows)
+        cp $BIN "$ARCHIVE"/
+    - name: Build archive (Windows)
       shell: bash
       if: matrix.os == 'windows-latest'
       run: |
@@ -172,7 +174,8 @@ jobs:
         tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
         shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
         echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
-        echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV    - name: Upload release archive
+        echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
+    - name: Upload release archive
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash
