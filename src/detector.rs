@@ -464,9 +464,11 @@ fn non_maximum_suppression(
     let mut filtered_predictions = SmallVec::new();
 
     predictions.sort_by(|a, b| {
-        a.label
-            .cmp(&b.label)
-            .then(b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal))
+        a.label.cmp(&b.label).then(
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
     });
 
     let mut current_class = None;

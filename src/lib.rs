@@ -284,7 +284,8 @@ fn level_to_filter_string(log_level: LogLevel) -> String {
         LogLevel::Info => "info",
         LogLevel::Warn => "warn",
         LogLevel::Error => "error",
-    }.to_string()
+    }
+    .to_string()
 }
 
 fn setup_ansi_support() {

@@ -68,7 +68,9 @@ pub fn decode_jpeg(name: Option<String>, jpeg: Bytes, image: &mut Image) -> anyh
 }
 
 pub fn load_image(jpeg_file: &Path) -> anyhow::Result<Bytes> {
-    let path_str = jpeg_file.to_str().ok_or_else(|| anyhow::anyhow!("Failed to get image path"))?;
+    let path_str = jpeg_file
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get image path"))?;
     if !is_jpeg(path_str) {
         bail!("Image is not a JPEG file")
     }
@@ -89,7 +91,9 @@ pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
 
     let encoder = Encoder::new_file(jpeg_file, 100)?;
     encoder.encode(
-        image.as_rgb8().ok_or_else(|| anyhow::anyhow!("Failed to convert image to RGB8"))?,
+        image
+            .as_rgb8()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert image to RGB8"))?,
         image.width() as u16,
         image.height() as u16,
         ColorType::Rgb,
@@ -303,7 +307,9 @@ pub fn draw_boundary_boxes_on_encoded_image(
     let mut encoded_image = Vec::new();
     let encoder = Encoder::new(&mut encoded_image, 100);
     encoder.encode(
-        dynamic_image_with_boundary_box.as_rgb8().ok_or_else(|| anyhow::anyhow!("Failed to convert image to RGB8"))?,
+        dynamic_image_with_boundary_box
+            .as_rgb8()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert image to RGB8"))?,
         dynamic_image_with_boundary_box.width() as u16,
         dynamic_image_with_boundary_box.height() as u16,
         ColorType::Rgb,
