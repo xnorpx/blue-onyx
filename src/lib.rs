@@ -85,7 +85,7 @@ pub fn get_object_classes(yaml_file: Option<PathBuf>) -> anyhow::Result<Vec<Stri
         Some(yaml_file) => std::fs::read_to_string(yaml_file)?,
         None => COCO_CLASSES_STR.to_string(),
     };
-    Ok(serde_yaml::from_str::<CocoClasses>(yaml_data.as_str())?.NAMES)
+    Ok(serde_yaml::from_str::<CocoClasses>(&yaml_data)?.NAMES)
 }
 
 pub fn direct_ml_available() -> bool {

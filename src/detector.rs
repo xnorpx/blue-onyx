@@ -421,7 +421,7 @@ fn yolo5_post_process(
                 .slice(s![5..])
                 .iter()
                 .enumerate()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
 
@@ -464,9 +464,11 @@ fn non_maximum_suppression(
     let mut filtered_predictions = SmallVec::new();
 
     predictions.sort_by(|a, b| {
-        a.label
-            .cmp(&b.label)
-            .then(b.confidence.partial_cmp(&a.confidence).unwrap())
+        a.label.cmp(&b.label).then(
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
     });
 
     let mut current_class = None;
@@ -543,16 +545,15 @@ fn query_image_input_size(session: &Session) -> anyhow::Result<(usize, usize)> {
                     let dims: Vec<&str> = shape_str.split(',').map(|s| s.trim()).collect();
 
                     // Expect format [batch_size, channels, height, width]
-                    if dims.len() == 4 {
-                        if let (Ok(height), Ok(width)) =
+                    if dims.len() == 4
+                        && let (Ok(height), Ok(width)) =
                             (dims[2].parse::<usize>(), dims[3].parse::<usize>())
-                        {
-                            info!(
-                                "Extracted input size from model '{}': {}x{}",
-                                input.name, width, height
-                            );
-                            return Ok((width, height));
-                        }
+                    {
+                        info!(
+                            "Extracted input size from model '{}': {}x{}",
+                            input.name, width, height
+                        );
+                        return Ok((width, height));
                     }
                 }
             }
@@ -652,18 +653,18 @@ impl Detector {
         min_confidence: Option<f32>,
     ) -> anyhow::Result<DetectResult> {
         // Save the image if save_ref_image is set
-        if let Some(image_name) = image_name.clone() {
-            debug!("Detecting objects in image: {}", image_name);
-            if let Some(save_image_path) = self.save_image_path.clone() {
-                if self.save_ref_image {
-                    let save_image_path = save_image_path.to_path_buf();
-                    let image_path_buf = PathBuf::from(image_name.clone());
-                    let image_name_ref = image_path_buf
-                        .file_name()
-                        .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path"))?;
-                    let save_image_path = save_image_path.join(image_name_ref);
-                    std::fs::write(save_image_path, &image_bytes)?;
-                }
+        if let Some(ref image_name_str) = image_name {
+            debug!("Detecting objects in image: {}", image_name_str);
+            if let Some(ref save_image_path) = self.save_image_path
+                && self.save_ref_image
+            {
+                let save_image_path = save_image_path.to_path_buf();
+                let image_path_buf = PathBuf::from(image_name_str);
+                let image_name_ref = image_path_buf
+                    .file_name()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path"))?;
+                let save_image_path = save_image_path.join(image_name_ref);
+                std::fs::write(save_image_path, &image_bytes)?;
             }
         }
 
@@ -806,8 +807,8 @@ impl Detector {
 
         debug!("Processing time: {:?}", processing_time);
 
-        if let Some(image_name) = image_name.clone()
-            && let Some(save_image_path) = self.save_image_path.clone()
+        if let Some(ref image_name) = image_name
+            && let Some(ref save_image_path) = self.save_image_path
         {
             info!(
                 "Saving detection result with {} predictions to disk",
@@ -815,7 +816,7 @@ impl Detector {
             );
             let save_image_start_time = Instant::now();
             let save_image_path = save_image_path.to_path_buf();
-            let image_name_od = create_od_image_name(&image_name, true)?;
+            let image_name_od = create_od_image_name(image_name, true)?;
             let output_path = save_image_path
                 .join(&image_name_od)
                 .to_string_lossy()
