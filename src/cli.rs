@@ -62,7 +62,7 @@ pub struct Cli {
     /// So default is 1, then you can increase it if you want to test the
     /// performance.
     #[cfg(target_os = "windows")]
-    #[clap(long, default_value_t = 192)]
+    #[clap(long, default_value_t = 16)]
     pub intra_threads: usize,
     #[cfg(not(target_os = "windows"))]
     #[clap(long, default_value_t = 2)]
@@ -73,7 +73,7 @@ pub struct Cli {
     /// So default is 2, then you can increase it if you want to test the
     /// performance.
     #[cfg(target_os = "windows")]
-    #[clap(long, default_value_t = 192)]
+    #[clap(long, default_value_t = 16)]
     pub inter_threads: usize,
     #[cfg(not(target_os = "windows"))]
     #[clap(long, default_value_t = 2)]
@@ -137,11 +137,11 @@ impl Default for Cli {
             confidence_threshold: 0.5,
             force_cpu: false,
             #[cfg(target_os = "windows")]
-            intra_threads: 192,
+            intra_threads: 16,
             #[cfg(not(target_os = "windows"))]
             intra_threads: 2,
             #[cfg(target_os = "windows")]
-            inter_threads: 192,
+            inter_threads: 16,
             #[cfg(not(target_os = "windows"))]
             inter_threads: 2,
             save_image_path: None,
