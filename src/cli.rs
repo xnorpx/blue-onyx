@@ -90,7 +90,8 @@ pub struct Cli {
     /// Verify through GPU usage to ensure the correct GPU is selected.
     #[clap(long, default_value_t = 0)]
     pub gpu_index: i32,
-    /// Save inference stats to file    #[clap(long)]
+    /// Save inference stats to file
+    #[clap(long)]
     pub save_stats_path: Option<PathBuf>,
     /// Path to download all models to
     /// This command will download models to the specified path and then exit.
@@ -130,7 +131,7 @@ impl Default for Cli {
             model: None,
             object_detection_model_type: ObjectDetectionModel::default(),
             object_classes: None,
-            object_filter: Vec::new(),
+            object_filter: vec![],
             log_level: LogLevel::Info,
             log_path: None,
             confidence_threshold: 0.5,
