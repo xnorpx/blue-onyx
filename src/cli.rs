@@ -179,7 +179,7 @@ impl Cli {
                 {
                     parent.to_path_buf()
                 } else {
-                    std::env::current_dir().unwrap_or_else(|_| ".".into())
+                    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
                 }
             }); // Determine what to download based on flags
             let model_type = match (

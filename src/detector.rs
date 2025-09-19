@@ -421,7 +421,7 @@ fn yolo5_post_process(
                 .slice(s![5..])
                 .iter()
                 .enumerate()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
 
@@ -466,7 +466,7 @@ fn non_maximum_suppression(
     predictions.sort_by(|a, b| {
         a.label
             .cmp(&b.label)
-            .then(b.confidence.partial_cmp(&a.confidence).unwrap())
+            .then(b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal))
     });
 
     let mut current_class = None;
@@ -652,12 +652,12 @@ impl Detector {
         min_confidence: Option<f32>,
     ) -> anyhow::Result<DetectResult> {
         // Save the image if save_ref_image is set
-        if let Some(image_name) = image_name.clone() {
-            debug!("Detecting objects in image: {}", image_name);
-            if let Some(save_image_path) = self.save_image_path.clone() {
+        if let Some(ref image_name_str) = image_name {
+            debug!("Detecting objects in image: {}", image_name_str);
+            if let Some(ref save_image_path) = self.save_image_path {
                 if self.save_ref_image {
                     let save_image_path = save_image_path.to_path_buf();
-                    let image_path_buf = PathBuf::from(image_name.clone());
+                    let image_path_buf = PathBuf::from(image_name_str);
                     let image_name_ref = image_path_buf
                         .file_name()
                         .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path"))?;
@@ -806,8 +806,8 @@ impl Detector {
 
         debug!("Processing time: {:?}", processing_time);
 
-        if let Some(image_name) = image_name.clone()
-            && let Some(save_image_path) = self.save_image_path.clone()
+        if let Some(ref image_name) = image_name
+            && let Some(ref save_image_path) = self.save_image_path
         {
             info!(
                 "Saving detection result with {} predictions to disk",
