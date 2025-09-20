@@ -566,26 +566,44 @@ fn parse_duration(s: &str) -> anyhow::Result<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default_thread_values_are_capped() {
         let cli = Cli::default();
-        
+
         // Test that default values are reasonable
         #[cfg(target_os = "windows")]
         {
-            assert_eq!(cli.intra_threads, 16, "Windows intra_threads default should be 16");
-            assert_eq!(cli.inter_threads, 16, "Windows inter_threads default should be 16");
+            assert_eq!(
+                cli.intra_threads, 16,
+                "Windows intra_threads default should be 16"
+            );
+            assert_eq!(
+                cli.inter_threads, 16,
+                "Windows inter_threads default should be 16"
+            );
         }
-        
+
         #[cfg(not(target_os = "windows"))]
         {
-            assert_eq!(cli.intra_threads, 2, "Non-Windows intra_threads default should be 2");
-            assert_eq!(cli.inter_threads, 2, "Non-Windows inter_threads default should be 2");
+            assert_eq!(
+                cli.intra_threads, 2,
+                "Non-Windows intra_threads default should be 2"
+            );
+            assert_eq!(
+                cli.inter_threads, 2,
+                "Non-Windows inter_threads default should be 2"
+            );
         }
-        
+
         // Ensure values are within reasonable bounds
-        assert!(cli.intra_threads <= 16, "intra_threads should not exceed 16");
-        assert!(cli.inter_threads <= 16, "inter_threads should not exceed 16");
+        assert!(
+            cli.intra_threads <= 16,
+            "intra_threads should not exceed 16"
+        );
+        assert!(
+            cli.inter_threads <= 16,
+            "inter_threads should not exceed 16"
+        );
     }
 }
