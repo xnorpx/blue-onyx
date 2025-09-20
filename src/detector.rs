@@ -906,8 +906,14 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     let mut device_type = DeviceType::CPU;
 
     let (num_intra_threads, num_inter_threads) = if onnx_config.force_cpu {
-        let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-        let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+        let num_intra_threads = onnx_config
+            .intra_threads
+            .min(num_cpus::get_physical() - 1)
+            .min(16);
+        let num_inter_threads = onnx_config
+            .inter_threads
+            .min(num_cpus::get_physical() - 1)
+            .min(16);
         info!(
             "Forcing CPU for inference with {} intra and {} inter threads",
             num_intra_threads, num_inter_threads
@@ -932,8 +938,14 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             info!("DirectML initialization successful");
             (1, 1) // For GPU we just hardcode to 1 thread
         } else {
-            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+            let num_intra_threads = onnx_config
+                .intra_threads
+                .min(num_cpus::get_physical() - 1)
+                .min(16);
+            let num_inter_threads = onnx_config
+                .inter_threads
+                .min(num_cpus::get_physical() - 1)
+                .min(16);
             #[cfg(windows)]
             warn!(
                 "DirectML not available, falling back to CPU for inference with {} intra and {} inter threads",
@@ -944,18 +956,24 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
                 "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
                 num_intra_threads, num_inter_threads
             );
-            (onnx_config.intra_threads, onnx_config.inter_threads)
+            (num_intra_threads, num_inter_threads)
         }
 
         #[cfg(not(windows))]
         {
-            let num_intra_threads = onnx_config.intra_threads.min(num_cpus::get_physical() - 1);
-            let num_inter_threads = onnx_config.inter_threads.min(num_cpus::get_physical() - 1);
+            let num_intra_threads = onnx_config
+                .intra_threads
+                .min(num_cpus::get_physical() - 1)
+                .min(16);
+            let num_inter_threads = onnx_config
+                .inter_threads
+                .min(num_cpus::get_physical() - 1)
+                .min(16);
             warn!(
                 "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
                 num_intra_threads, num_inter_threads
             );
-            (onnx_config.intra_threads, onnx_config.inter_threads)
+            (num_intra_threads, num_inter_threads)
         }
     };
 

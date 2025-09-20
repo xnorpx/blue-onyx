@@ -172,14 +172,14 @@
     <div class="form-group">
         <label for="intra_threads">Intra Threads:</label>
         <input type="number" id="intra_threads" name="intra_threads" value="{{ config.intra_threads }}" min="1"
-            max="512" required>
+            max="16" required>
         <span class="help-text">Intra-op parallelism threads</span>
     </div>
 
     <div class="form-group">
         <label for="inter_threads">Inter Threads:</label>
         <input type="number" id="inter_threads" name="inter_threads" value="{{ config.inter_threads }}" min="1"
-            max="512" required>
+            max="16" required>
         <span class="help-text">Inter-op parallelism threads</span>
     </div>
     <div class="form-group">

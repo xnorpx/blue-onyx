@@ -62,7 +62,7 @@ pub struct Cli {
     /// So default is 1, then you can increase it if you want to test the
     /// performance.
     #[cfg(target_os = "windows")]
-    #[clap(long, default_value_t = 192)]
+    #[clap(long, default_value_t = 16)]
     pub intra_threads: usize,
     #[cfg(not(target_os = "windows"))]
     #[clap(long, default_value_t = 2)]
@@ -73,7 +73,7 @@ pub struct Cli {
     /// So default is 2, then you can increase it if you want to test the
     /// performance.
     #[cfg(target_os = "windows")]
-    #[clap(long, default_value_t = 192)]
+    #[clap(long, default_value_t = 16)]
     pub inter_threads: usize,
     #[cfg(not(target_os = "windows"))]
     #[clap(long, default_value_t = 2)]
@@ -137,11 +137,11 @@ impl Default for Cli {
             confidence_threshold: 0.5,
             force_cpu: false,
             #[cfg(target_os = "windows")]
-            intra_threads: 192,
+            intra_threads: 16,
             #[cfg(not(target_os = "windows"))]
             intra_threads: 2,
             #[cfg(target_os = "windows")]
-            inter_threads: 192,
+            inter_threads: 16,
             #[cfg(not(target_os = "windows"))]
             inter_threads: 2,
             save_image_path: None,
@@ -561,4 +561,49 @@ mod duration_serde {
 fn parse_duration(s: &str) -> anyhow::Result<Duration> {
     let secs: u64 = s.parse()?;
     Ok(Duration::from_secs(secs))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_thread_values_are_capped() {
+        let cli = Cli::default();
+
+        // Test that default values are reasonable
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(
+                cli.intra_threads, 16,
+                "Windows intra_threads default should be 16"
+            );
+            assert_eq!(
+                cli.inter_threads, 16,
+                "Windows inter_threads default should be 16"
+            );
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert_eq!(
+                cli.intra_threads, 2,
+                "Non-Windows intra_threads default should be 2"
+            );
+            assert_eq!(
+                cli.inter_threads, 2,
+                "Non-Windows inter_threads default should be 2"
+            );
+        }
+
+        // Ensure values are within reasonable bounds
+        assert!(
+            cli.intra_threads <= 16,
+            "intra_threads should not exceed 16"
+        );
+        assert!(
+            cli.inter_threads <= 16,
+            "inter_threads should not exceed 16"
+        );
+    }
 }
