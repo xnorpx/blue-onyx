@@ -6,7 +6,7 @@ use image::{DynamicImage, ImageBuffer};
 use jpeg_encoder::{ColorType, Encoder};
 use std::{fmt, path::Path, time::Instant};
 use tracing::{debug, info};
-use zune_core::{colorspace::ColorSpace, options::DecoderOptions};
+use zune_core::{bytestream::ZCursor, colorspace::ColorSpace, options::DecoderOptions};
 use zune_jpeg::JpegDecoder;
 
 pub struct Image {
@@ -48,7 +48,8 @@ pub fn decode_jpeg(name: Option<String>, jpeg: Bytes, image: &mut Image) -> anyh
         .set_strict_mode(true)
         .set_use_unsafe(true)
         .jpeg_set_out_colorspace(ColorSpace::RGB);
-    let mut decoder = JpegDecoder::new_with_options(jpeg.as_ref(), options);
+    let cursor = ZCursor::new(jpeg.to_vec());
+    let mut decoder = JpegDecoder::new_with_options(cursor, options);
     // We need to decode the headers first to get the output buffer size
     decoder.decode_headers()?;
     let output_buffer_size = decoder
