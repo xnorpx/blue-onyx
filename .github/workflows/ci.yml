@@ -65,7 +65,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
       with:
         toolchain: ${{ matrix.rust }}
 
@@ -88,7 +88,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
       with:
         toolchain: stable
         components: rustfmt
@@ -101,7 +101,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
       with:
         toolchain: stable
         components: clippy
@@ -114,7 +114,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
         with:
           toolchain: stable
       - name: Check documentation
@@ -135,7 +135,7 @@ jobs:
       run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
       with:
         toolchain: stable
 

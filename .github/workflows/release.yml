@@ -101,7 +101,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
       with:
         toolchain: ${{ matrix.rust }}
 
