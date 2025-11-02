@@ -44,21 +44,48 @@ jobs:
         - build: win beta
           os: windows-latest
           rust: beta
+          cargo_flags: ""
+          variant: winml
+        - build: win beta
+          os: windows-latest
+          rust: beta
+          cargo_flags: "--no-default-features"
+          variant: onnx
         - build: win nightly
           os: windows-latest
           rust: nightly
+          cargo_flags: ""
+          variant: winml
+        - build: win nightly
+          os: windows-latest
+          rust: nightly
+          cargo_flags: "--no-default-features"
+          variant: onnx
         - build: win
           os: windows-latest
           rust: stable
+          cargo_flags: ""
+          variant: winml
+        - build: win
+          os: windows-latest
+          rust: stable
+          cargo_flags: "--no-default-features"
+          variant: onnx
         - build: linux beta
           os: ubuntu-latest
           rust: beta
+          cargo_flags: ""
+          variant: ""
         - build: linux nightly
           os: ubuntu-latest
           rust: nightly
+          cargo_flags: ""
+          variant: ""
         - build: linux
           os: ubuntu-latest
           rust: stable
+          cargo_flags: ""
+          variant: ""
 
     steps:
     - name: Checkout repository
@@ -73,14 +100,12 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    - name: Install dependencies
-      run: python -m pip install --upgrade pip setuptools wheel
 
     - name: Install dependencies
       run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
 
-    - name: Build release blue-onyx
-      run: cargo build --release
+    - name: Build release blue-onyx (${{ matrix.build }} ${{ matrix.variant }})
+      run: cargo build --release ${{ matrix.cargo_flags }}
 
   rustfmt:
     runs-on: ubuntu-latest
@@ -108,6 +133,19 @@ jobs:
     - name: Check clippy
       run: cargo clippy --all-targets -- -D warnings
 
+  clippy-windows:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
+      with:
+        toolchain: stable
+        components: clippy
+    - name: Check clippy
+      run: cargo clippy --all-targets -- -D warnings
+
   docs:
     runs-on: ubuntu-latest
     steps:
@@ -122,17 +160,23 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps --document-private-items --workspace
 
-  installer:
-    name: windows-installer
+  installer-winml:
+    name: windows-installer-winml
     runs-on: windows-latest
-    # Always run the installer job (build installer on all runs)
+    outputs:
+      installer_name: ${{ steps.build_installer.outputs.installer_name }}
+      short_sha: ${{ steps.short_sha.outputs.short_sha }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Get short commit hash
+      id: short_sha
       shell: bash
-      run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      run: |
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
+        echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
@@ -143,13 +187,11 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    - name: Install dependencies
-      run: python -m pip install --upgrade pip setuptools wheel
 
     - name: Install dependencies
       run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
 
-    - name: Build release
+    - name: Build release (WinML)
       run: cargo build --release
 
     - name: Install cargo-packager and NSIS
@@ -161,11 +203,12 @@ jobs:
         # Add NSIS to PATH for current session
         echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
 
-    - name: Build Windows installer
+    - name: Build Windows installer (WinML)
+      id: build_installer
       shell: bash
       run: |
         # Build the NSIS installer
-        cargo packager --release --formats nsis
+        cargo packager --release --config packager_winml.toml --formats nsis
         # Get the version from Cargo.toml
         VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
         
@@ -175,30 +218,128 @@ jobs:
         # Determine naming based on branch and trigger type
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
           # Main branch: normal naming
-          INSTALLER_NAME="blue_onyx-${VERSION}-${SHORT_SHA}-installer.exe"
+          INSTALLER_NAME_WINML="blue_onyx-${VERSION}-${SHORT_SHA}-installer-winml.exe"
         elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           # Manual test: add -test- prefix and clean branch name
-          INSTALLER_NAME="blue_onyx-${VERSION}-test-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer.exe"
+          INSTALLER_NAME_WINML="blue_onyx-${VERSION}-test-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer-winml.exe"
         else
           # Feature branch: add -dev- prefix and clean branch name  
-          INSTALLER_NAME="blue_onyx-${VERSION}-dev-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer.exe"
+          INSTALLER_NAME_WINML="blue_onyx-${VERSION}-dev-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer-winml.exe"
         fi
         
         # Rename the installer
-        mv target/release/blue_onyx_*_x64-setup.exe "${INSTALLER_NAME}"
-        echo "INSTALLER_NAME=${INSTALLER_NAME}" >> $GITHUB_ENV
+        mv target/release/blue_onyx_*_x64-setup.exe "${INSTALLER_NAME_WINML}"
+        echo "INSTALLER_NAME_WINML=${INSTALLER_NAME_WINML}" >> $GITHUB_ENV
+        echo "installer_name=${INSTALLER_NAME_WINML}" >> $GITHUB_OUTPUT
 
-    - name: Upload installer as artifact
+    - name: Upload WinML installer artifact
       uses: actions/upload-artifact@v4
       with:
-        name: blue-onyx-installer-${{ env.SHORT_SHA }}
-        path: blue_onyx-*-installer.exe
+        name: blue-onyx-installer-winml-${{ steps.short_sha.outputs.short_sha }}
+        path: ${{ env.INSTALLER_NAME_WINML }}
         retention-days: 30
 
+  installer-onnx:
+    name: windows-installer-onnx
+    runs-on: windows-latest
+    outputs:
+      installer_name: ${{ steps.build_installer.outputs.installer_name }}
+      short_sha: ${{ steps.short_sha.outputs.short_sha }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get short commit hash
+      id: short_sha
+      shell: bash
+      run: |
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
+        echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
+      with:
+        toolchain: stable
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
+
+    - name: Build release (ONNX)
+      run: cargo build --release --no-default-features
+
+    - name: Install cargo-packager and NSIS
+      shell: bash
+      run: |
+        cargo install cargo-packager
+        # Install NSIS
+        choco install nsis -y
+        # Add NSIS to PATH for current session
+        echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
+
+    - name: Build Windows installer (ONNX)
+      id: build_installer
+      shell: bash
+      run: |
+        cargo packager --release --config packager.toml --formats nsis
+        VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+        CLEAN_BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[\/:]/-/g' | sed 's/[^a-zA-Z0-9._-]/-/g')
+
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          INSTALLER_NAME_ONNX="blue_onyx-${VERSION}-${SHORT_SHA}-installer-onnx.exe"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          INSTALLER_NAME_ONNX="blue_onyx-${VERSION}-test-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer-onnx.exe"
+        else
+          INSTALLER_NAME_ONNX="blue_onyx-${VERSION}-dev-${CLEAN_BRANCH_NAME}-${SHORT_SHA}-installer-onnx.exe"
+        fi
+
+        mv target/release/blue_onyx_*_x64-setup.exe "${INSTALLER_NAME_ONNX}"
+        echo "INSTALLER_NAME_ONNX=${INSTALLER_NAME_ONNX}" >> $GITHUB_ENV
+        echo "installer_name=${INSTALLER_NAME_ONNX}" >> $GITHUB_OUTPUT
+
+    - name: Upload ONNX installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: blue-onyx-installer-onnx-${{ steps.short_sha.outputs.short_sha }}
+        path: ${{ env.INSTALLER_NAME_ONNX }}
+        retention-days: 30
+
+  publish-installers:
+    name: publish-installers
+    needs:
+    - installer-winml
+    - installer-onnx
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.test_installer == 'true')
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SHORT_SHA: ${{ needs.installer-winml.outputs.short_sha }}
+      INSTALLER_NAME_WINML: ${{ needs.installer-winml.outputs.installer_name }}
+      INSTALLER_NAME_ONNX: ${{ needs.installer-onnx.outputs.installer_name }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download WinML installer
+      uses: actions/download-artifact@v4
+      with:
+        name: blue-onyx-installer-winml-${{ needs.installer-winml.outputs.short_sha }}
+        path: .
+
+    - name: Download ONNX installer
+      uses: actions/download-artifact@v4
+      with:
+        name: blue-onyx-installer-onnx-${{ needs.installer-onnx.outputs.short_sha }}
+        path: .
+
     - name: Create pre-release with installer
-      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_installer == 'true')
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash
       run: |
         # Get version and create pre-release tag
@@ -217,5 +358,5 @@ jobs:
           --notes "Automated development build from commit ${SHORT_SHA}" \
           --prerelease \
           --target ${{ github.sha }} \
-          "${INSTALLER_NAME}" || \
-        gh release upload "${TAG_NAME}" "${INSTALLER_NAME}" --clobber
+          "${INSTALLER_NAME_WINML}" "${INSTALLER_NAME_ONNX}" || \
+        gh release upload "${TAG_NAME}" "${INSTALLER_NAME_WINML}" "${INSTALLER_NAME_ONNX}" --clobber

@@ -32,6 +32,13 @@ fn get_build_config() -> &'static str {
 }
 
 fn main() {
+    let windows_ml_enabled = env::var_os("CARGO_FEATURE_WINDOWS_ML").is_some();
+    // If the `windows_ml` feature is enabled, skip building ONNX Runtime.
+    // Windows ML uses native Windows ML APIs and does not require ONNX Runtime to be built.
+    if cfg!(windows) && windows_ml_enabled {
+        return;
+    }
+
     build_warning!("Starting build script for ONNX Runtime");
     let target_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
 

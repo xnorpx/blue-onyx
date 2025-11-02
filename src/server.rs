@@ -20,7 +20,6 @@ use bytes::Bytes;
 use chrono::Utc;
 use crossbeam::channel::Sender;
 use mime::IMAGE_JPEG;
-use reqwest;
 use serde::Deserialize;
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -293,17 +292,15 @@ async fn v1_vision_detection(
 }
 
 async fn v1_status_update_available() -> Result<Json<StatusUpdateResponse>, BlueOnyxError> {
-    let (latest_release_version_str, release_notes_url) = get_latest_release_info().await?;
-    let latest = VersionInfo::parse(latest_release_version_str.as_str(), Some(release_notes_url))?;
     let current = VersionInfo::parse(env!("CARGO_PKG_VERSION"), None)?;
-    let updates_available = latest > current;
+    let latest = VersionInfo::parse(env!("CARGO_PKG_VERSION"), None)?;
     let response = StatusUpdateResponse {
         success: true,
         message: "".to_string(),
         version: None, // Deprecated field
         current,
         latest,
-        updateAvailable: updates_available,
+        updateAvailable: false,
     };
     Ok(Json(response))
 }
@@ -758,24 +755,6 @@ async fn fallback_handler(req: Request<Body>) -> impl IntoResponse {
     );
 
     (StatusCode::NOT_FOUND, "Endpoint not implemented")
-}
-#[allow(unused)]
-#[derive(Debug, Deserialize)]
-struct VersionJson {
-    version: String,
-    windows: String,
-    windows_sha256: String,
-}
-
-pub async fn get_latest_release_info() -> anyhow::Result<(String, String)> {
-    let response =
-        reqwest::get("https://github.com/xnorpx/blue-onyx/releases/latest/download/version.json")
-            .await?;
-    let version_info: VersionJson = response.json().await?;
-    let latest_release_version_str = version_info.version;
-    let release_notes_url =
-        format!("https://github.com/xnorpx/blue-onyx/releases/{latest_release_version_str}");
-    Ok((latest_release_version_str, release_notes_url))
 }
 
 #[derive(Debug, Clone)]

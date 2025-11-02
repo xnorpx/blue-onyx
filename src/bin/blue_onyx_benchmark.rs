@@ -27,7 +27,7 @@ use anyhow::bail;
 use blue_onyx::{
     LogLevel,
     detector::{
-        Detector, DetectorConfig, DeviceType, EndpointProvider, ObjectDetectionModel, OnnxConfig,
+        DetectorConfig, DeviceType, EndpointProvider, Inference, ObjectDetectionModel, OnnxConfig,
     },
     download_models::Model,
     image::load_image,
@@ -155,7 +155,7 @@ fn main() -> anyhow::Result<()> {
         object_detection_model: args.object_detection_model_type,
     };
 
-    let mut detector = Detector::new(detector_config)?;
+    let mut detector = Inference::new(detector_config)?;
 
     let (image_bytes, image_name) = if let Some(image) = args.image {
         (load_image(&image)?, image.to_string_lossy().to_string())

@@ -1,6 +1,6 @@
 use crate::{
     api::{VisionDetectionRequest, VisionDetectionResponse},
-    detector::{Detector, DetectorConfig, DeviceType},
+    detector::{DetectorConfig, DeviceType, Inference},
     image::create_random_jpeg_name,
 };
 use crossbeam::channel::{Receiver, Sender};
@@ -14,7 +14,7 @@ pub struct DetectorWorker {
         oneshot::Sender<VisionDetectionResponse>,
         Instant,
     )>,
-    detector: Detector,
+    detector: Inference,
     request_timeout: Duration,
 }
 
@@ -32,7 +32,7 @@ impl DetectorWorker {
         Self,
     )> {
         let request_timeout = detector_config.timeout;
-        let mut detector = Detector::new(detector_config)?;
+        let mut detector = Inference::new(detector_config)?;
 
         let worker_queue_size = match worker_queue_size {
             Some(size) => {
@@ -70,7 +70,7 @@ impl DetectorWorker {
             },
         ))
     }
-    pub fn get_detector(&self) -> &Detector {
+    pub fn get_detector(&self) -> &Inference {
         &self.detector
     }
     pub fn run(&mut self) {

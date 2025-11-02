@@ -1,12 +1,12 @@
-name = "blue-onyx"
+name = "blue-onyx-winml"
 version = "0.8.0"
 product-name = "Blue Onyx"
-identifier = "com.blue-onyx.app"
-description = "Blue Onyx object detection service and utilities"
+identifier = "com.blue-onyx.app.winml"
+description = "Blue Onyx object detection service and utilities (Windows ML build)"
 authors = ["Blue Onyx Team"]
 homepage = "https://github.com/blue-onyx/blue-onyx"
 out-dir = "target/release"
-before-packaging-command = "cargo build --release --no-default-features"
+before-packaging-command = "cargo build --release"
 
 # All binaries
 binaries = [
@@ -19,8 +19,6 @@ binaries = [
 # Include essential resources
 resources = [
   "scripts/",
-  "target/release/DirectML.dll",
-  "target/release/onnxruntime.dll",
   "README.md",
   "LICENSE"
 ]

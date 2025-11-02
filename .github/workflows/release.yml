@@ -50,25 +50,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create $VERSION --draft --verify-tag --title $VERSION
-      - name: Create version.json
-        shell: bash
-        run: |
-          cat <<EOF > version.json
-          {
-            "version": "${{ env.VERSION }}",
-            "windows": "blue_onyx-${{ env.VERSION }}-win.zip",
-            "windows_sha256": "blue_onyx-${{ env.VERSION }}-win.zip.sha256",
-            "windows_installer": "blue_onyx-${{ env.VERSION }}-installer.exe",
-            "windows_installer_sha256": "blue_onyx-${{ env.VERSION }}-installer.exe.sha256",
-            "linux": "blue_onyx-${{ env.VERSION }}-linux.zip",
-            "linux_sha256": "blue_onyx-${{ env.VERSION }}-linux.zip.sha256"
-          }
-          EOF
-      - name: Upload version.json
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ env.VERSION }} version.json
       - name: Upload install_latest_blue_onyx.ps1
         shell: bash
         env:
@@ -77,25 +58,13 @@ jobs:
     outputs:
       version: ${{ env.VERSION }}
 
-  build:
-    name: build
+  build-linux:
+    name: build-linux
     needs: ['create-release']
+    runs-on: ubuntu-latest
     env:
       RUST_BACKTRACE: 1
-      ASSET: ""
-      ASSET_SUM: ""
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - build: win
-          os: windows-latest
-          rust: stable
-        - build: linux
-          os: ubuntu-latest
-          rust: stable
-
+      VERSION: ${{ needs.create-release.outputs.version }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -103,7 +72,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
       with:
-        toolchain: ${{ matrix.rust }}
+        toolchain: stable
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -112,82 +81,177 @@ jobs:
     - name: Install dependencies
       run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
 
-    - name: Build release
+    - name: Build release (Linux)
       run: cargo build --release
-    # Windows-specific: Install cargo-packager and NSIS for installer creation
-    - name: Install cargo-packager and NSIS (Windows only)
-      if: matrix.os == 'windows-latest'
-      shell: bash
-      run: |
-        cargo install cargo-packager
-        # Install NSIS
-        choco install nsis -y
-        # Add NSIS to PATH for current session
-        echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
 
-    - name: Create Windows installer (Windows only)
-      if: matrix.os == 'windows-latest'
+    - name: Gather release binaries
       shell: bash
       run: |
-        # Build the NSIS installer
-        cargo packager --release --formats nsis
-
-    - name: Determine release binaries
-      shell: bash
-      run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
-        else
-          BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark"
-        fi
+        BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark"
         echo "BIN=$BIN" >> $GITHUB_ENV
 
     - name: Determine archive name
       shell: bash
       run: |
-        version="${{ needs.create-release.outputs.version }}"
-        echo "ARCHIVE=blue_onyx-$version-${{ matrix.build }}" >> $GITHUB_ENV
+        echo "ARCHIVE=blue_onyx-$VERSION-linux" >> $GITHUB_ENV
 
-    - name: Creating directory for archive
+    - name: Create archive staging directory
       shell: bash
       run: |
         mkdir -p "$ARCHIVE"/
         cp $BIN "$ARCHIVE"/
-    - name: Build archive (Windows)
-      shell: bash
-      if: matrix.os == 'windows-latest'
-      run: |
-        7z a "$ARCHIVE.zip" "$ARCHIVE"
-        certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
-        # Also prepare the installer for upload
-        cp target/release/blue_onyx_*_x64-setup.exe "blue_onyx-${{ needs.create-release.outputs.version }}-installer.exe"
-        certutil -hashfile "blue_onyx-${{ needs.create-release.outputs.version }}-installer.exe" SHA256 > "blue_onyx-${{ needs.create-release.outputs.version }}-installer.exe.sha256"
-        echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
-        echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
-        echo "INSTALLER=blue_onyx-${{ needs.create-release.outputs.version }}-installer.exe" >> $GITHUB_ENV
-        echo "INSTALLER_SUM=blue_onyx-${{ needs.create-release.outputs.version }}-installer.exe.sha256" >> $GITHUB_ENV
 
-    - name: Build archive (Unix)
+    - name: Build Linux archive
       shell: bash
-      if: matrix.os != 'windows-latest'
       run: |
         tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
         shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
-        echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
-        echo "ASSET_SUM=$ARCHIVE.tar.gz.sha256" >> $GITHUB_ENV
-    - name: Upload release archive
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      shell: bash
-      run: |
-        version="${{ needs.create-release.outputs.version }}"
-        gh release upload "$version" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
 
-    - name: Upload Windows installer (Windows only)
-      if: matrix.os == 'windows-latest'
+    - name: Upload Linux archive to release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash
       run: |
-        version="${{ needs.create-release.outputs.version }}"
-        gh release upload "$version" ${{ env.INSTALLER }} ${{ env.INSTALLER_SUM }}
+        gh release upload "$VERSION" "$ARCHIVE.tar.gz" "$ARCHIVE.tar.gz.sha256"
+
+  build-windows-winml:
+    name: build-windows-winml
+    needs: ['create-release']
+    runs-on: windows-latest
+    env:
+      RUST_BACKTRACE: 1
+      VERSION: ${{ needs.create-release.outputs.version }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
+      with:
+        toolchain: stable
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
+
+    - name: Build release (WinML)
+      run: cargo build --release
+
+    - name: Install cargo-packager and NSIS
+      shell: bash
+      run: |
+        cargo install cargo-packager
+        choco install nsis -y
+        echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
+
+    - name: Build Windows installer (WinML)
+      shell: bash
+      run: |
+        cargo packager --release --config packager_winml.toml --formats nsis
+
+    - name: Gather release binaries
+      shell: bash
+      run: |
+        BIN="target/release/blue_onyx.exe target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
+        echo "BIN=$BIN" >> $GITHUB_ENV
+
+    - name: Determine archive name
+      shell: bash
+      run: |
+        echo "ARCHIVE=blue_onyx-$VERSION-win-winml" >> $GITHUB_ENV
+        echo "INSTALLER=blue_onyx-$VERSION-installer-winml.exe" >> $GITHUB_ENV
+
+    - name: Create archive staging directory
+      shell: bash
+      run: |
+        mkdir -p "$ARCHIVE"/
+        cp $BIN "$ARCHIVE"/
+
+    - name: Build Windows archive
+      shell: bash
+      run: |
+        7z a "$ARCHIVE.zip" "$ARCHIVE"
+        certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+        cp target/release/blue_onyx_*_x64-setup.exe "$INSTALLER"
+        certutil -hashfile "$INSTALLER" SHA256 > "$INSTALLER.sha256"
+
+    - name: Upload WinML assets to release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: |
+        gh release upload "$VERSION" "$ARCHIVE.zip" "$ARCHIVE.zip.sha256" "$INSTALLER" "$INSTALLER.sha256"
+
+  build-windows-onnx:
+    name: build-windows-onnx
+    needs: ['create-release']
+    runs-on: windows-latest
+    env:
+      RUST_BACKTRACE: 1
+      VERSION: ${{ needs.create-release.outputs.version }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
+      with:
+        toolchain: stable
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
+
+    - name: Build release (ONNX)
+      run: cargo build --release --no-default-features
+
+    - name: Install cargo-packager and NSIS
+      shell: bash
+      run: |
+        cargo install cargo-packager
+        choco install nsis -y
+        echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
+
+    - name: Build Windows installer (ONNX)
+      shell: bash
+      run: |
+        cargo packager --release --config packager.toml --formats nsis
+
+    - name: Gather release binaries
+      shell: bash
+      run: |
+        BIN="target/release/blue_onyx.exe target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe target/release/onnxruntime.dll target/release/DirectML.dll"
+        echo "BIN=$BIN" >> $GITHUB_ENV
+
+    - name: Determine archive name
+      shell: bash
+      run: |
+        echo "ARCHIVE=blue_onyx-$VERSION-win-onnx" >> $GITHUB_ENV
+        echo "INSTALLER=blue_onyx-$VERSION-installer-onnx.exe" >> $GITHUB_ENV
+
+    - name: Create archive staging directory
+      shell: bash
+      run: |
+        mkdir -p "$ARCHIVE"/
+        cp $BIN "$ARCHIVE"/
+
+    - name: Build Windows archive
+      shell: bash
+      run: |
+        7z a "$ARCHIVE.zip" "$ARCHIVE"
+        certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+        cp target/release/blue_onyx_*_x64-setup.exe "$INSTALLER"
+        certutil -hashfile "$INSTALLER" SHA256 > "$INSTALLER.sha256"
+
+    - name: Upload ONNX assets to release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: |
+        gh release upload "$VERSION" "$ARCHIVE.zip" "$ARCHIVE.zip.sha256" "$INSTALLER" "$INSTALLER.sha256"

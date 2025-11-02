@@ -7,6 +7,10 @@ authors = ["Blue Onyx Team"]
 license = "MIT"
 homepage = "https://github.com/blue-onyx/blue-onyx"
 
+[features]
+default = ["windows_ml"]
+windows_ml = []
+
 [dependencies]
 
 ab_glyph = { version = "0", default-features = false }
@@ -82,13 +86,17 @@ ort = { version = "2.0.0-rc.10", default-features = false, features = [
 ] }
 tracing-layer-win-eventlog = { version = "1", default-features = false }
 windows = { version = "0", default-features = false, features = [
+    "AI_MachineLearning",
     "Win32_Foundation",
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",
     "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
     "Win32_Graphics_Direct3D12",
     "Win32_System_Threading",
     "Win32_System_LibraryLoader",
+    "Foundation",
+    "Foundation_Collections",
 ] }
 windows-service = { version = "0", default-features = false }
 

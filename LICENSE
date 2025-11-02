@@ -19,3 +19,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+IMPORTANT NOTICE REGARDING THIRD-PARTY MODELS:
+
+This software (Blue Onyx) is licensed under the MIT License as stated above.
+However, users may choose to run third-party models (such as YOLO models) that
+are licensed under different terms, including but not limited to the GNU Affero
+General Public License (AGPL).
+
+If you choose to use a model licensed under AGPL or any other license, you are
+solely responsible for compliance with that model's license terms. The author
+of Blue Onyx bears no responsibility for your use of third-party models or
+compliance with their respective licenses.

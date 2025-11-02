@@ -419,10 +419,26 @@ impl Cli {
         }
 
         tracing::info!("Performance Configuration:");
-        tracing::info!("  Force CPU: {}", if self.force_cpu { "yes" } else { "no" });
-        tracing::info!("  GPU index: {}", self.gpu_index);
-        tracing::info!("  Intra threads: {}", self.intra_threads);
-        tracing::info!("  Inter threads: {}", self.inter_threads);
+        #[cfg(all(windows, feature = "windows_ml"))]
+        {
+            tracing::info!("  Backend: Windows ML");
+            tracing::info!(
+                "  Execution mode: {}",
+                if self.force_cpu {
+                    "CPU only (forced)"
+                } else {
+                    "DirectX GPU preferred (automatic CPU fallback)"
+                }
+            );
+            tracing::info!("  Adapter selection: automatic (GPU index option ignored)");
+        }
+        #[cfg(any(not(windows), all(windows, not(feature = "windows_ml"))))]
+        {
+            tracing::info!("  Force CPU: {}", if self.force_cpu { "yes" } else { "no" });
+            tracing::info!("  GPU index: {}", self.gpu_index);
+            tracing::info!("  Intra threads: {}", self.intra_threads);
+            tracing::info!("  Inter threads: {}", self.inter_threads);
+        }
 
         tracing::info!("Logging Configuration:");
         tracing::info!("  Log level: {:?}", self.log_level);
