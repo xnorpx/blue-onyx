@@ -4,10 +4,11 @@ use crate::{
     api::Prediction,
     get_object_classes,
     image::{
-        Image, Resizer, create_od_image_name, decode_jpeg,
+        Image, Resizer, create_od_image_name, decode_jpeg, // save_jpeg,
         encode_maybe_draw_boundary_boxes_and_save_jpeg,
     },
 };
+use crate::image::LetterboxTransform;
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
@@ -84,8 +85,7 @@ pub struct OnnxConfig {
 #[derive(Debug, Clone)]
 pub struct PostProcessParams<'a> {
     pub confidence_threshold: f32,
-    pub resize_factor_x: f32,
-    pub resize_factor_y: f32,
+    pub letterbox_transform: &'a LetterboxTransform,
     pub object_filter: &'a Option<Vec<bool>>,
     pub object_classes: &'a [String],
     pub input_width: u32,
@@ -130,25 +130,11 @@ impl ObjectDetectionModel {
         params: &PostProcessParams,
     ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
         match self {
-            Self::RtDetrv2 => rt_detrv2_post_process(
-                outputs,
-                params.confidence_threshold,
-                params.resize_factor_x,
-                params.resize_factor_y,
-                params.object_filter,
-                params.object_classes,
-            ),
+            Self::RtDetrv2 => rt_detrv2_post_process(outputs,params),
 
             Self::RfDetr => rf_detr_post_process(outputs, params),
 
-            Self::Yolo5 => yolo5_post_process(
-                outputs,
-                params.confidence_threshold,
-                params.resize_factor_x,
-                params.resize_factor_y,
-                params.object_filter,
-                params.object_classes,
-            ),
+            Self::Yolo5 => yolo5_post_process(outputs, params),
         }
     }
 }
@@ -185,11 +171,7 @@ fn yolo5_pre_process<'a>(
 
 fn rt_detrv2_post_process(
     outputs: SessionOutputs<'_>,
-    confidence_threshold: f32,
-    resize_factor_x: f32,
-    resize_factor_y: f32,
-    object_filter: &Option<Vec<bool>>,
-    object_classes: &[String],
+    params: &PostProcessParams,
 ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
     let (labels_shape, labels_data) = outputs["labels"].try_extract_tensor::<i64>()?;
     let (bboxes_shape, bboxes_data) = outputs["boxes"].try_extract_tensor::<f32>()?;
@@ -210,22 +192,37 @@ fn rt_detrv2_post_process(
     let scores = scores.index_axis(Axis(0), 0);
     let mut predictions = SmallVec::<[Prediction; 10]>::new();
 
+    let scale = params.letterbox_transform.scale;
+
+    let pad_x = params.letterbox_transform.pad_x as f32;
+    let pad_y = params.letterbox_transform.pad_y as f32;
+
     for (i, bbox) in bboxes.outer_iter().enumerate() {
-        if scores[i] > confidence_threshold {
+        if scores[i] > params.confidence_threshold {
             // If object filter is set, skip objects that are not in the filter
-            if let Some(object_filter) = object_filter.as_ref()
+            if let Some(object_filter) = params.object_filter.as_ref()
                 && !object_filter[labels[i] as usize]
             {
                 continue;
             }
 
+            let x_min = (((bbox[0] - pad_x) / scale).round() as usize).max(0);
+
+            let y_min = (((bbox[1] - pad_y) / scale).round() as usize).max(0);
+
+            let x_max = (((bbox[2] - pad_x) / scale).round() as usize)
+                .min(params.letterbox_transform.image_width);
+
+            let y_max = (((bbox[3] - pad_y) / scale).round() as usize)
+                .min(params.letterbox_transform.image_height);
+
             let prediction = Prediction {
-                x_min: (bbox[0] * resize_factor_x) as usize,
-                x_max: (bbox[2] * resize_factor_x) as usize,
-                y_min: (bbox[1] * resize_factor_y) as usize,
-                y_max: (bbox[3] * resize_factor_y) as usize,
+                x_min: x_min,
+                y_min: y_min,
+                x_max: x_max,
+                y_max: y_max,
                 confidence: scores[i],
-                label: object_classes[labels[i] as usize].clone(),
+                label: params.object_classes[labels[i] as usize].clone(),
             };
 
             debug!("Prediction - {}: {:?}", predictions.len() + 1, prediction);
@@ -276,6 +273,11 @@ fn rf_detr_post_process(
 
     let mut predictions = SmallVec::<[Prediction; 10]>::new();
 
+    let scale = params.letterbox_transform.scale;
+
+    let pad_x = params.letterbox_transform.pad_x as f32;
+    let pad_y = params.letterbox_transform.pad_y as f32;
+
     // Process top predictions above confidence threshold
     for (score, query_idx, class_idx) in all_scores.iter().take(300) {
         if *score <= params.confidence_threshold {
@@ -294,25 +296,36 @@ fn rf_detr_post_process(
         let det = dets.index_axis(Axis(0), *query_idx);
 
         // RF-DETR outputs normalized coordinates (0-1), scale to original image dimensions
-        let orig_img_width = params.resize_factor_x * params.input_width as f32;
-        let orig_img_height = params.resize_factor_y * params.input_height as f32;
+        // Convert normalized coordinates into model-space coordinates
+        let model_x = det[0] * params.input_width as f32;
+        let model_y = det[1] * params.input_height as f32;
 
-        let center_x = det[0] * orig_img_width;
-        let center_y = det[1] * orig_img_height;
-        let width = det[2] * orig_img_width;
-        let height = det[3] * orig_img_height;
+        let model_w = det[2] * params.input_width as f32;
+        let model_h = det[3] * params.input_height as f32;
 
-        // Convert from center_x, center_y, width, height to x_min, y_min, x_max, y_max
-        let x_min = (center_x - width / 2.0).max(0.0);
-        let x_max = center_x + width / 2.0;
-        let y_min = (center_y - height / 2.0).max(0.0);
-        let y_max = center_y + height / 2.0;
+        // Remove padding and reverse scaling
+        let center_x = (model_x - pad_x) / scale;
+        let center_y = (model_y - pad_y) / scale;
+
+        let width = model_w / scale;
+        let height = model_h / scale;
+
+        // Convert cxcywh -> xyxy
+        let x_min = ((center_x - width / 2.0).round() as usize).max(0);
+
+        let y_min = ((center_y - height / 2.0).round() as usize).max(0);
+
+        let x_max = ((center_x + width / 2.0) .round() as usize)
+            .min(params.letterbox_transform.image_width);
+
+        let y_max = ((center_y + height / 2.0) .round() as usize)
+            .min(params.letterbox_transform.image_height);
 
         let prediction = Prediction {
-            x_min: x_min.round() as usize,
-            x_max: x_max.round() as usize,
-            y_min: y_min.round() as usize,
-            y_max: y_max.round() as usize,
+            x_min: x_min,
+            x_max: x_max,
+            y_min: y_min,
+            y_max: y_max,
             confidence: *score,
             label: if *class_idx < params.object_classes.len() {
                 params.object_classes[*class_idx].clone()
@@ -340,7 +353,7 @@ fn rf_detr_post_process(
         );
         debug!(
             "  Model input: {}x{}, Original image: {:.0}x{:.0}",
-            params.input_width, params.input_height, orig_img_width, orig_img_height
+            params.input_width, params.input_height, params.letterbox_transform.image_width, params.letterbox_transform.image_height
         );
         debug!(
             "  Scaled bbox: center=({:.2}, {:.2}), size=({:.2}, {:.2})",
@@ -363,11 +376,7 @@ fn rf_detr_post_process(
 
 fn yolo5_post_process(
     outputs: SessionOutputs<'_>,
-    confidence_threshold: f32,
-    resize_factor_x: f32,
-    resize_factor_y: f32,
-    object_filter: &Option<Vec<bool>>,
-    object_classes: &[String],
+    params: &PostProcessParams,
 ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
     let output = outputs.values().next().ok_or(anyhow!("No outputs"))?;
     let (shape, data) = output.try_extract_tensor::<f32>()?;
@@ -377,11 +386,11 @@ fn yolo5_post_process(
 
     // Debug: Print the actual tensor shape
     debug!("YOLO output tensor shape: {:?}", yolo_output.shape());
-    debug!("Expected classes + 5: {}", 5 + object_classes.len());
+    debug!("Expected classes + 5: {}", 5 + params.object_classes.len());
 
     // The YOLO5 output is typically [batch_size, num_detections, num_classes + 5]
     // So we need to check the last dimension, not the second dimension
-    let expected_features = 5 + object_classes.len();
+    let expected_features = 5 + params.object_classes.len();
     let actual_shape = yolo_output.shape();
 
     if actual_shape.len() == 3 && actual_shape[2] == expected_features {
@@ -401,7 +410,7 @@ fn yolo5_post_process(
             "Unexpected YOLO output shape: {:?}. Expected last dimension to be {} (5 + {} classes). This probably means that your classes YAML file does not match the model.",
             actual_shape,
             expected_features,
-            object_classes.len()
+            params.object_classes.len()
         );
     }
     let mut predictions = SmallVec::<[Prediction; 10]>::new();
@@ -416,7 +425,7 @@ fn yolo5_post_process(
     };
 
     for iter in detections_view.outer_iter() {
-        if iter[4] > confidence_threshold {
+        if iter[4] > params.confidence_threshold {
             let class_idx = iter
                 .slice(s![5..])
                 .iter()
@@ -425,23 +434,40 @@ fn yolo5_post_process(
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
 
-            if let Some(object_filter) = object_filter
+            if let Some(object_filter) = params.object_filter
                 && !object_filter[class_idx]
             {
                 continue;
             }
 
-            let x_center = iter[0] * resize_factor_x;
-            let y_center = iter[1] * resize_factor_y;
-            let width = iter[2] * resize_factor_x;
-            let height = iter[3] * resize_factor_y;
+            let scale = params.letterbox_transform.scale;
+
+            let pad_x = params.letterbox_transform.pad_x as f32;
+            let pad_y = params.letterbox_transform.pad_y as f32;
+
+            // YOLO outputs coordinates in letterboxed/model space
+            let x_center = (iter[0] - pad_x) / scale;
+            let y_center = (iter[1] - pad_y) / scale;
+
+            let width = iter[2] / scale;
+            let height = iter[3] / scale;
+
+            let x_min = ((x_center - width / 2.0).round() as usize).max(0);
+            let y_min = ((y_center - height / 2.0).round() as usize).max(0);
+
+            let x_max = ((x_center + width / 2.0).round() as usize)
+                .min(params.letterbox_transform.image_width);
+
+            let y_max = ((y_center + height / 2.0).round() as usize)
+                .min(params.letterbox_transform.image_height);
+
             let prediction = Prediction {
-                x_min: (x_center - width / 2.0) as usize,
-                y_min: (y_center - height / 2.0) as usize,
-                x_max: (x_center + width / 2.0) as usize,
-                y_max: (y_center + height / 2.0) as usize,
+                x_min: x_min,
+                y_min: y_min,
+                x_max: x_max,
+                y_max: y_max,
                 confidence: iter[4],
-                label: object_classes[class_idx].clone(),
+                label: params.object_classes[class_idx].clone(),
             };
             predictions.push(prediction);
         }
@@ -678,27 +704,25 @@ impl Detector {
             decode_image_time, self.decoded_image.width, self.decoded_image.height
         );
 
-        let resize_factor_x = self.decoded_image.width as f32 / self.input_width as f32;
-        let resize_factor_y = self.decoded_image.height as f32 / self.input_height as f32;
-        debug!(
-            "Image resize factors: width_factor={:.3} ({}->{}), height_factor={:.3} ({}->{})",
-            resize_factor_x,
-            self.input_width,
-            self.decoded_image.width,
-            resize_factor_y,
-            self.input_height,
-            self.decoded_image.height
-        );
-
         let orig_size = Array::from_shape_vec(
             (1, 2),
             vec![self.input_height as i64, self.input_width as i64],
         )?;
         let resize_image_start_time = Instant::now();
-        self.resizer
+
+        let letterbox_transform = self.resizer
             .resize_image(&mut self.decoded_image, &mut self.resized_image)?;
+
         let resize_image_time = resize_image_start_time.elapsed();
+
         debug!("Resize image time: {:#?}", resize_image_time);
+
+        // test, save the resized image being fed into the model for debugging purposes
+        // let path = "D:\\model_input.jpg".to_string();
+        // save_jpeg(
+        //     &self.resized_image,
+        //     &path,
+        // )?;
 
         // Ensure resized image dimensions match input tensor dimensions
         if self.resized_image.width != self.input_width
@@ -786,8 +810,7 @@ impl Detector {
         let confidence_threshold = min_confidence.unwrap_or(self.confidence_threshold);
         let params = PostProcessParams {
             confidence_threshold,
-            resize_factor_x,
-            resize_factor_y,
+            letterbox_transform: &letterbox_transform,
             object_filter: &self.object_filter,
             object_classes: &self.object_classes,
             input_width: self.input_width as u32,
