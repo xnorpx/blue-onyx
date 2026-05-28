@@ -78,6 +78,22 @@ pub fn load_image(jpeg_file: &Path) -> anyhow::Result<Bytes> {
     Ok(Bytes::from(std::fs::read(jpeg_file)?))
 }
 
+// pub fn save_jpeg(
+//     image: &Image,
+//     jpeg_file: &String,
+// ) -> anyhow::Result<()> {
+// 
+//     let encoder = Encoder::new_file(jpeg_file, 98)?;
+//     encoder.encode(
+//         &image.pixels.as_slice(),
+//         image.width as u16,
+//         image.height as u16,
+//         ColorType::Rgb,
+//     )?;
+//     info!(?jpeg_file, "Image saved");
+//     Ok(())
+// }
+
 pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
     image: &Image,
     jpeg_file: &String,
@@ -90,7 +106,7 @@ pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
     let image =
         create_dynamic_image_maybe_with_boundary_box(predictions, image, base_width, base_height)?;
 
-    let encoder = Encoder::new_file(jpeg_file, 100)?;
+    let encoder = Encoder::new_file(jpeg_file, 98)?;
     encoder.encode(
         image
             .as_rgb8()
@@ -242,6 +258,24 @@ pub struct Resizer {
     target_height: usize,
 }
 
+#[derive(Debug)]
+pub struct LetterboxTransform {
+    pub scale: f32,
+    pub pad_x: usize,
+    pub pad_y: usize,
+    pub image_width: usize,
+    pub image_height: usize,
+}
+
+impl std::fmt::Display for LetterboxTransform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LetterboxTransform { scale, pad_x, pad_y, image_width, image_height } => 
+                write!(f, "LetterboxTransform {{ scale: {}, pad_x: {}, pad_y: {}, image_width: {}, image_height: {} }}", scale, pad_x, pad_y, image_width, image_height),
+        }
+    }
+}
+
 impl Resizer {
     pub fn new(target_width: usize, target_height: usize) -> anyhow::Result<Self> {
         let resizer = fast_image_resize::Resizer::new();
@@ -256,11 +290,65 @@ impl Resizer {
         &mut self,
         original_image: &mut Image,
         resized_image: &mut Image,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<LetterboxTransform> {
+        // debug!(
+        //     "Letterboxing image from {}x{} to {}x{}",
+        //     original_image.width,
+        //     original_image.height,
+        //     self.target_width,
+        //     self.target_height
+        // );
+
+        let src_w = original_image.width as f32;
+        let src_h = original_image.height as f32;
+
+        let dst_w = self.target_width as f32;
+        let dst_h = self.target_height as f32;
+
+        // ---------------------------------------------
+        // CASE 1: no resize needed, just copy original image to output buffer
+        // ---------------------------------------------
+        if original_image.width == self.target_width
+            && original_image.height == self.target_height
+        {
+            debug!("Image already matches target size, skipping resize and padding");
+
+            resized_image.width = original_image.width;
+            resized_image.height = original_image.height;
+
+            resized_image.resize(original_image.pixels.len());
+            resized_image
+                .pixels
+                .copy_from_slice(&original_image.pixels);
+
+            return Ok(LetterboxTransform {
+                scale: 1.0,
+                pad_x: 0,
+                pad_y: 0,
+                image_width: original_image.width,
+                image_height: original_image.height,
+            });
+        }
+
+        let scale = (dst_w / src_w).min(dst_h / src_h);
+
+        let resized_w = (src_w * scale).round() as usize;
+        let resized_h = (src_h * scale).round() as usize;
+
+        let pad_x = (self.target_width - resized_w) / 2;
+        let pad_y = (self.target_height - resized_h) / 2;
+
         debug!(
-            "Resizing image from {}x{} to {}x{}",
-            original_image.width, original_image.height, self.target_width, self.target_height
+            "Scaling image from {}x{} to {}x{}, padding x={}, y={}, scale={}",
+            original_image.width,
+            original_image.height,
+            resized_w,
+            resized_h,
+            pad_x,
+            pad_y,
+            scale
         );
+
         let src_image = fast_image_resize::images::Image::from_slice_u8(
             original_image.width as u32,
             original_image.height as u32,
@@ -268,26 +356,72 @@ impl Resizer {
             fast_image_resize::PixelType::U8x3,
         )?;
 
-        if resized_image.height != self.target_height {
-            resized_image.height = self.target_height
-        }
-
-        if resized_image.width != self.target_width {
-            resized_image.width = self.target_width
-        }
-
+        resized_image.width = self.target_width;
+        resized_image.height = self.target_height;
         resized_image.resize(self.target_width * self.target_height * 3);
+        resized_image.pixels.fill(0);
 
-        let mut dst_image = fast_image_resize::images::Image::from_slice_u8(
-            resized_image.width as u32,
-            resized_image.height as u32,
-            &mut resized_image.pixels,
-            fast_image_resize::PixelType::U8x3,
-        )?;
+        let dst_stride = self.target_width * 3;
 
-        self.resizer.resize(&src_image, &mut dst_image, None)?;
+        // ---------------------------------------------
+        // CASE 2: no padding -> direct resize
+        // ---------------------------------------------
+        if pad_x == 0 && pad_y == 0 && resized_w == self.target_width && resized_h == self.target_height {
+            
+            debug!("No padding required, resizing directly into output buffer");
 
-        Ok(())
+            let mut dst_image = fast_image_resize::images::Image::from_slice_u8(
+                self.target_width as u32,
+                self.target_height as u32,
+                &mut resized_image.pixels,
+                fast_image_resize::PixelType::U8x3,
+            )?;
+
+            self.resizer.resize(&src_image, &mut dst_image, None)?;
+
+            return Ok(LetterboxTransform {
+                scale,
+                pad_x: 0,
+                pad_y: 0,
+                image_width: original_image.width,
+                image_height: original_image.height,
+            });
+        }
+
+        // ---------------------------------------------
+        // CASE 3: with padding -> resize onto final buffer with offset to create letterbox
+        // (NO intermediate vector)
+        // ---------------------------------------------
+        {
+            let mut temp = vec![0u8; resized_w * resized_h * 3];
+
+            let mut resized_small = fast_image_resize::images::Image::from_slice_u8(
+                resized_w as u32,
+                resized_h as u32,
+                &mut temp,
+                fast_image_resize::PixelType::U8x3,
+            )?;
+
+            self.resizer.resize(&src_image, &mut resized_small, None)?;
+
+            let src_stride = resized_w * 3;
+
+            for y in 0..resized_h {
+                let src_offset = y * src_stride;
+                let dst_offset = ((y + pad_y) * dst_stride) + (pad_x * 3);
+
+                resized_image.pixels[dst_offset..dst_offset + src_stride]
+                    .copy_from_slice(&temp[src_offset..src_offset + src_stride]);
+            }
+        }
+
+        Ok(LetterboxTransform {
+            scale,
+            pad_x,
+            pad_y,
+            image_width: original_image.width,
+            image_height: original_image.height,
+        })
     }
 }
 
