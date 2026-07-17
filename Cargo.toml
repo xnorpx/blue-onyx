@@ -83,6 +83,7 @@ ort = { version = "2.0.0-rc.13", default-features = false, features = [
     "coreml",
     "ndarray",
     "load-dynamic",
+    "openvino",
 ] }
 
 [target.'cfg(windows)'.dependencies]

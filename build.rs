@@ -49,6 +49,24 @@ fn main() {
     }
     let (out_dir, output_dir) = cargo_output_dirs(&out_dir);
 
+    println!("cargo:rerun-if-env-changed=BLUE_ONYX_ORT_LIB_DIR");
+    if let Ok(prebuilt_dir) = env::var("BLUE_ONYX_ORT_LIB_DIR") {
+        let library = Path::new(&prebuilt_dir).join("libonnxruntime.so");
+        if !library.is_file() {
+            build_error!("Prebuilt ONNX Runtime library not found: {:?}", library);
+            panic!("Prebuilt ONNX Runtime setup incomplete");
+        }
+
+        build_warning!("Using prebuilt ONNX Runtime from {}", prebuilt_dir);
+        if !output_dir.exists() {
+            std::fs::create_dir_all(&output_dir).expect("Failed to create output directory");
+        }
+        std::fs::copy(&library, output_dir.join("libonnxruntime.so"))
+            .expect("Failed to copy prebuilt ONNX Runtime library to output directory");
+        println!("cargo:rustc-env=ORT_DYLIB_PATH=libonnxruntime.so");
+        return;
+    }
+
     check_and_download_onnx_source(&out_dir);
     if cfg!(windows) {
         check_and_download_directml(&out_dir);
