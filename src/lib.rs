@@ -117,10 +117,14 @@ pub fn log_available_gpus() {
     #[cfg(target_os = "macos")]
     info!("CoreML is available for hardware-accelerated inference");
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "openvino"))]
     info!("OpenVINO GPU inference is enabled on Linux");
 
-    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    #[cfg(not(any(
+        windows,
+        target_os = "macos",
+        all(target_os = "linux", feature = "openvino")
+    )))]
     info!("GPU acceleration not available on this platform - only CPU inference will be supported");
 
     // Log available GPU devices

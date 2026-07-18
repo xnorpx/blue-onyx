@@ -92,10 +92,7 @@ docker run -d \
   -p 32168:32168 \
   -v "$(pwd)/config:/app/config" \
   -v "$(pwd)/logs:/app/logs" \
-  blue-onyx-openvino:0.8.0-openvino2 \
-  --model /app/IPcam-general.onnx \
-  --object-detection-model-type yolo5 \
-  --object-classes /app/IPcam-general.yaml
+  blue-onyx-openvino:0.8.0-openvino2
 ```
 
 Alternatively, use the included Compose deployment:

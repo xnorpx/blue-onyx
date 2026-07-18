@@ -15,7 +15,7 @@ use ndarray::{Array, ArrayView, Axis, s};
 use ort::ep::DirectML;
 #[cfg(target_os = "macos")]
 use ort::ep::{CoreML, coreml::ModelFormat};
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "openvino"))]
 use ort::ep::OpenVINO;
 use ort::{
     inputs,
@@ -987,15 +987,19 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             (1, 1)
         }
 
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", feature = "openvino"))]
         {
             let device = format!("GPU.{}", onnx_config.gpu_index);
             info!(device, "Configuring OpenVINO GPU execution provider");
-            let provider = OpenVINO::default()
+            let mut provider = OpenVINO::default()
                 .with_device_type(&device)
                 .with_precision("FP16")
-                .with_num_streams(1)
-                .with_cache_dir("/app/config/openvino-cache")
+                .with_num_streams(1);
+            if let Ok(cache_dir) = std::env::var("BLUE_ONYX_OPENVINO_CACHE_DIR") {
+                info!(cache_dir, "Enabling the OpenVINO compiled-model cache");
+                provider = provider.with_cache_dir(cache_dir);
+            }
+            let provider = provider
                 .build()
                 .error_on_failure();
             providers.push(provider);
@@ -1003,7 +1007,11 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             (1, 1)
         }
 
-        #[cfg(not(any(windows, target_os = "linux")))]
+        #[cfg(not(any(
+            windows,
+            target_os = "macos",
+            all(target_os = "linux", feature = "openvino")
+        )))]
         {
             let num_intra_threads = onnx_config.intra_threads.min(16);
             let num_inter_threads = onnx_config.inter_threads.min(16);
@@ -1058,7 +1066,7 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
         DeviceType::GPU => EndpointProvider::DirectML,
         #[cfg(target_os = "macos")]
         DeviceType::GPU => EndpointProvider::CoreML,
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", feature = "openvino"))]
         DeviceType::GPU => EndpointProvider::OpenVINO,
         _ => EndpointProvider::CPU,
     };
@@ -1079,7 +1087,7 @@ pub enum EndpointProvider {
     DirectML,
     #[cfg(target_os = "macos")]
     CoreML,
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "openvino"))]
     OpenVINO,
 }
 
@@ -1091,7 +1099,7 @@ impl std::fmt::Display for EndpointProvider {
             EndpointProvider::DirectML => write!(f, "DirectML"),
             #[cfg(target_os = "macos")]
             EndpointProvider::CoreML => write!(f, "CoreML"),
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", feature = "openvino"))]
             EndpointProvider::OpenVINO => write!(f, "OpenVINO"),
         }
     }
@@ -1118,6 +1126,6 @@ pub enum ExecutionProvider {
     CPU,
     #[cfg(windows)]
     DirectML(usize), // GPU index
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "openvino"))]
     OpenVINO(usize), // GPU index
 }

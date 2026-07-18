@@ -7,6 +7,10 @@ authors = ["Blue Onyx Team"]
 license = "MIT"
 homepage = "https://github.com/blue-onyx/blue-onyx"
 
+[features]
+default = []
+openvino = ["ort/openvino"]
+
 [dependencies]
 
 ab_glyph = { version = "0", default-features = false, features = ["std"] }
@@ -83,7 +87,6 @@ ort = { version = "2.0.0-rc.13", default-features = false, features = [
     "coreml",
     "ndarray",
     "load-dynamic",
-    "openvino",
 ] }
 
 [target.'cfg(windows)'.dependencies]

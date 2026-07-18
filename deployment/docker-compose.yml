@@ -6,20 +6,14 @@ services:
     ports:
       - "32168:32168"
     volumes:
-      - ./models:/app/models
       - ./config:/app/config
       - ./logs:/app/logs
-      - ./processed_images:/app/processed_images
     environment:
       - RUST_LOG=info
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
     command: >
       --port 32168
-      --model /app/IPcam-general.onnx
-      --object-detection-model-type yolo5
-      --object-classes /app/IPcam-general.yaml
-      --confidence-threshold 0.5
       --log-level info
       --log-path /app/logs
       --save-stats-path /app/logs

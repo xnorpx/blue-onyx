@@ -2,8 +2,8 @@
 
 This branch enables Blue Onyx GPU inference through the ONNX Runtime OpenVINO
 execution provider. It targets Intel GPU device `GPU.<gpu-index>`, uses FP16,
-one latency-focused stream, and stores compiled-model data under
-`/app/config/openvino-cache`.
+and uses one latency-focused stream. OpenVINO support is opt-in through the
+`openvino` Cargo feature, so standard Linux builds retain CPU inference.
 
 Build the image with:
 
@@ -20,7 +20,9 @@ docker run --device /dev/dri/renderD128:/dev/dri/renderD128 \
 
 Pass `--force-cpu` to retain the upstream CPU execution path.
 
-The deployed image is tagged `blue-onyx-openvino:0.8.0-openvino2`. Its
-production Compose definition is stored in `deployment/docker-compose.yml`.
-The container runs as UID/GID 1000 to remain compatible with the existing
-Blue Onyx bind-mounted configuration and log directories.
+Set `BLUE_ONYX_OPENVINO_CACHE_DIR` to enable the compiled-model cache. The
+OpenVINO Docker image sets it to `/app/config/openvino-cache`.
+
+The example image is tagged `blue-onyx-openvino:0.8.0-openvino2`. Its Compose
+definition is stored in `deployment/docker-compose.yml`. The container runs as
+UID/GID 1000 for bind-mounted configuration and log directories.

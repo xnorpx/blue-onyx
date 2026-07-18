@@ -72,13 +72,13 @@ fn startup_worker_thread(
                         detector_config.object_detection_onnx_config.gpu_index as usize,
                     )
                 }
-                #[cfg(target_os = "linux")]
+                #[cfg(all(target_os = "linux", feature = "openvino"))]
                 {
                     ExecutionProvider::OpenVINO(
                         detector_config.object_detection_onnx_config.gpu_index as usize,
                     )
                 }
-                #[cfg(not(any(windows, target_os = "linux")))]
+                #[cfg(not(any(windows, all(target_os = "linux", feature = "openvino"))))]
                 {
                     ExecutionProvider::CPU
                 }

@@ -878,7 +878,7 @@ impl Metrics {
             ExecutionProvider::CPU => "CPU".to_string(),
             #[cfg(windows)]
             ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", feature = "openvino"))]
             ExecutionProvider::OpenVINO(index) => format!("OpenVINO(GPU {index})"),
         };
     }

@@ -7,19 +7,6 @@ RUN python -m pip install --no-cache-dir --target /opt/ort \
     cp -a /opt/ort/onnxruntime/capi/lib*.so* /opt/ort-libs/ && \
     ln -s libonnxruntime.so.1.22.0 /opt/ort-libs/libonnxruntime.so
 
-FROM debian:bookworm-slim AS model
-
-ARG MODEL_SHA256=3b338be21f271a2924051fc237086a03c49daecd7e0fb2a8e97411ea5a33c6dc
-ARG MODEL_URL=https://huggingface.co/xnorpx/blue-onyx-yolo5/resolve/main/IPcam-general.onnx
-ARG MODEL_METADATA_URL=https://huggingface.co/xnorpx/blue-onyx-yolo5/resolve/main/IPcam-general.yaml
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl && \
-    mkdir /model && \
-    curl --fail --location --retry 3 "$MODEL_URL" --output /model/IPcam-general.onnx && \
-    curl --fail --location --retry 3 "$MODEL_METADATA_URL" --output /model/IPcam-general.yaml && \
-    echo "$MODEL_SHA256  /model/IPcam-general.onnx" | sha256sum --check && \
-    rm -rf /var/lib/apt/lists/*
-
 FROM rust:bookworm AS builder
 
 RUN apt-get update && \
@@ -31,7 +18,7 @@ COPY . .
 COPY --from=onnxruntime /opt/ort-libs/libonnxruntime.so.1.22.0 \
     /opt/ort-libs/libonnxruntime.so
 ENV BLUE_ONYX_ORT_LIB_DIR=/opt/ort-libs
-RUN cargo build --locked --release --bin blue_onyx
+RUN cargo build --locked --release --bin blue_onyx --features openvino
 
 FROM openvino/ubuntu22_runtime:2025.4.1
 
@@ -41,7 +28,7 @@ LABEL org.opencontainers.image.description="Blue Onyx with Linux OpenVINO GPU in
 
 ENV LD_LIBRARY_PATH=/app/ort-libs
 ENV ORT_DYLIB_PATH=/app/ort-libs/libonnxruntime.so
-ENV TARGET_FOLDER=/models
+ENV BLUE_ONYX_OPENVINO_CACHE_DIR=/app/config/openvino-cache
 
 USER root
 RUN mkdir -p /app/config/openvino-cache && \
@@ -50,7 +37,6 @@ RUN mkdir -p /app/config/openvino-cache && \
 WORKDIR /app
 COPY --from=builder --chown=openvino:openvino /src/target/release/blue_onyx ./blue_onyx
 COPY --from=onnxruntime --chown=openvino:openvino /opt/ort-libs ./ort-libs
-COPY --from=model --chown=openvino:openvino /model/IPcam-general.* ./
 
 USER openvino
 EXPOSE 32168
