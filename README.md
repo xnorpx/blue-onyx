@@ -22,7 +22,7 @@ Current features:
 | CPU Inference                               | 🟢             | 🟢           | 🟢          |
 | Apple GPU / Neural Engine Inference         | ❌             | ❌           | 🟢          |
 | AMD GPU Inference                           | 🟢             | ❌           | ❌          |
-| Intel GPU Inference                         | 🟢             | ❌           | ❌          |
+| Intel GPU Inference                         | 🟢             | 🟢 OpenVINO  | ❌          |
 | Nvidia GPU Inference                        | 🟢             | ❌           | ❌          |
 | Coral TPU Inference                         | ❌             | ❌           | ❌          |
 
@@ -47,10 +47,70 @@ Verify it is working by going to http://127.0.0.1:32168/
 
 ## Docker container on Linux
 
+### CPU
+
 ```bash
 docker pull ghcr.io/xnorpx/blue_onyx:latest
 docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest
 ```
+
+### Intel GPU with OpenVINO
+
+The OpenVINO build accelerates inference on Intel integrated and discrete GPUs.
+It uses the ONNX Runtime OpenVINO execution provider with FP16 precision and a
+compiled-model cache. AMD and Nvidia GPU inference are not provided by this
+build.
+
+Requirements:
+
+- Linux x86_64 with a supported Intel GPU and working Intel graphics driver
+- The GPU render device available as `/dev/dri/renderD128`
+- Docker access to the render device
+
+Confirm that the render device exists:
+
+```bash
+ls -l /dev/dri/renderD128
+```
+
+Build the OpenVINO image from the `openvino-linux` branch:
+
+```bash
+git clone --branch openvino-linux https://github.com/slflowfoon/blue-onyx.git
+cd blue-onyx
+docker build -f Dockerfile.openvino -t blue-onyx-openvino:0.8.0-openvino2 .
+mkdir -p config logs
+sudo chown -R 1000:1000 config logs
+```
+
+Run it with the Intel render device passed through:
+
+```bash
+docker run -d \
+  --name blue-onyx \
+  --device /dev/dri/renderD128:/dev/dri/renderD128 \
+  -p 32168:32168 \
+  -v "$(pwd)/config:/app/config" \
+  -v "$(pwd)/logs:/app/logs" \
+  blue-onyx-openvino:0.8.0-openvino2 \
+  --model /app/IPcam-general.onnx \
+  --object-detection-model-type yolo5 \
+  --object-classes /app/IPcam-general.yaml
+```
+
+Alternatively, use the included Compose deployment:
+
+```bash
+docker compose -f deployment/docker-compose.yml up -d
+```
+
+Open `http://localhost:32168/stats` and confirm that **Execution Provider** is
+`OpenVINO(GPU 0)`. Use `--gpu-index N` to select another Intel GPU. Pass
+`--force-cpu` to use CPU inference instead.
+
+If the container cannot open the render device, grant the container user access
+through the host's `render` group or adjust the device permissions. See
+[OPENVINO.md](OPENVINO.md) for implementation and deployment details.
 
 ## macOS on Apple Silicon
 
