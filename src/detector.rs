@@ -999,9 +999,7 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
                 info!(cache_dir, "Enabling the OpenVINO compiled-model cache");
                 provider = provider.with_cache_dir(cache_dir);
             }
-            let provider = provider
-                .build()
-                .error_on_failure();
+            let provider = provider.build().error_on_failure();
             providers.push(provider);
             device_type = DeviceType::GPU;
             (1, 1)

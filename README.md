@@ -73,10 +73,10 @@ Confirm that the render device exists:
 ls -l /dev/dri/renderD128
 ```
 
-Build the OpenVINO image from the `openvino-linux` branch:
+Build the OpenVINO image from the repository:
 
 ```bash
-git clone --branch openvino-linux https://github.com/slflowfoon/blue-onyx.git
+git clone https://github.com/xnorpx/blue-onyx.git
 cd blue-onyx
 docker build -f Dockerfile.openvino -t blue-onyx-openvino:0.8.0-openvino2 .
 mkdir -p config logs

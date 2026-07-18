@@ -6,8 +6,8 @@ services:
     ports:
       - "32168:32168"
     volumes:
-      - ./config:/app/config
-      - ./logs:/app/logs
+      - ../config:/app/config
+      - ../logs:/app/logs
     environment:
       - RUST_LOG=info
     devices:

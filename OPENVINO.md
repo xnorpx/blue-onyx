@@ -1,6 +1,6 @@
 # Linux OpenVINO build
 
-This branch enables Blue Onyx GPU inference through the ONNX Runtime OpenVINO
+This build enables Blue Onyx GPU inference through the ONNX Runtime OpenVINO
 execution provider. It targets Intel GPU device `GPU.<gpu-index>`, uses FP16,
 and uses one latency-focused stream. OpenVINO support is opt-in through the
 `openvino` Cargo feature, so standard Linux builds retain CPU inference.
