@@ -110,7 +110,7 @@ fn startup_worker_thread(
             // The server now owns the sender and can communicate with the detector
         }
         Err(e) => {
-            error!(error = %e, "Startup worker thread: Detector initialization failed");
+            error!(error = ?e, "Startup worker thread: Detector initialization failed");
             let result = InitResult::Failed(e.to_string());
             if init_sender.send(result).is_err() {
                 error!("Startup worker thread: Failed to send failure result to server");
