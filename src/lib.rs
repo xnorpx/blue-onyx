@@ -114,7 +114,10 @@ pub fn log_available_gpus() {
         info!("DirectML is not available - only CPU inference will be supported");
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    info!("CoreML is available for hardware-accelerated inference");
+
+    #[cfg(all(not(windows), not(target_os = "macos")))]
     info!("GPU acceleration not available on this platform - only CPU inference will be supported");
 
     // Log available GPU devices

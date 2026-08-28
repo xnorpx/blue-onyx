@@ -9,7 +9,7 @@ homepage = "https://github.com/blue-onyx/blue-onyx"
 
 [dependencies]
 
-ab_glyph = { version = "0", default-features = false }
+ab_glyph = { version = "0", default-features = false, features = ["std"] }
 anyhow = { version = "1", default-features = false }
 askama = { version = "0.14", default-features = false, features = [
     "derive",
@@ -21,7 +21,7 @@ axum = { version = "0", default-features = false, features = [
     "multipart",
     "tokio",
 ] }
-base64 = { version = "0", default-features = false }
+base64 = { version = "0", default-features = false, features = ["std"] }
 bytes = { version = "1", default-features = false }
 clap = { version = "4", default-features = false, features = [
     "color",
@@ -38,14 +38,14 @@ fast_image_resize = { version = "5", default-features = false }
 futures = { version = "0", default-features = false }
 hf-hub = { version = "0", default-features = false, features = ["tokio"] }
 image = { version = "0", default-features = false }
-imageproc = { version = "0", default-features = false }
+imageproc = { version = "0", default-features = false, features = ["text"] }
 indicatif = { version = "0", default-features = false }
 jpeg-encoder = { version = "0", default-features = false, features = [
     "std",
     "simd",
 ] }
 mime = { version = "0", default-features = false }
-ndarray = { version = "0", default-features = false }
+ndarray = { version = "0.17", default-features = false }
 num_cpus = { version = "1", default-features = false }
 raw-cpuid = { version = "11", default-features = false }
 reqwest = { version = "0", default-features = false, features = [
@@ -67,15 +67,25 @@ uuid = { version = "1", default-features = false, features = ["v4"] }
 zune-core = { version = "0", default-features = false, features = ["std"] }
 zune-jpeg = { version = "0", default-features = false, features = ["std"] }
 
-[target.'cfg(unix)'.dependencies]
-ort = { version = "2.0.0-rc.10", default-features = false, features = [
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+ort = { version = "2.0.0-rc.13", default-features = false, features = [
+    "api-28",
+    "ndarray",
+    "load-dynamic",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+ort = { version = "2.0.0-rc.13", default-features = false, features = [
+    "api-28",
+    "coreml",
     "ndarray",
     "load-dynamic",
 ] }
 
 [target.'cfg(windows)'.dependencies]
 ansi_term = { version = "0", default-features = false }
-ort = { version = "2.0.0-rc.10", default-features = false, features = [
+ort = { version = "2.0.0-rc.13", default-features = false, features = [
+    "api-28",
     "ndarray",
     "load-dynamic",
     "directml",
