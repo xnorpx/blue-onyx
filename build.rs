@@ -112,10 +112,13 @@ fn main() {
 }
 
 fn cargo_output_dirs() -> (PathBuf, PathBuf) {
-    let out_dir =
-        PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR environment variable not set"))
-            .canonicalize()
-            .expect("Failed to canonicalize OUT_DIR");
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
+    if out_dir.contains("..") {
+        panic!("OUT_DIR must not contain parent-directory references");
+    }
+    let out_dir = PathBuf::from(out_dir)
+        .canonicalize()
+        .expect("Failed to canonicalize OUT_DIR");
 
     let package_dir = out_dir
         .parent()
@@ -236,7 +239,7 @@ fn check_and_download_directml(out_dir: &Path) {
 
     for file in directml_required_files(&directml_dir) {
         if !file.exists() {
-            build_error!("Required DirectML file missing: {:?}", file);
+            build_error!("Required DirectML file is missing");
             panic!("DirectML setup incomplete");
         }
     }
@@ -277,7 +280,7 @@ fn check_and_download_directml(out_dir: &Path) {
 
     for file in &copied_files {
         if !file.exists() {
-            build_error!("Failed to verify copied file: {:?}", file);
+            build_error!("Failed to verify copied DirectML file");
             panic!("DirectML file copy verification failed");
         }
     }
@@ -362,7 +365,7 @@ fn build_onnx(out_dir: &Path) {
     };
 
     if !build_script.exists() {
-        build_error!("Build script not found: {:?}", build_script);
+        build_error!("ONNX Runtime build script not found");
         panic!("ONNX Runtime build script missing");
     }
 
