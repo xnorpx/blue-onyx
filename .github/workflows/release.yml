@@ -98,7 +98,7 @@ jobs:
           os: ubuntu-latest
           rust: stable
         - build: macos-aarch64
-          os: macos-15
+          os: macos-latest
           rust: stable
 
     steps:
@@ -144,7 +144,7 @@ jobs:
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
           BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
-        elif [ "${{ matrix.os }}" = "macos-15" ]; then
+        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
           BIN="target/release/blue_onyx target/release/libonnxruntime.dylib target/release/test_blue_onyx target/release/blue_onyx_benchmark"
         else
           BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark"

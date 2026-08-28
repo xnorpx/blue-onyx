@@ -60,7 +60,7 @@ jobs:
           os: ubuntu-latest
           rust: stable
         - build: macos aarch64
-          os: macos-15
+          os: macos-latest
           rust: stable
 
     steps:
