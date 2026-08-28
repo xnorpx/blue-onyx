@@ -1,5 +1,6 @@
 use std::{
     env,
+    ffi::OsStr,
     fs::File,
     path::{Path, PathBuf},
     process::Command,
@@ -38,14 +39,14 @@ fn get_build_config() -> &'static str {
 
 fn main() {
     build_warning!("Starting build script for ONNX Runtime");
-    let target_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
+    let (out_dir, output_dir) = cargo_output_dirs();
 
-    check_and_download_onnx_source(&target_dir);
+    check_and_download_onnx_source(&out_dir);
     if cfg!(windows) {
-        check_and_download_directml(&target_dir);
+        check_and_download_directml(&out_dir);
     }
 
-    let build_dir = Path::new(&target_dir).join(ONNX_SOURCE.0).join("build");
+    let build_dir = out_dir.join(ONNX_SOURCE.0).join("build");
 
     let shared_lib_name = if cfg!(windows) {
         "onnxruntime.dll"
@@ -79,7 +80,7 @@ fn main() {
     }
 
     if !expected_binary.exists() {
-        build_onnx(&target_dir);
+        build_onnx(&out_dir);
     }
 
     if !expected_binary.exists() {
@@ -87,12 +88,8 @@ fn main() {
         panic!("Build failed: ONNX Runtime binary missing");
     }
 
-    let output_dir = Path::new(&target_dir)
-        .ancestors()
-        .nth(3)
-        .expect("Failed to determine output directory");
     if !output_dir.exists() {
-        std::fs::create_dir_all(output_dir).expect("Failed to create output directory");
+        std::fs::create_dir_all(&output_dir).expect("Failed to create output directory");
     }
 
     std::fs::copy(&expected_binary, output_dir.join(shared_lib_name))
@@ -100,7 +97,7 @@ fn main() {
 
     // On Windows, also copy DirectML.dll to the output directory if it does not exist
     if cfg!(windows) {
-        let directml_dll = Path::new(&target_dir)
+        let directml_dll = out_dir
             .join(DIRECTML_SOURCE.0)
             .join("bin/x64-win/DirectML.dll");
         let output_dll = output_dir.join("DirectML.dll");
@@ -114,10 +111,55 @@ fn main() {
     println!("cargo:rustc-env=ORT_DYLIB_PATH={shared_lib_name}");
 }
 
-fn check_and_download_onnx_source(target_dir: &str) {
-    let onnx_dir = Path::new(target_dir).join(ONNX_SOURCE.0);
-    let zip_path = Path::new(target_dir).join(format!("{}.zip", ONNX_SOURCE.0));
-    let extraction_dir = Path::new(target_dir).join(format!("{}.extracting", ONNX_SOURCE.0));
+fn cargo_output_dirs() -> (PathBuf, PathBuf) {
+    let out_dir =
+        PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR environment variable not set"))
+            .canonicalize()
+            .expect("Failed to canonicalize OUT_DIR");
+
+    let package_dir = out_dir
+        .parent()
+        .expect("OUT_DIR must have a package parent");
+    let build_dir = package_dir
+        .parent()
+        .expect("OUT_DIR package directory must have a build parent");
+    let target_root = out_dir
+        .ancestors()
+        .nth(4)
+        .expect("OUT_DIR must be inside Cargo's target directory");
+
+    let package_dir_is_valid =
+        package_dir
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_some_and(|name| {
+                name.strip_prefix("blue-onyx-").is_some_and(|hash| {
+                    !hash.is_empty() && hash.chars().all(|ch| ch.is_ascii_hexdigit())
+                })
+            });
+    if out_dir.file_name() != Some(OsStr::new("out"))
+        || build_dir.file_name() != Some(OsStr::new("build"))
+        || !package_dir_is_valid
+    {
+        panic!("OUT_DIR does not match Cargo's package build directory layout");
+    }
+
+    if !out_dir.starts_with(target_root) {
+        panic!("OUT_DIR escapes Cargo's target directory");
+    }
+
+    let output_dir = out_dir
+        .ancestors()
+        .nth(3)
+        .expect("Failed to determine Cargo profile output directory")
+        .to_path_buf();
+    (out_dir, output_dir)
+}
+
+fn check_and_download_onnx_source(out_dir: &Path) {
+    let onnx_dir = out_dir.join(ONNX_SOURCE.0);
+    let zip_path = out_dir.join(format!("{}.zip", ONNX_SOURCE.0));
+    let extraction_dir = out_dir.join(format!("{}.extracting", ONNX_SOURCE.0));
 
     let build_script = if cfg!(windows) {
         onnx_dir.join("build.bat")
@@ -171,11 +213,11 @@ if have_torch:
     }
 }
 
-fn check_and_download_directml(target_dir: &str) {
-    let directml_dir = Path::new(target_dir).join(DIRECTML_SOURCE.0);
-    let zip_path = Path::new(target_dir).join(format!("{}.zip", DIRECTML_SOURCE.0));
-    let extraction_dir = Path::new(target_dir).join(format!("{}.extracting", DIRECTML_SOURCE.0));
-    let directml_for_build_dir = Path::new(target_dir).join("directml");
+fn check_and_download_directml(out_dir: &Path) {
+    let directml_dir = out_dir.join(DIRECTML_SOURCE.0);
+    let zip_path = out_dir.join(format!("{}.zip", DIRECTML_SOURCE.0));
+    let extraction_dir = out_dir.join(format!("{}.extracting", DIRECTML_SOURCE.0));
+    let directml_for_build_dir = out_dir.join("directml");
     let required_files = directml_required_files(&directml_dir);
 
     if directml_dir.exists() && required_files.iter().any(|file| !file.exists()) {
@@ -311,8 +353,8 @@ fn extract_archive(name: &str, archive_path: &Path, extraction_dir: &Path) {
         .unwrap_or_else(|error| panic!("Failed to extract {name}: {error}"));
 }
 
-fn build_onnx(target_dir: &str) {
-    let onnx_dir = Path::new(target_dir).join(ONNX_SOURCE.0);
+fn build_onnx(out_dir: &Path) {
+    let onnx_dir = out_dir.join(ONNX_SOURCE.0);
     let build_script = if cfg!(windows) {
         onnx_dir.join("build.bat")
     } else {
@@ -353,7 +395,7 @@ fn build_onnx(target_dir: &str) {
             "--enable_msvc_static_runtime".to_string(),
             "--use_dml".to_string(),
             "--dml_path".to_string(),
-            target_dir.to_string() + "\\directml",
+            out_dir.join("directml").to_string_lossy().into_owned(),
         ]);
     } else if cfg!(target_os = "macos") {
         // Enable Core ML on macOS
