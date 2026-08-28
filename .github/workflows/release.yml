@@ -92,7 +92,7 @@ jobs:
       matrix:
         include:
         - build: win
-          os: windows-2022
+          os: windows-latest
           rust: stable
         - build: linux
           os: ubuntu-latest
@@ -118,10 +118,12 @@ jobs:
       run: python -m pip install flatbuffers numpy mypy pytest setuptools wheel onnx protobuf sympy psutil onnxscript
 
     - name: Build release
+      env:
+        ONNX_CMAKE_GENERATOR: ${{ runner.os == 'Windows' && 'Visual Studio 18 2026' || '' }}
       run: cargo build --release
     # Windows-specific: Install cargo-packager and NSIS for installer creation
     - name: Install cargo-packager and NSIS (Windows only)
-      if: matrix.os == 'windows-2022'
+      if: matrix.os == 'windows-latest'
       shell: bash
       run: |
         cargo install cargo-packager
@@ -131,7 +133,7 @@ jobs:
         echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
 
     - name: Create Windows installer (Windows only)
-      if: matrix.os == 'windows-2022'
+      if: matrix.os == 'windows-latest'
       shell: bash
       run: |
         # Build the NSIS installer
@@ -140,7 +142,7 @@ jobs:
     - name: Determine release binaries
       shell: bash
       run: |
-        if [ "${{ matrix.os }}" = "windows-2022" ]; then
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
           BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
         elif [ "${{ matrix.os }}" = "macos-15" ]; then
           BIN="target/release/blue_onyx target/release/libonnxruntime.dylib target/release/test_blue_onyx target/release/blue_onyx_benchmark"
@@ -162,7 +164,7 @@ jobs:
         cp $BIN "$ARCHIVE"/
     - name: Build archive (Windows)
       shell: bash
-      if: matrix.os == 'windows-2022'
+      if: matrix.os == 'windows-latest'
       run: |
         7z a "$ARCHIVE.zip" "$ARCHIVE"
         certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
@@ -176,7 +178,7 @@ jobs:
 
     - name: Build archive (Unix)
       shell: bash
-      if: matrix.os != 'windows-2022'
+      if: matrix.os != 'windows-latest'
       run: |
         tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
         shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
@@ -191,7 +193,7 @@ jobs:
         gh release upload "$version" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
 
     - name: Upload Windows installer (Windows only)
-      if: matrix.os == 'windows-2022'
+      if: matrix.os == 'windows-latest'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash

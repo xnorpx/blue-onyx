@@ -342,6 +342,12 @@ fn build_onnx(target_dir: &str) {
     ];
 
     if cfg!(windows) {
+        if let Ok(cmake_generator) = env::var("ONNX_CMAKE_GENERATOR")
+            && !cmake_generator.is_empty()
+        {
+            build_commands.extend(["--cmake_generator".to_string(), cmake_generator]);
+        }
+
         // Enable DirectML on Windows
         build_commands.extend([
             "--enable_msvc_static_runtime".to_string(),
