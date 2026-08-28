@@ -12,7 +12,9 @@ use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
 #[cfg(windows)]
-use ort::execution_providers::DirectMLExecutionProvider;
+use ort::ep::DirectML;
+#[cfg(target_os = "macos")]
+use ort::ep::{CoreML, coreml::ModelFormat};
 use ort::{
     inputs,
     session::{Session, SessionInputs, SessionOutputs},
@@ -520,22 +522,24 @@ fn calculate_iou(a: &Prediction, b: &Prediction) -> f32 {
 }
 
 fn query_image_input_size(session: &Session) -> anyhow::Result<(usize, usize)> {
-    let inputs = &session.inputs;
+    let inputs = session.inputs();
 
     info!("Model inputs:");
     for (i, input) in inputs.iter().enumerate() {
         info!(
             "  Input {}: name='{}', type={:?}",
-            i, input.name, input.input_type
+            i,
+            input.name(),
+            input.dtype()
         );
     }
 
     // Try to extract dimensions from the input type information
     for input in inputs.iter() {
         // Look for image input (typically named "input" or "images")
-        if input.name == "input" || input.name == "images" {
+        if input.name() == "input" || input.name() == "images" {
             // Parse the input type string to extract dimensions
-            let type_str = format!("{:?}", input.input_type);
+            let type_str = format!("{:?}", input.dtype());
 
             // Look for shape pattern like "shape: [1, 3, 384, 384]"
             if let Some(shape_start) = type_str.find("shape: [") {
@@ -551,7 +555,9 @@ fn query_image_input_size(session: &Session) -> anyhow::Result<(usize, usize)> {
                     {
                         info!(
                             "Extracted input size from model '{}': {}x{}",
-                            input.name, width, height
+                            input.name(),
+                            width,
+                            height
                         );
                         return Ok((width, height));
                     }
@@ -559,10 +565,10 @@ fn query_image_input_size(session: &Session) -> anyhow::Result<(usize, usize)> {
             }
 
             // Fallback: use heuristic based on input name
-            if input.name == "input" {
+            if input.name() == "input" {
                 info!("Could not parse dimensions, using RF-DETR default: 384x384");
                 return Ok((384, 384));
-            } else if input.name == "images" {
+            } else if input.name() == "images" {
                 info!("Could not parse dimensions, using RT-DETR/YOLO default: 640x640");
                 return Ok((640, 640));
             }
@@ -742,7 +748,14 @@ impl Detector {
             );
         }
 
-        for (index, chunk) in self.resized_image.pixels.chunks_exact(3).enumerate() {
+        for (index, chunk) in self
+            .resized_image
+            .pixels
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .enumerate()
+        {
             let y = index / self.input_width;
             let x = index % self.input_width;
 
@@ -930,7 +943,7 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             );
 
             // Try to initialize DirectML provider, but handle any errors
-            let provider = DirectMLExecutionProvider::default()
+            let provider = DirectML::default()
                 .with_device_id(onnx_config.gpu_index)
                 .build();
             providers.push(provider);
@@ -959,7 +972,20 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             (num_intra_threads, num_inter_threads)
         }
 
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        {
+            info!("CoreML available, using Apple hardware acceleration for inference");
+            providers.push(
+                CoreML::default()
+                    .with_model_format(ModelFormat::MLProgram)
+                    .with_static_input_shapes(true)
+                    .build(),
+            );
+            device_type = DeviceType::GPU;
+            (1, 1)
+        }
+
+        #[cfg(all(not(windows), not(target_os = "macos")))]
         {
             let num_intra_threads = onnx_config
                 .intra_threads
@@ -1002,9 +1028,12 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     // Note: When providers list is empty (which is the case when force_cpu=true),
     // ONNX Runtime will default to CPU execution provider
     let session = Session::builder()?
-        .with_execution_providers(providers)?
-        .with_intra_threads(num_intra_threads)?
-        .with_inter_threads(num_inter_threads)?
+        .with_execution_providers(providers)
+        .map_err(ort::Error::<()>::from)?
+        .with_intra_threads(num_intra_threads)
+        .map_err(ort::Error::<()>::from)?
+        .with_inter_threads(num_inter_threads)
+        .map_err(ort::Error::<()>::from)?
         .commit_from_memory(model_bytes.as_slice())?;
 
     // Query the input size from the model
@@ -1018,6 +1047,8 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
     let endpoint_provider = match device_type {
         #[cfg(windows)]
         DeviceType::GPU => EndpointProvider::DirectML,
+        #[cfg(target_os = "macos")]
+        DeviceType::GPU => EndpointProvider::CoreML,
         _ => EndpointProvider::CPU,
     };
     Ok((
@@ -1035,6 +1066,8 @@ pub enum EndpointProvider {
     CPU,
     #[cfg(windows)]
     DirectML,
+    #[cfg(target_os = "macos")]
+    CoreML,
 }
 
 impl std::fmt::Display for EndpointProvider {
@@ -1043,6 +1076,8 @@ impl std::fmt::Display for EndpointProvider {
             EndpointProvider::CPU => write!(f, "CPU"),
             #[cfg(windows)]
             EndpointProvider::DirectML => write!(f, "DirectML"),
+            #[cfg(target_os = "macos")]
+            EndpointProvider::CoreML => write!(f, "CoreML"),
         }
     }
 }
