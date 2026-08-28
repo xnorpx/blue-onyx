@@ -42,13 +42,13 @@ jobs:
       matrix:
         include:
         - build: win beta
-          os: windows-latest
+          os: windows-2022
           rust: beta
         - build: win nightly
-          os: windows-latest
+          os: windows-2022
           rust: nightly
         - build: win
-          os: windows-latest
+          os: windows-2022
           rust: stable
         - build: linux beta
           os: ubuntu-latest
@@ -58,6 +58,9 @@ jobs:
           rust: nightly
         - build: linux
           os: ubuntu-latest
+          rust: stable
+        - build: macos aarch64
+          os: macos-15
           rust: stable
 
     steps:
@@ -124,7 +127,7 @@ jobs:
 
   installer:
     name: windows-installer
-    runs-on: windows-latest
+    runs-on: windows-2022
     # Always run the installer job (build installer on all runs)
     steps:
     - name: Checkout repository

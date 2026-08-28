@@ -208,6 +208,7 @@ fn main() -> anyhow::Result<()> {
 #[derive(Debug, Clone)]
 pub enum Platform {
     Linux,
+    MacOS,
     Windows,
 }
 
@@ -215,6 +216,7 @@ impl std::fmt::Display for Platform {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Platform::Linux => write!(f, "Linux  "),
+            Platform::MacOS => write!(f, "macOS  "),
             Platform::Windows => write!(f, "Windows"),
         }
     }
@@ -225,6 +227,8 @@ impl Default for Platform {
             Platform::Windows
         } else if cfg!(target_os = "linux") {
             Platform::Linux
+        } else if cfg!(target_os = "macos") {
+            Platform::MacOS
         } else {
             panic!("Unsupported platform");
         }

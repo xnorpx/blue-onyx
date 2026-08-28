@@ -13,17 +13,18 @@ Supports Blue Iris and Agent DVR.
 
 Current features:
 
-| Feature                                     | Windows x86_64 | Linux x86_64 |
-|---------------------------------------------|:--------------:|:------------:|
-| RT-DETR-V2 ONNX Models                      | 🟢             | 🟢          |
-| Yolo 5 ONNX Models (including custom)       | 🟢             | 🟢          |
-| Run as a service                            | 🟢             | ❌          |
-| Docker image                                | ❌             | 🟢          |
-| CPU Inference                               | 🟢             | 🟢          |
-| AMD GPU Inference                           | 🟢             | ❌          |
-| Intel GPU Inference                         | 🟢             | ❌          |
-| Nvidia GPU Inference                        | 🟢             | ❌          |
-| Coral TPU Inference                         | ❌             | ❌          |
+| Feature                                     | Windows x86_64 | Linux x86_64 | macOS arm64 |
+|---------------------------------------------|:--------------:|:------------:|:-----------:|
+| RT-DETR-V2 ONNX Models                      | 🟢             | 🟢           | 🟢          |
+| Yolo 5 ONNX Models (including custom)       | 🟢             | 🟢           | 🟢          |
+| Run as a service                            | 🟢             | ❌           | ❌          |
+| Docker image                                | ❌             | 🟢           | ❌          |
+| CPU Inference                               | 🟢             | 🟢           | 🟢          |
+| Apple GPU / Neural Engine Inference         | ❌             | ❌           | 🟢          |
+| AMD GPU Inference                           | 🟢             | ❌           | ❌          |
+| Intel GPU Inference                         | 🟢             | ❌           | ❌          |
+| Nvidia GPU Inference                        | 🟢             | ❌           | ❌          |
+| Coral TPU Inference                         | ❌             | ❌           | ❌          |
 
 
 ## Install on Windows with THE one mighty oneliner
@@ -50,6 +51,10 @@ Verify it is working by going to http://127.0.0.1:32168/
 docker pull ghcr.io/xnorpx/blue_onyx:latest
 docker run -d -p 32168:32168 ghcr.io/xnorpx/blue_onyx:latest
 ```
+
+## macOS on Apple Silicon
+
+Download the `macos-aarch64` archive from the [latest release](https://github.com/xnorpx/blue-onyx/releases/latest), extract it, and run `blue_onyx`. CoreML hardware acceleration is enabled by default; pass `--force-cpu` to use only the CPU.
 
 ## I don't trust scripts I want to install myself
 

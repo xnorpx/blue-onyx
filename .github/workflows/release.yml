@@ -60,8 +60,10 @@ jobs:
             "windows_sha256": "blue_onyx-${{ env.VERSION }}-win.zip.sha256",
             "windows_installer": "blue_onyx-${{ env.VERSION }}-installer.exe",
             "windows_installer_sha256": "blue_onyx-${{ env.VERSION }}-installer.exe.sha256",
-            "linux": "blue_onyx-${{ env.VERSION }}-linux.zip",
-            "linux_sha256": "blue_onyx-${{ env.VERSION }}-linux.zip.sha256"
+            "linux": "blue_onyx-${{ env.VERSION }}-linux.tar.gz",
+            "linux_sha256": "blue_onyx-${{ env.VERSION }}-linux.tar.gz.sha256",
+            "macos_aarch64": "blue_onyx-${{ env.VERSION }}-macos-aarch64.tar.gz",
+            "macos_aarch64_sha256": "blue_onyx-${{ env.VERSION }}-macos-aarch64.tar.gz.sha256"
           }
           EOF
       - name: Upload version.json
@@ -90,10 +92,13 @@ jobs:
       matrix:
         include:
         - build: win
-          os: windows-latest
+          os: windows-2022
           rust: stable
         - build: linux
           os: ubuntu-latest
+          rust: stable
+        - build: macos-aarch64
+          os: macos-15
           rust: stable
 
     steps:
@@ -116,7 +121,7 @@ jobs:
       run: cargo build --release
     # Windows-specific: Install cargo-packager and NSIS for installer creation
     - name: Install cargo-packager and NSIS (Windows only)
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       shell: bash
       run: |
         cargo install cargo-packager
@@ -126,7 +131,7 @@ jobs:
         echo "C:/Program Files (x86)/NSIS" >> $GITHUB_PATH
 
     - name: Create Windows installer (Windows only)
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       shell: bash
       run: |
         # Build the NSIS installer
@@ -135,8 +140,10 @@ jobs:
     - name: Determine release binaries
       shell: bash
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+        if [ "${{ matrix.os }}" = "windows-2022" ]; then
           BIN="target/release/blue_onyx.exe target/release/onnxruntime.dll target/release/DirectML.dll target/release/test_blue_onyx.exe target/release/blue_onyx_benchmark.exe target/release/blue_onyx_service.exe"
+        elif [ "${{ matrix.os }}" = "macos-15" ]; then
+          BIN="target/release/blue_onyx target/release/libonnxruntime.dylib target/release/test_blue_onyx target/release/blue_onyx_benchmark"
         else
           BIN="target/release/blue_onyx target/release/libonnxruntime.so target/release/test_blue_onyx target/release/blue_onyx_benchmark"
         fi
@@ -155,7 +162,7 @@ jobs:
         cp $BIN "$ARCHIVE"/
     - name: Build archive (Windows)
       shell: bash
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       run: |
         7z a "$ARCHIVE.zip" "$ARCHIVE"
         certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
@@ -169,7 +176,7 @@ jobs:
 
     - name: Build archive (Unix)
       shell: bash
-      if: matrix.os != 'windows-latest'
+      if: matrix.os != 'windows-2022'
       run: |
         tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
         shasum -a 256 "$ARCHIVE.tar.gz" > "$ARCHIVE.tar.gz.sha256"
@@ -184,7 +191,7 @@ jobs:
         gh release upload "$version" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
 
     - name: Upload Windows installer (Windows only)
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash

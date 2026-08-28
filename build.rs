@@ -1,9 +1,14 @@
-use std::{env, fs::File, path::Path, process::Command};
+use std::{
+    env,
+    fs::File,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use zip::ZipArchive;
 
 const ONNX_SOURCE: (&str, &str) = (
-    "onnxruntime-1.22.0",
-    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.22.0.zip",
+    "onnxruntime-1.29.0",
+    "https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.29.0.zip",
 );
 
 const DIRECTML_SOURCE: (&str, &str) = (
@@ -51,7 +56,13 @@ fn main() {
     };
 
     let expected_binary = build_dir
-        .join(if cfg!(windows) { "Windows" } else { "Linux" })
+        .join(if cfg!(windows) {
+            "Windows"
+        } else if cfg!(target_os = "macos") {
+            "MacOS"
+        } else {
+            "Linux"
+        })
         .join(get_build_config())
         .join(if cfg!(windows) {
             get_build_config()
@@ -100,92 +111,88 @@ fn main() {
         }
     }
 
-    println!(
-        "cargo:rustc-env=ORT_LIB_LOCATION={:?}",
-        expected_binary.parent().unwrap()
-    );
+    println!("cargo:rustc-env=ORT_DYLIB_PATH={shared_lib_name}");
 }
 
 fn check_and_download_onnx_source(target_dir: &str) {
     let onnx_dir = Path::new(target_dir).join(ONNX_SOURCE.0);
-    let zip_path = Path::new(target_dir).join("onnxruntime.zip");
+    let zip_path = Path::new(target_dir).join(format!("{}.zip", ONNX_SOURCE.0));
+    let extraction_dir = Path::new(target_dir).join(format!("{}.extracting", ONNX_SOURCE.0));
+
+    let build_script = if cfg!(windows) {
+        onnx_dir.join("build.bat")
+    } else {
+        onnx_dir.join("build.sh")
+    };
+    if onnx_dir.exists()
+        && (!build_script.exists() || !onnx_dir.join("tools/ci_build/build.py").exists())
+    {
+        build_warning!("ONNX Runtime source is incomplete, removing it");
+        std::fs::remove_dir_all(&onnx_dir).expect("Failed to remove incomplete ONNX source");
+    }
 
     if !onnx_dir.exists() {
-        if !zip_path.exists() {
-            build_warning!("Downloading ONNX Runtime source");
-            let mut response = reqwest::blocking::get(ONNX_SOURCE.1)
-                .expect("Failed to download ONNX Runtime source");
-            let mut file = File::create(&zip_path).expect("Failed to create ONNX Runtime zip file");
-            response
-                .copy_to(&mut file)
-                .expect("Failed to write ONNX Runtime zip file");
-        }
-
+        ensure_archive("ONNX Runtime source", ONNX_SOURCE.1, &zip_path);
         build_warning!("Extracting ONNX Runtime source");
-        let zip_file = File::open(&zip_path).expect("Failed to open ONNX Runtime zip file");
-        let mut archive =
-            ZipArchive::new(zip_file).expect("Failed to read ONNX Runtime zip archive");
-        archive
-            .extract(target_dir)
-            .expect("Failed to extract ONNX Runtime source");
-
-        // Apply patch to fix Eigen dependency GitLab issues
-        apply_eigen_patch(&onnx_dir);
+        extract_archive("ONNX Runtime source", &zip_path, &extraction_dir);
+        std::fs::rename(extraction_dir.join(ONNX_SOURCE.0), &onnx_dir)
+            .expect("Failed to move extracted ONNX Runtime source into place");
+        std::fs::remove_dir_all(&extraction_dir)
+            .expect("Failed to remove ONNX Runtime extraction directory");
     }
+
+    disable_unused_pytorch_probe(&onnx_dir);
 }
 
-// TODO: Remove this patch when upgrading from ONNX Runtime 1.22.0
-// This patch is only needed for version 1.22.0 to fix GitLab Eigen dependency issues
-fn apply_eigen_patch(onnx_dir: &Path) {
-    build_warning!("Applying Eigen dependency patch to fix GitLab issues (ONNX 1.22.0 only)");
+fn disable_unused_pytorch_probe(onnx_dir: &Path) {
+    const PYTORCH_PROBE: &str = r#"have_torch = importlib.util.find_spec("torch")
+if have_torch:
+    from .pytorch_export_helpers import infer_input_info  # noqa: F401"#;
 
-    let deps_file = onnx_dir.join("cmake").join("deps.txt");
-    let content = std::fs::read_to_string(&deps_file).expect("Failed to read cmake/deps.txt");
+    for relative_path in [
+        "tools/python/util/__init__.py",
+        "tools/python/util/__init__append.py",
+    ] {
+        let file_path = onnx_dir.join(relative_path);
+        let contents = std::fs::read_to_string(&file_path)
+            .unwrap_or_else(|error| panic!("Failed to read {}: {error}", file_path.display()));
 
-    // Apply the patch: replace GitLab Eigen URL with GitHub mirror
-    // This is specific to ONNX Runtime 1.22.0 and should be removed when upgrading
-    let old_eigen_line = "eigen;https://gitlab.com/libeigen/eigen/-/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip;5ea4d05e62d7f954a46b3213f9b2535bdd866803";
-    let new_eigen_line = "eigen;https://github.com/eigen-mirror/eigen/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip;05b19b49e6fbb91246be711d801160528c135e34";
-
-    let patched_content = content.replace(old_eigen_line, new_eigen_line);
-
-    std::fs::write(&deps_file, patched_content).expect("Failed to write patched cmake/deps.txt");
-
-    build_warning!("Successfully applied Eigen dependency patch");
+        if contents.contains(PYTORCH_PROBE) {
+            std::fs::write(
+                &file_path,
+                contents.replace(PYTORCH_PROBE, "have_torch = None"),
+            )
+            .unwrap_or_else(|error| panic!("Failed to patch {}: {error}", file_path.display()));
+        } else if !contents.contains("have_torch = None") {
+            panic!(
+                "ONNX Runtime's PyTorch probe changed; refusing to run an environment-dependent build"
+            );
+        }
+    }
 }
 
 fn check_and_download_directml(target_dir: &str) {
     let directml_dir = Path::new(target_dir).join(DIRECTML_SOURCE.0);
-    let zip_path = Path::new(target_dir).join("directml.zip");
+    let zip_path = Path::new(target_dir).join(format!("{}.zip", DIRECTML_SOURCE.0));
+    let extraction_dir = Path::new(target_dir).join(format!("{}.extracting", DIRECTML_SOURCE.0));
     let directml_for_build_dir = Path::new(target_dir).join("directml");
+    let required_files = directml_required_files(&directml_dir);
 
-    if !directml_dir.exists() {
-        if !zip_path.exists() {
-            build_warning!("Downloading DirectML");
-            let mut response =
-                reqwest::blocking::get(DIRECTML_SOURCE.1).expect("Failed to download DirectML");
-            let mut file = File::create(&zip_path).expect("Failed to create DirectML zip file");
-            response
-                .copy_to(&mut file)
-                .expect("Failed to write DirectML zip file");
-        }
-
-        build_warning!("Extracting DirectML");
-        let zip_file = File::open(&zip_path).expect("Failed to open DirectML zip file");
-        let mut archive = ZipArchive::new(zip_file).expect("Failed to read DirectML zip archive");
-        archive
-            .extract(&directml_dir)
-            .expect("Failed to extract DirectML");
+    if directml_dir.exists() && required_files.iter().any(|file| !file.exists()) {
+        build_warning!("DirectML source is incomplete, removing it");
+        std::fs::remove_dir_all(&directml_dir)
+            .expect("Failed to remove incomplete DirectML source");
     }
 
-    let required_files = [
-        directml_dir.join("bin/x64-win/DirectML.lib"),
-        directml_dir.join("bin/x64-win/DirectML.dll"),
-        directml_dir.join("include/DirectML.h"),
-        directml_dir.join("include/DirectMLConfig.h"),
-    ];
+    if !directml_dir.exists() {
+        ensure_archive("DirectML", DIRECTML_SOURCE.1, &zip_path);
+        build_warning!("Extracting DirectML");
+        extract_archive("DirectML", &zip_path, &extraction_dir);
+        std::fs::rename(&extraction_dir, &directml_dir)
+            .expect("Failed to move extracted DirectML source into place");
+    }
 
-    for file in &required_files {
+    for file in directml_required_files(&directml_dir) {
         if !file.exists() {
             build_error!("Required DirectML file missing: {:?}", file);
             panic!("DirectML setup incomplete");
@@ -236,6 +243,74 @@ fn check_and_download_directml(target_dir: &str) {
     build_warning!("DirectML files copied and verified successfully");
 }
 
+fn directml_required_files(directml_dir: &Path) -> [PathBuf; 4] {
+    [
+        directml_dir.join("bin/x64-win/DirectML.lib"),
+        directml_dir.join("bin/x64-win/DirectML.dll"),
+        directml_dir.join("include/DirectML.h"),
+        directml_dir.join("include/DirectMLConfig.h"),
+    ]
+}
+
+fn ensure_archive(name: &str, url: &str, archive_path: &Path) {
+    if archive_path.exists() && !archive_is_valid(archive_path) {
+        build_warning!("Cached {} archive is invalid, downloading it again", name);
+        std::fs::remove_file(archive_path).expect("Failed to remove invalid cached archive");
+    }
+
+    if archive_path.exists() {
+        return;
+    }
+
+    build_warning!("Downloading {}", name);
+    let partial_path = archive_path.with_extension("part");
+    if partial_path.exists() {
+        std::fs::remove_file(&partial_path).expect("Failed to remove partial archive");
+    }
+
+    let mut response = reqwest::blocking::get(url)
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .unwrap_or_else(|error| panic!("Failed to download {name}: {error}"));
+    let mut file = File::create(&partial_path).expect("Failed to create partial archive");
+    response
+        .copy_to(&mut file)
+        .unwrap_or_else(|error| panic!("Failed to write {name} archive: {error}"));
+    file.sync_all().expect("Failed to sync downloaded archive");
+    drop(file);
+
+    if !archive_is_valid(&partial_path) {
+        std::fs::remove_file(&partial_path).expect("Failed to remove invalid downloaded archive");
+        panic!("Downloaded {name} archive is invalid");
+    }
+
+    std::fs::rename(partial_path, archive_path)
+        .expect("Failed to move downloaded archive into place");
+}
+
+fn archive_is_valid(archive_path: &Path) -> bool {
+    File::open(archive_path)
+        .ok()
+        .and_then(|file| ZipArchive::new(file).ok())
+        .is_some()
+}
+
+fn extract_archive(name: &str, archive_path: &Path, extraction_dir: &Path) {
+    if extraction_dir.exists() {
+        std::fs::remove_dir_all(extraction_dir)
+            .unwrap_or_else(|error| panic!("Failed to clean {name} extraction directory: {error}"));
+    }
+    std::fs::create_dir_all(extraction_dir)
+        .unwrap_or_else(|error| panic!("Failed to create {name} extraction directory: {error}"));
+
+    let zip_file = File::open(archive_path)
+        .unwrap_or_else(|error| panic!("Failed to open {name} archive: {error}"));
+    let mut archive = ZipArchive::new(zip_file)
+        .unwrap_or_else(|error| panic!("Failed to read {name} archive: {error}"));
+    archive
+        .extract(extraction_dir)
+        .unwrap_or_else(|error| panic!("Failed to extract {name}: {error}"));
+}
+
 fn build_onnx(target_dir: &str) {
     let onnx_dir = Path::new(target_dir).join(ONNX_SOURCE.0);
     let build_script = if cfg!(windows) {
@@ -257,10 +332,13 @@ fn build_onnx(target_dir: &str) {
         num_cpus::get_physical().to_string(),
         "--compile_no_warning_as_error".to_string(),
         "--skip_tests".to_string(),
+        "--no_telemetry".to_string(),
         "--enable_lto".to_string(),
         "--disable_contrib_ops".to_string(),
         "--cmake_extra_defines".to_string(),
         "onnxruntime_BUILD_UNIT_TESTS=OFF".to_string(),
+        "CMAKE_POLICY_VERSION_MINIMUM=3.5".to_string(),
+        "FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER".to_string(),
     ];
 
     if cfg!(windows) {
