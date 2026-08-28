@@ -130,6 +130,7 @@ jobs:
   installer:
     name: windows-installer
     runs-on: windows-latest
+    timeout-minutes: 120
     # Always run the installer job (build installer on all runs)
     steps:
     - name: Checkout repository
