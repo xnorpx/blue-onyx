@@ -108,7 +108,7 @@ pub async fn run_server(
                 }
             }
             Ok(InitResult::Failed(error)) => {
-                error!(error = %error, "Detector initialization failed");
+                error!(error = ?error, "Detector initialization failed");
                 let mut detector_ready = state_clone.detector_ready.lock().await;
                 *detector_ready = DetectorReady::Failed(error);
             }
