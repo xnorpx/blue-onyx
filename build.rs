@@ -39,7 +39,15 @@ fn get_build_config() -> &'static str {
 
 fn main() {
     build_warning!("Starting build script for ONNX Runtime");
-    let (out_dir, output_dir) = cargo_output_dirs();
+    let Ok(out_dir) = env::var("OUT_DIR") else {
+        build_error!("OUT_DIR environment variable is not set");
+        return;
+    };
+    if out_dir.contains("..") {
+        build_error!("OUT_DIR contains a parent-directory reference");
+        return;
+    }
+    let (out_dir, output_dir) = cargo_output_dirs(&out_dir);
 
     check_and_download_onnx_source(&out_dir);
     if cfg!(windows) {
@@ -111,11 +119,7 @@ fn main() {
     println!("cargo:rustc-env=ORT_DYLIB_PATH={shared_lib_name}");
 }
 
-fn cargo_output_dirs() -> (PathBuf, PathBuf) {
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
-    if out_dir.contains("..") {
-        panic!("OUT_DIR must not contain parent-directory references");
-    }
+fn cargo_output_dirs(out_dir: &str) -> (PathBuf, PathBuf) {
     let out_dir = PathBuf::from(out_dir)
         .canonicalize()
         .expect("Failed to canonicalize OUT_DIR");
@@ -123,40 +127,58 @@ fn cargo_output_dirs() -> (PathBuf, PathBuf) {
     let package_dir = out_dir
         .parent()
         .expect("OUT_DIR must have a package parent");
-    let build_dir = package_dir
-        .parent()
-        .expect("OUT_DIR package directory must have a build parent");
-    let target_root = out_dir
-        .ancestors()
-        .nth(4)
-        .expect("OUT_DIR must be inside Cargo's target directory");
-
-    let package_dir_is_valid =
-        package_dir
-            .file_name()
-            .and_then(OsStr::to_str)
-            .is_some_and(|name| {
-                name.strip_prefix("blue-onyx-").is_some_and(|hash| {
-                    !hash.is_empty() && hash.chars().all(|ch| ch.is_ascii_hexdigit())
-                })
-            });
-    if out_dir.file_name() != Some(OsStr::new("out"))
-        || build_dir.file_name() != Some(OsStr::new("build"))
-        || !package_dir_is_valid
-    {
+    if out_dir.file_name() != Some(OsStr::new("out")) {
         panic!("OUT_DIR does not match Cargo's package build directory layout");
     }
 
+    let output_dir = if package_dir
+        .file_name()
+        .and_then(OsStr::to_str)
+        .and_then(|name| name.strip_prefix("blue-onyx-"))
+        .is_some_and(is_cargo_hash)
+    {
+        package_dir
+            .parent()
+            .filter(|build_dir| build_dir.file_name() == Some(OsStr::new("build")))
+            .and_then(Path::parent)
+    } else if package_dir
+        .file_name()
+        .and_then(OsStr::to_str)
+        .is_some_and(is_cargo_hash)
+    {
+        package_dir
+            .parent()
+            .filter(|crate_dir| crate_dir.file_name() == Some(OsStr::new("blue-onyx")))
+            .and_then(Path::parent)
+            .filter(|build_dir| build_dir.file_name() == Some(OsStr::new("build")))
+            .and_then(Path::parent)
+    } else {
+        None
+    }
+    .expect("OUT_DIR does not match a supported Cargo package build directory layout");
+
+    let target_root = output_dir
+        .parent()
+        .expect("Cargo profile output directory must have a target parent");
     if !out_dir.starts_with(target_root) {
         panic!("OUT_DIR escapes Cargo's target directory");
     }
 
-    let output_dir = out_dir
-        .ancestors()
-        .nth(3)
-        .expect("Failed to determine Cargo profile output directory")
-        .to_path_buf();
+    let output_dir = output_dir.to_path_buf();
     (out_dir, output_dir)
+}
+
+fn is_cargo_hash(value: &str) -> bool {
+    !value.is_empty() && value.chars().all(|ch| ch.is_ascii_hexdigit())
+}
+
+fn subprocess_path(path: &Path) -> String {
+    let path = path.to_string_lossy();
+    if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{path}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(&path).to_owned()
+    }
 }
 
 fn check_and_download_onnx_source(out_dir: &Path) {
@@ -398,7 +420,7 @@ fn build_onnx(out_dir: &Path) {
             "--enable_msvc_static_runtime".to_string(),
             "--use_dml".to_string(),
             "--dml_path".to_string(),
-            out_dir.join("directml").to_string_lossy().into_owned(),
+            subprocess_path(&out_dir.join("directml")),
         ]);
     } else if cfg!(target_os = "macos") {
         // Enable Core ML on macOS
