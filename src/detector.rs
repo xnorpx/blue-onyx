@@ -13,10 +13,10 @@ use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
 #[cfg(windows)]
 use ort::ep::DirectML;
-#[cfg(target_os = "macos")]
-use ort::ep::{CoreML, coreml::ModelFormat};
 #[cfg(all(target_os = "linux", feature = "openvino"))]
 use ort::ep::OpenVINO;
+#[cfg(target_os = "macos")]
+use ort::ep::{CoreML, coreml::ModelFormat};
 use ort::{
     inputs,
     session::{Session, SessionInputs, SessionOutputs},
