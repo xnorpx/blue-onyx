@@ -35,7 +35,7 @@ jobs:
     name: build-test-cpu
     env:
       RUST_BACKTRACE: 1
-      RUSTFLAGS: -C target-cpu=native -D warnings
+      RUSTFLAGS: ${{ matrix.os == 'macos-latest' && '-D warnings' || '-C target-cpu=native -D warnings' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
