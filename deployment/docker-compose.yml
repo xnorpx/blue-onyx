@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  blue-onyx:
+    image: blue-onyx-openvino:0.8.0-openvino2
+    container_name: blue-onyx
+    ports:
+      - "32168:32168"
+    volumes:
+      - ../config:/app/config
+      - ../logs:/app/logs
+    environment:
+      - RUST_LOG=info
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    command: >
+      --port 32168
+      --log-level info
+      --log-path /app/logs
+      --save-stats-path /app/logs
+      --request-timeout 30
+    restart: unless-stopped
+    healthcheck:
+      disable: true
