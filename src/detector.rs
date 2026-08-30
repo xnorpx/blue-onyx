@@ -1124,6 +1124,8 @@ pub enum ExecutionProvider {
     CPU,
     #[cfg(windows)]
     DirectML(usize), // GPU index
+    #[cfg(target_os = "macos")]
+    CoreML,
     #[cfg(all(target_os = "linux", feature = "openvino"))]
     OpenVINO(usize), // GPU index
 }

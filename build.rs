@@ -48,11 +48,18 @@ fn main() {
         return;
     }
     let (out_dir, output_dir) = cargo_output_dirs(&out_dir);
+    let shared_lib_name = if cfg!(windows) {
+        "onnxruntime.dll"
+    } else if cfg!(target_os = "macos") {
+        "libonnxruntime.dylib"
+    } else {
+        "libonnxruntime.so"
+    };
 
     println!("cargo:rerun-if-env-changed=BLUE_ONYX_ORT_LIB_DIR");
     if let Ok(prebuilt_dir) = env::var("BLUE_ONYX_ORT_LIB_DIR") {
         let prebuilt_dir = Path::new(&prebuilt_dir);
-        let library = prebuilt_dir.join("libonnxruntime.so");
+        let library = prebuilt_dir.join(shared_lib_name);
         if !library.is_file() {
             build_error!("Prebuilt ONNX Runtime library not found: {:?}", library);
             panic!("Prebuilt ONNX Runtime setup incomplete");
@@ -77,7 +84,7 @@ fn main() {
             std::fs::create_dir_all(&output_dir).expect("Failed to create output directory");
         }
         copy_onnxruntime_libraries(prebuilt_dir, &output_dir);
-        println!("cargo:rustc-env=ORT_DYLIB_PATH=libonnxruntime.so");
+        println!("cargo:rustc-env=ORT_DYLIB_PATH={shared_lib_name}");
         return;
     }
 
@@ -87,14 +94,6 @@ fn main() {
     }
 
     let build_dir = out_dir.join(ONNX_SOURCE.0).join("build");
-
-    let shared_lib_name = if cfg!(windows) {
-        "onnxruntime.dll"
-    } else if cfg!(target_os = "macos") {
-        "libonnxruntime.dylib"
-    } else {
-        "libonnxruntime.so"
-    };
 
     let expected_binary = build_dir
         .join(if cfg!(windows) {
