@@ -1,0 +1,51 @@
+# HELP blueonyx_version Version of the BlueOnyx application
+# TYPE blueonyx_version gauge
+blueonyx_version{version="{{ metrics.version }}"} 1
+# HELP blueonyx_uptime_seconds Uptime in seconds since application start
+# TYPE blueonyx_uptime_seconds gauge
+blueonyx_uptime_seconds {{ metrics.start_time.elapsed().as_secs() }}
+# HELP blueonyx_requests_total Total number of vision detection requests
+# TYPE blueonyx_requests_total counter
+blueonyx_requests_total {{ metrics.number_of_requests }}
+# HELP blueonyx_requests_dropped_total Total number of dropped requests
+# TYPE blueonyx_requests_dropped_total counter
+blueonyx_requests_dropped_total {{ metrics.dropped_requests }}
+# HELP blueonyx_inference_ms_total Total time spent on inference in milliseconds
+# TYPE blueonyx_inference_ms_total counter
+blueonyx_inference_ms_total {{ metrics.total_inference_ms }}
+# HELP blueonyx_inference_ms_min Minimum inference time in milliseconds
+# TYPE blueonyx_inference_ms_min gauge
+blueonyx_inference_ms_min {{ metrics.min_inference_ms }}
+# HELP blueonyx_inference_ms_max Maximum inference time in milliseconds
+# TYPE blueonyx_inference_ms_max gauge
+blueonyx_inference_ms_max {{ metrics.max_inference_ms }}
+# HELP blueonyx_inference_ms_avg Average inference time in milliseconds
+# TYPE blueonyx_inference_ms_avg gauge
+blueonyx_inference_ms_avg {{ metrics.avg_inference_ms() }}
+# HELP blueonyx_processing_ms_total Total time spent on processing in milliseconds
+# TYPE blueonyx_processing_ms_total counter
+blueonyx_processing_ms_total {{ metrics.total_processing_ms }}
+# HELP blueonyx_processing_ms_min Minimum processing time in milliseconds
+# TYPE blueonyx_processing_ms_min gauge
+blueonyx_processing_ms_min {{ metrics.min_processing_ms }}
+# HELP blueonyx_processing_ms_max Maximum processing time in milliseconds
+# TYPE blueonyx_processing_ms_max gauge
+blueonyx_processing_ms_max {{ metrics.max_processing_ms }}
+# HELP blueonyx_processing_ms_avg Average processing time in milliseconds
+# TYPE blueonyx_processing_ms_avg gauge
+blueonyx_processing_ms_avg {{ metrics.avg_processing_ms() }}
+# HELP blueonyx_analysis_round_trip_ms_total Total analysis round trip time in milliseconds
+# TYPE blueonyx_analysis_round_trip_ms_total counter
+blueonyx_analysis_round_trip_ms_total {{ metrics.total_analysis_round_trip_ms }}
+# HELP blueonyx_analysis_round_trip_ms_min Minimum analysis round trip time in milliseconds
+# TYPE blueonyx_analysis_round_trip_ms_min gauge
+blueonyx_analysis_round_trip_ms_min {{ metrics.min_analysis_round_trip_ms }}
+# HELP blueonyx_analysis_round_trip_ms_max Maximum analysis round trip time in milliseconds
+# TYPE blueonyx_analysis_round_trip_ms_max gauge
+blueonyx_analysis_round_trip_ms_max {{ metrics.max_analysis_round_trip_ms }}
+# HELP blueonyx_analysis_round_trip_ms_avg Average analysis round trip time in milliseconds
+# TYPE blueonyx_analysis_round_trip_ms_avg gauge
+blueonyx_analysis_round_trip_ms_avg {{ metrics.avg_analysis_round_trip_ms() }}
+# HELP blueonyx_model_info Model and execution provider information
+# TYPE blueonyx_model_info gauge
+blueonyx_model_info{model="{{ metrics.model_name }}",provider="{{ metrics.execution_provider_name }}"} 1
