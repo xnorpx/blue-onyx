@@ -7,6 +7,10 @@ authors = ["Blue Onyx Team"]
 license = "MIT"
 homepage = "https://github.com/blue-onyx/blue-onyx"
 
+[features]
+default = []
+openvino = ["ort/openvino"]
+
 [dependencies]
 
 ab_glyph = { version = "0", default-features = false, features = ["std"] }
@@ -36,7 +40,10 @@ chrono = { version = "0", default-features = false, features = ["now"] }
 crossbeam = { version = "0", default-features = false, features = ["std"] }
 fast_image_resize = { version = "5", default-features = false }
 futures = { version = "0", default-features = false }
-hf-hub = { version = "0", default-features = false, features = ["tokio"] }
+hf-hub = { version = "0", default-features = false, features = [
+    "rustls-tls",
+    "tokio",
+] }
 image = { version = "0", default-features = false }
 imageproc = { version = "0", default-features = false, features = ["text"] }
 indicatif = { version = "0", default-features = false }

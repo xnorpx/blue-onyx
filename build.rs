@@ -48,14 +48,6 @@ fn main() {
         return;
     }
     let (out_dir, output_dir) = cargo_output_dirs(&out_dir);
-
-    check_and_download_onnx_source(&out_dir);
-    if cfg!(windows) {
-        check_and_download_directml(&out_dir);
-    }
-
-    let build_dir = out_dir.join(ONNX_SOURCE.0).join("build");
-
     let shared_lib_name = if cfg!(windows) {
         "onnxruntime.dll"
     } else if cfg!(target_os = "macos") {
@@ -63,6 +55,45 @@ fn main() {
     } else {
         "libonnxruntime.so"
     };
+
+    println!("cargo:rerun-if-env-changed=BLUE_ONYX_ORT_LIB_DIR");
+    if let Ok(prebuilt_dir) = env::var("BLUE_ONYX_ORT_LIB_DIR") {
+        let prebuilt_dir = Path::new(&prebuilt_dir);
+        let library = prebuilt_dir.join(shared_lib_name);
+        if !library.is_file() {
+            build_error!("Prebuilt ONNX Runtime library not found: {:?}", library);
+            panic!("Prebuilt ONNX Runtime setup incomplete");
+        }
+        if cfg!(all(target_os = "linux", feature = "openvino")) {
+            for name in [
+                "libonnxruntime_providers_shared.so",
+                "libonnxruntime_providers_openvino.so",
+            ] {
+                if !prebuilt_dir.join(name).is_file() {
+                    build_error!("Prebuilt ONNX Runtime provider library not found: {name}");
+                    panic!("Prebuilt ONNX Runtime OpenVINO setup incomplete");
+                }
+            }
+        }
+
+        build_warning!(
+            "Using prebuilt ONNX Runtime from {}",
+            prebuilt_dir.display()
+        );
+        if !output_dir.exists() {
+            std::fs::create_dir_all(&output_dir).expect("Failed to create output directory");
+        }
+        copy_onnxruntime_libraries(prebuilt_dir, &output_dir);
+        println!("cargo:rustc-env=ORT_DYLIB_PATH={shared_lib_name}");
+        return;
+    }
+
+    check_and_download_onnx_source(&out_dir);
+    if cfg!(windows) {
+        check_and_download_directml(&out_dir);
+    }
+
+    let build_dir = out_dir.join(ONNX_SOURCE.0).join("build");
 
     let expected_binary = build_dir
         .join(if cfg!(windows) {
@@ -100,8 +131,12 @@ fn main() {
         std::fs::create_dir_all(&output_dir).expect("Failed to create output directory");
     }
 
-    std::fs::copy(&expected_binary, output_dir.join(shared_lib_name))
-        .expect("Failed to copy ONNX Runtime binary to output directory");
+    copy_onnxruntime_libraries(
+        expected_binary
+            .parent()
+            .expect("Expected ONNX Runtime binary must have a parent directory"),
+        &output_dir,
+    );
 
     // On Windows, also copy DirectML.dll to the output directory if it does not exist
     if cfg!(windows) {
@@ -117,6 +152,34 @@ fn main() {
     }
 
     println!("cargo:rustc-env=ORT_DYLIB_PATH={shared_lib_name}");
+}
+
+fn copy_onnxruntime_libraries(source_dir: &Path, output_dir: &Path) {
+    let mut copied = 0;
+    for entry in
+        std::fs::read_dir(source_dir).expect("Failed to read ONNX Runtime library directory")
+    {
+        let entry = entry.expect("Failed to read ONNX Runtime library entry");
+        let file_name = entry.file_name();
+        let Some(file_name_str) = file_name.to_str() else {
+            continue;
+        };
+        if !file_name_str.starts_with("libonnxruntime") && file_name_str != "onnxruntime.dll" {
+            continue;
+        }
+        let file_type = entry
+            .file_type()
+            .expect("Failed to inspect ONNX Runtime library entry");
+        if !file_type.is_file() && !file_type.is_symlink() {
+            continue;
+        }
+        std::fs::copy(entry.path(), output_dir.join(&file_name))
+            .expect("Failed to copy ONNX Runtime library to output directory");
+        copied += 1;
+    }
+    if copied == 0 {
+        panic!("No ONNX Runtime libraries were copied to the output directory");
+    }
 }
 
 fn cargo_output_dirs(out_dir: &str) -> (PathBuf, PathBuf) {
@@ -391,6 +454,10 @@ fn build_onnx(out_dir: &Path) {
         panic!("ONNX Runtime build script missing");
     }
 
+    if cfg!(all(target_os = "linux", feature = "openvino")) {
+        patch_openvino_1_29_headers(&onnx_dir);
+    }
+
     let mut build_commands = vec![
         "--config".to_string(),
         get_build_config().to_string(),
@@ -398,6 +465,7 @@ fn build_onnx(out_dir: &Path) {
         "--parallel".to_string(),
         num_cpus::get_physical().to_string(),
         "--compile_no_warning_as_error".to_string(),
+        "--skip_submodule_sync".to_string(),
         "--skip_tests".to_string(),
         "--no_telemetry".to_string(),
         "--enable_lto".to_string(),
@@ -425,6 +493,8 @@ fn build_onnx(out_dir: &Path) {
     } else if cfg!(target_os = "macos") {
         // Enable Core ML on macOS
         build_commands.push("--use_coreml".to_string());
+    } else if cfg!(all(target_os = "linux", feature = "openvino")) {
+        build_commands.extend(["--use_openvino".to_string(), "GPU".to_string()]);
     }
 
     build_warning!("Running ONNX Runtime build script");
@@ -439,5 +509,39 @@ fn build_onnx(out_dir: &Path) {
         panic!("ONNX Runtime build failed");
     } else {
         build_warning!("ONNX Runtime build completed successfully");
+    }
+}
+
+fn patch_openvino_1_29_headers(onnx_dir: &Path) {
+    // ONNX Runtime 1.29's OpenVINO provider omits two required standard-library
+    // headers. Keep this source-build path aligned with the compatibility patch
+    // in Dockerfile.openvino.
+    for (relative_path, header) in [
+        (
+            "onnxruntime/core/providers/openvino/backend_manager.cc",
+            "charconv",
+        ),
+        (
+            "onnxruntime/core/providers/openvino/exceptions.h",
+            "charconv",
+        ),
+        (
+            "onnxruntime/core/providers/openvino/ov_bin_manager.h",
+            "optional",
+        ),
+        (
+            "onnxruntime/core/providers/openvino/ov_shared_context.h",
+            "optional",
+        ),
+    ] {
+        let path = onnx_dir.join(relative_path);
+        let include = format!("#include <{header}>");
+        let source = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("Failed to read {}: {error}", path.display()));
+        if source.lines().any(|line| line.trim() == include) {
+            continue;
+        }
+        std::fs::write(&path, format!("{include}\n{source}"))
+            .unwrap_or_else(|error| panic!("Failed to patch {}: {error}", path.display()));
     }
 }

@@ -108,7 +108,7 @@ pub async fn run_server(
                 }
             }
             Ok(InitResult::Failed(error)) => {
-                error!(error = %error, "Detector initialization failed");
+                error!(error = ?error, "Detector initialization failed");
                 let mut detector_ready = state_clone.detector_ready.lock().await;
                 *detector_ready = DetectorReady::Failed(error);
             }
@@ -911,6 +911,10 @@ impl Metrics {
             ExecutionProvider::CPU => "CPU".to_string(),
             #[cfg(windows)]
             ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
+            #[cfg(target_os = "macos")]
+            ExecutionProvider::CoreML => "CoreML".to_string(),
+            #[cfg(all(target_os = "linux", feature = "openvino"))]
+            ExecutionProvider::OpenVINO(index) => format!("OpenVINO(GPU {index})"),
         };
     }
 }

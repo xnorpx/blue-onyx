@@ -13,6 +13,8 @@ use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
 #[cfg(windows)]
 use ort::ep::DirectML;
+#[cfg(all(target_os = "linux", feature = "openvino"))]
+use ort::ep::OpenVINO;
 #[cfg(target_os = "macos")]
 use ort::ep::{CoreML, coreml::ModelFormat};
 use ort::{
@@ -985,20 +987,33 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             (1, 1)
         }
 
-        #[cfg(all(not(windows), not(target_os = "macos")))]
+        #[cfg(all(target_os = "linux", feature = "openvino"))]
         {
-            let num_intra_threads = onnx_config
-                .intra_threads
-                .min(num_cpus::get_physical() - 1)
-                .min(16);
-            let num_inter_threads = onnx_config
-                .inter_threads
-                .min(num_cpus::get_physical() - 1)
-                .min(16);
-            warn!(
-                "GPU acceleration not available on this platform, using CPU for inference with {} intra and {} inter threads",
-                num_intra_threads, num_inter_threads
-            );
+            let device = format!("GPU.{}", onnx_config.gpu_index);
+            info!(device, "Configuring OpenVINO GPU execution provider");
+            let mut provider = OpenVINO::default()
+                .with_device_type(&device)
+                .with_precision("FP16")
+                .with_num_streams(1);
+            if let Ok(cache_dir) = std::env::var("BLUE_ONYX_OPENVINO_CACHE_DIR") {
+                info!(cache_dir, "Enabling the OpenVINO compiled-model cache");
+                provider = provider.with_cache_dir(cache_dir);
+            }
+            let provider = provider.build().error_on_failure();
+            providers.push(provider);
+            device_type = DeviceType::GPU;
+            (1, 1)
+        }
+
+        #[cfg(not(any(
+            windows,
+            target_os = "macos",
+            all(target_os = "linux", feature = "openvino")
+        )))]
+        {
+            let num_intra_threads = onnx_config.intra_threads.min(16);
+            let num_inter_threads = onnx_config.inter_threads.min(16);
+            warn!("GPU acceleration is unavailable; using the CPU execution provider");
             (num_intra_threads, num_inter_threads)
         }
     };
@@ -1049,6 +1064,8 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
         DeviceType::GPU => EndpointProvider::DirectML,
         #[cfg(target_os = "macos")]
         DeviceType::GPU => EndpointProvider::CoreML,
+        #[cfg(all(target_os = "linux", feature = "openvino"))]
+        DeviceType::GPU => EndpointProvider::OpenVINO,
         _ => EndpointProvider::CPU,
     };
     Ok((
@@ -1068,6 +1085,8 @@ pub enum EndpointProvider {
     DirectML,
     #[cfg(target_os = "macos")]
     CoreML,
+    #[cfg(all(target_os = "linux", feature = "openvino"))]
+    OpenVINO,
 }
 
 impl std::fmt::Display for EndpointProvider {
@@ -1078,6 +1097,8 @@ impl std::fmt::Display for EndpointProvider {
             EndpointProvider::DirectML => write!(f, "DirectML"),
             #[cfg(target_os = "macos")]
             EndpointProvider::CoreML => write!(f, "CoreML"),
+            #[cfg(all(target_os = "linux", feature = "openvino"))]
+            EndpointProvider::OpenVINO => write!(f, "OpenVINO"),
         }
     }
 }
@@ -1103,4 +1124,8 @@ pub enum ExecutionProvider {
     CPU,
     #[cfg(windows)]
     DirectML(usize), // GPU index
+    #[cfg(target_os = "macos")]
+    CoreML,
+    #[cfg(all(target_os = "linux", feature = "openvino"))]
+    OpenVINO(usize), // GPU index
 }

@@ -72,7 +72,21 @@ fn startup_worker_thread(
                         detector_config.object_detection_onnx_config.gpu_index as usize,
                     )
                 }
-                #[cfg(not(windows))]
+                #[cfg(target_os = "macos")]
+                {
+                    ExecutionProvider::CoreML
+                }
+                #[cfg(all(target_os = "linux", feature = "openvino"))]
+                {
+                    ExecutionProvider::OpenVINO(
+                        detector_config.object_detection_onnx_config.gpu_index as usize,
+                    )
+                }
+                #[cfg(not(any(
+                    windows,
+                    target_os = "macos",
+                    all(target_os = "linux", feature = "openvino")
+                )))]
                 {
                     ExecutionProvider::CPU
                 }
@@ -110,7 +124,7 @@ fn startup_worker_thread(
             // The server now owns the sender and can communicate with the detector
         }
         Err(e) => {
-            error!(error = %e, "Startup worker thread: Detector initialization failed");
+            error!(error = ?e, "Startup worker thread: Detector initialization failed");
             let result = InitResult::Failed(e.to_string());
             if init_sender.send(result).is_err() {
                 error!("Startup worker thread: Failed to send failure result to server");
