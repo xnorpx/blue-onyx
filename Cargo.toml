@@ -15,7 +15,7 @@ openvino = ["ort/openvino"]
 
 ab_glyph = { version = "0", default-features = false, features = ["std"] }
 anyhow = { version = "1", default-features = false }
-askama = { version = "0.14", default-features = false, features = [
+askama = { version = "0.16", default-features = false, features = [
     "derive",
     "std",
 ] }
