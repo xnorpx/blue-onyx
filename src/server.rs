@@ -129,6 +129,7 @@ pub async fn run_server(
         .route("/v1/vision/detection", post(v1_vision_detection))
         .route("/v1/vision/custom/list", post(v1_vision_custom_list))
         .route("/stats", get(stats_handler))
+        .route("/prometheus", get(prometheus_handler))
         .route("/test", get(show_form).post(handle_upload))
         .route("/config", get(config_get_handler).post(config_post_handler))
         .route("/config/restart", post(config_restart_handler))
@@ -342,6 +343,38 @@ async fn stats_handler(State(server_state): State<Arc<ServerState>>) -> impl Int
             [
                 (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
                 (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
+            ],
+            body,
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Template error: {e}"),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Template)]
+#[template(path = "prometheus.txt")]
+struct PrometheusTemplate {
+    metrics: Metrics,
+}
+
+async fn prometheus_handler(State(server_state): State<Arc<ServerState>>) -> impl IntoResponse {
+    let metrics = {
+        let metrics_guard = server_state.metrics.lock().await;
+        metrics_guard.clone()
+    };
+    let template = PrometheusTemplate { metrics };
+    match template.render() {
+        Ok(body) => (
+            [
+                (CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+                (
+                    axum::http::header::CONTENT_TYPE,
+                    "text/plain; charset=utf-8",
+                ),
             ],
             body,
         )
