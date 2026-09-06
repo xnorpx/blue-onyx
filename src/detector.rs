@@ -4,7 +4,7 @@ use crate::{
     api::Prediction,
     get_object_classes,
     image::{
-        Image, Resizer, create_od_image_name, decode_jpeg, // save_jpeg,
+        Image, Resizer, create_od_image_name, decode_jpeg,
         encode_maybe_draw_boundary_boxes_and_save_jpeg,
     },
 };
@@ -134,7 +134,7 @@ impl ObjectDetectionModel {
         params: &PostProcessParams,
     ) -> anyhow::Result<SmallVec<[Prediction; 10]>> {
         match self {
-            Self::RtDetrv2 => rt_detrv2_post_process(outputs,params),
+            Self::RtDetrv2 => rt_detrv2_post_process(outputs, params),
 
             Self::RfDetr => rf_detr_post_process(outputs, params),
 
@@ -210,21 +210,19 @@ fn rt_detrv2_post_process(
                 continue;
             }
 
-            let x_min = (((bbox[0] - pad_x) / scale).round() as usize).max(0);
+            let x_min = (((bbox[0] - pad_x) / scale).round() as usize);
 
-            let y_min = (((bbox[1] - pad_y) / scale).round() as usize).max(0);
+            let y_min = (((bbox[1] - pad_y) / scale).round() as usize);
 
-            let x_max = (((bbox[2] - pad_x) / scale).round() as usize)
-                .min(params.letterbox_transform.image_width);
+            let x_max = (((bbox[2] - pad_x) / scale).round() as usize).min(params.letterbox_transform.image_width);
 
-            let y_max = (((bbox[3] - pad_y) / scale).round() as usize)
-                .min(params.letterbox_transform.image_height);
+            let y_max = (((bbox[3] - pad_y) / scale).round() as usize).min(params.letterbox_transform.image_height);
 
             let prediction = Prediction {
-                x_min: x_min,
-                y_min: y_min,
-                x_max: x_max,
-                y_max: y_max,
+                x_min,
+                y_min,
+                x_max,
+                y_max,
                 confidence: scores[i],
                 label: params.object_classes[labels[i] as usize].clone(),
             };
@@ -357,7 +355,10 @@ fn rf_detr_post_process(
         );
         debug!(
             "  Model input: {}x{}, Original image: {:.0}x{:.0}",
-            params.input_width, params.input_height, params.letterbox_transform.image_width, params.letterbox_transform.image_height
+            params.input_width, 
+            params.input_height, 
+            params.letterbox_transform.image_width, 
+            params.letterbox_transform.image_height
         );
         debug!(
             "  Scaled bbox: center=({:.2}, {:.2}), size=({:.2}, {:.2})",
@@ -718,19 +719,13 @@ impl Detector {
         )?;
         let resize_image_start_time = Instant::now();
 
-        let letterbox_transform = self.resizer
+        let letterbox_transform = self
+            .resizer
             .resize_image(&mut self.decoded_image, &mut self.resized_image)?;
 
         let resize_image_time = resize_image_start_time.elapsed();
 
         debug!("Resize image time: {:#?}", resize_image_time);
-
-        // test, save the resized image being fed into the model for debugging purposes
-        // let path = "D:\\model_input.jpg".to_string();
-        // save_jpeg(
-        //     &self.resized_image,
-        //     &path,
-        // )?;
 
         // Ensure resized image dimensions match input tensor dimensions
         if self.resized_image.width != self.input_width

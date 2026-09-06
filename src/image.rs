@@ -78,22 +78,6 @@ pub fn load_image(jpeg_file: &Path) -> anyhow::Result<Bytes> {
     Ok(Bytes::from(std::fs::read(jpeg_file)?))
 }
 
-// pub fn save_jpeg(
-//     image: &Image,
-//     jpeg_file: &String,
-// ) -> anyhow::Result<()> {
-// 
-//     let encoder = Encoder::new_file(jpeg_file, 98)?;
-//     encoder.encode(
-//         &image.pixels.as_slice(),
-//         image.width as u16,
-//         image.height as u16,
-//         ColorType::Rgb,
-//     )?;
-//     info!(?jpeg_file, "Image saved");
-//     Ok(())
-// }
-
 pub fn encode_maybe_draw_boundary_boxes_and_save_jpeg(
     image: &Image,
     jpeg_file: &String,
@@ -269,10 +253,17 @@ pub struct LetterboxTransform {
 
 impl std::fmt::Display for LetterboxTransform {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LetterboxTransform { scale, pad_x, pad_y, image_width, image_height } => 
-                write!(f, "LetterboxTransform {{ scale: {}, pad_x: {}, pad_y: {}, image_width: {}, image_height: {} }}", scale, pad_x, pad_y, image_width, image_height),
-        }
+        let LetterboxTransform {
+            scale,
+            pad_x,
+            pad_y,
+            image_width,
+            image_height,
+        } = self;
+        write!(
+            f,
+            "LetterboxTransform {{ scale: {scale}, pad_x: {pad_x}, pad_y: {pad_y}, image_width: {image_width}, image_height: {image_height} }}"
+        )
     }
 }
 
@@ -308,8 +299,7 @@ impl Resizer {
         // ---------------------------------------------
         // CASE 1: no resize needed, just copy original image to output buffer
         // ---------------------------------------------
-        if original_image.width == self.target_width
-            && original_image.height == self.target_height
+        if original_image.width == self.target_width && original_image.height == self.target_height
         {
             debug!("Image already matches target size, skipping resize and padding");
 
@@ -317,9 +307,7 @@ impl Resizer {
             resized_image.height = original_image.height;
 
             resized_image.resize(original_image.pixels.len());
-            resized_image
-                .pixels
-                .copy_from_slice(&original_image.pixels);
+            resized_image.pixels.copy_from_slice(&original_image.pixels);
 
             return Ok(LetterboxTransform {
                 scale: 1.0,
@@ -340,13 +328,7 @@ impl Resizer {
 
         debug!(
             "Scaling image from {}x{} to {}x{}, padding x={}, y={}, scale={}",
-            original_image.width,
-            original_image.height,
-            resized_w,
-            resized_h,
-            pad_x,
-            pad_y,
-            scale
+            original_image.width, original_image.height, resized_w, resized_h, pad_x, pad_y, scale
         );
 
         let src_image = fast_image_resize::images::Image::from_slice_u8(
@@ -366,7 +348,11 @@ impl Resizer {
         // ---------------------------------------------
         // CASE 2: no padding -> direct resize
         // ---------------------------------------------
-        if pad_x == 0 && pad_y == 0 && resized_w == self.target_width && resized_h == self.target_height {
+        if pad_x == 0 
+            && pad_y == 0 
+            && resized_w == self.target_width 
+            && resized_h == self.target_height
+        {
             
             debug!("No padding required, resizing directly into output buffer");
 
