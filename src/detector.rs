@@ -1,5 +1,6 @@
 #[cfg(windows)]
 use crate::direct_ml_available;
+use crate::image::LetterboxTransform;
 use crate::{
     api::Prediction,
     get_object_classes,
@@ -8,7 +9,6 @@ use crate::{
         encode_maybe_draw_boundary_boxes_and_save_jpeg,
     },
 };
-use crate::image::LetterboxTransform;
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
@@ -210,13 +210,15 @@ fn rt_detrv2_post_process(
                 continue;
             }
 
-            let x_min = (((bbox[0] - pad_x) / scale).round() as usize);
+            let x_min = ((bbox[0] - pad_x) / scale).round() as usize;
 
-            let y_min = (((bbox[1] - pad_y) / scale).round() as usize);
+            let y_min = ((bbox[1] - pad_y) / scale).round() as usize;
 
-            let x_max = (((bbox[2] - pad_x) / scale).round() as usize).min(params.letterbox_transform.image_width);
+            let x_max = (((bbox[2] - pad_x) / scale).round() as usize)
+                .min(params.letterbox_transform.image_width);
 
-            let y_max = (((bbox[3] - pad_y) / scale).round() as usize).min(params.letterbox_transform.image_height);
+            let y_max = (((bbox[3] - pad_y) / scale).round() as usize)
+                .min(params.letterbox_transform.image_height);
 
             let prediction = Prediction {
                 x_min,
@@ -313,21 +315,21 @@ fn rf_detr_post_process(
         let height = model_h / scale;
 
         // Convert cxcywh -> xyxy
-        let x_min = ((center_x - width / 2.0).round() as usize).max(0);
+        let x_min = (center_x - width / 2.0).round() as usize;
 
-        let y_min = ((center_y - height / 2.0).round() as usize).max(0);
+        let y_min = (center_y - height / 2.0).round() as usize;
 
-        let x_max = ((center_x + width / 2.0) .round() as usize)
-            .min(params.letterbox_transform.image_width);
+        let x_max =
+            ((center_x + width / 2.0).round() as usize).min(params.letterbox_transform.image_width);
 
-        let y_max = ((center_y + height / 2.0) .round() as usize)
+        let y_max = ((center_y + height / 2.0).round() as usize)
             .min(params.letterbox_transform.image_height);
 
         let prediction = Prediction {
-            x_min: x_min,
-            x_max: x_max,
-            y_min: y_min,
-            y_max: y_max,
+            x_min,
+            x_max,
+            y_min,
+            y_max,
             confidence: *score,
             label: if *class_idx < params.object_classes.len() {
                 params.object_classes[*class_idx].clone()
@@ -355,9 +357,9 @@ fn rf_detr_post_process(
         );
         debug!(
             "  Model input: {}x{}, Original image: {:.0}x{:.0}",
-            params.input_width, 
-            params.input_height, 
-            params.letterbox_transform.image_width, 
+            params.input_width,
+            params.input_height,
+            params.letterbox_transform.image_width,
             params.letterbox_transform.image_height
         );
         debug!(
@@ -457,8 +459,8 @@ fn yolo5_post_process(
             let width = iter[2] / scale;
             let height = iter[3] / scale;
 
-            let x_min = ((x_center - width / 2.0).round() as usize).max(0);
-            let y_min = ((y_center - height / 2.0).round() as usize).max(0);
+            let x_min = (x_center - width / 2.0).round() as usize;
+            let y_min = (y_center - height / 2.0).round() as usize;
 
             let x_max = ((x_center + width / 2.0).round() as usize)
                 .min(params.letterbox_transform.image_width);
@@ -467,10 +469,10 @@ fn yolo5_post_process(
                 .min(params.letterbox_transform.image_height);
 
             let prediction = Prediction {
-                x_min: x_min,
-                y_min: y_min,
-                x_max: x_max,
-                y_max: y_max,
+                x_min,
+                y_min,
+                x_max,
+                y_max,
                 confidence: iter[4],
                 label: params.object_classes[class_idx].clone(),
             };

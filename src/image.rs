@@ -348,12 +348,11 @@ impl Resizer {
         // ---------------------------------------------
         // CASE 2: no padding -> direct resize
         // ---------------------------------------------
-        if pad_x == 0 
-            && pad_y == 0 
-            && resized_w == self.target_width 
+        if pad_x == 0
+            && pad_y == 0
+            && resized_w == self.target_width
             && resized_h == self.target_height
         {
-            
             debug!("No padding required, resizing directly into output buffer");
 
             let mut dst_image = fast_image_resize::images::Image::from_slice_u8(
