@@ -23,7 +23,7 @@ Current features:
 | Apple GPU / Neural Engine Inference         | ❌             | ❌           | 🟢          |
 | AMD GPU Inference                           | 🟢             | ❌           | ❌          |
 | Intel GPU Inference                         | 🟢             | 🟢 OpenVINO  | ❌          |
-| Nvidia GPU Inference                        | 🟢             | ❌           | ❌          |
+| Nvidia GPU Inference                        | 🟢             | 🟢 CUDA      | ❌          |
 | Coral TPU Inference                         | ❌             | ❌           | ❌          |
 
 
@@ -108,6 +108,21 @@ Open `http://localhost:32168/stats` and confirm that **Execution Provider** is
 If the container cannot open the render device, grant the container user access
 through the host's `render` group or adjust the device permissions. See
 [OPENVINO.md](OPENVINO.md) for implementation and deployment details.
+
+### NVIDIA GPU with CUDA
+
+The CUDA build uses ONNX Runtime's CUDA execution provider. It is separate from
+the default CPU image and requires the NVIDIA Container Toolkit.
+
+```bash
+docker pull ghcr.io/xnorpx/blue_onyx:latest-cuda
+docker run --rm --gpus all -p 32168:32168 \
+  ghcr.io/xnorpx/blue_onyx:latest-cuda
+```
+
+Open `http://localhost:32168/stats` and confirm that **Execution Provider** is
+`CUDA(GPU 0)`. See [CUDA.md](CUDA.md) for Compose, native-build, compatibility,
+source-build, and troubleshooting details.
 
 ## macOS on Apple Silicon
 

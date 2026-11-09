@@ -11,9 +11,11 @@ use crate::{
 use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use ndarray::{Array, ArrayView, Axis, s};
+#[cfg(all(target_os = "linux", feature = "cuda"))]
+use ort::ep::CUDA;
 #[cfg(windows)]
 use ort::ep::DirectML;
-#[cfg(all(target_os = "linux", feature = "openvino"))]
+#[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
 use ort::ep::OpenVINO;
 #[cfg(target_os = "macos")]
 use ort::ep::{CoreML, coreml::ModelFormat};
@@ -987,7 +989,25 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
             (1, 1)
         }
 
-        #[cfg(all(target_os = "linux", feature = "openvino"))]
+        #[cfg(all(target_os = "linux", feature = "cuda"))]
+        {
+            info!(
+                gpu_index = onnx_config.gpu_index,
+                "Configuring CUDA execution provider"
+            );
+            providers.push(
+                CUDA::default()
+                    .with_device_id(onnx_config.gpu_index)
+                    .build()
+                    .error_on_failure(),
+            );
+            device_type = DeviceType::GPU;
+            (1, 1)
+        }
+
+        // CUDA takes precedence when both Linux GPU features are enabled. There is
+        // currently only one GPU selection option in the public configuration.
+        #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
         {
             let device = format!("GPU.{}", onnx_config.gpu_index);
             info!(device, "Configuring OpenVINO GPU execution provider");
@@ -1008,6 +1028,7 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
         #[cfg(not(any(
             windows,
             target_os = "macos",
+            all(target_os = "linux", feature = "cuda"),
             all(target_os = "linux", feature = "openvino")
         )))]
         {
@@ -1064,7 +1085,9 @@ fn initialize_onnx(onnx_config: &OnnxConfig) -> InitializeOnnxResult {
         DeviceType::GPU => EndpointProvider::DirectML,
         #[cfg(target_os = "macos")]
         DeviceType::GPU => EndpointProvider::CoreML,
-        #[cfg(all(target_os = "linux", feature = "openvino"))]
+        #[cfg(all(target_os = "linux", feature = "cuda"))]
+        DeviceType::GPU => EndpointProvider::CUDA,
+        #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
         DeviceType::GPU => EndpointProvider::OpenVINO,
         _ => EndpointProvider::CPU,
     };
@@ -1085,7 +1108,9 @@ pub enum EndpointProvider {
     DirectML,
     #[cfg(target_os = "macos")]
     CoreML,
-    #[cfg(all(target_os = "linux", feature = "openvino"))]
+    #[cfg(all(target_os = "linux", feature = "cuda"))]
+    CUDA,
+    #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
     OpenVINO,
 }
 
@@ -1097,7 +1122,9 @@ impl std::fmt::Display for EndpointProvider {
             EndpointProvider::DirectML => write!(f, "DirectML"),
             #[cfg(target_os = "macos")]
             EndpointProvider::CoreML => write!(f, "CoreML"),
-            #[cfg(all(target_os = "linux", feature = "openvino"))]
+            #[cfg(all(target_os = "linux", feature = "cuda"))]
+            EndpointProvider::CUDA => write!(f, "CUDA"),
+            #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
             EndpointProvider::OpenVINO => write!(f, "OpenVINO"),
         }
     }
@@ -1126,6 +1153,8 @@ pub enum ExecutionProvider {
     DirectML(usize), // GPU index
     #[cfg(target_os = "macos")]
     CoreML,
-    #[cfg(all(target_os = "linux", feature = "openvino"))]
+    #[cfg(all(target_os = "linux", feature = "cuda"))]
+    CUDA(usize), // GPU index
+    #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
     OpenVINO(usize), // GPU index
 }

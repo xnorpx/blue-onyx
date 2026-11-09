@@ -100,6 +100,27 @@ jobs:
     - name: Check formatting
       run: cargo fmt --all --check
 
+  build-test-cuda-rust:
+    name: build-test-cuda-rust
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # master
+      with:
+        toolchain: stable
+    - name: Create ONNX Runtime compile-time stubs
+      run: |
+        mkdir -p /tmp/blue-onyx-ort-stubs
+        touch /tmp/blue-onyx-ort-stubs/libonnxruntime.so
+        touch /tmp/blue-onyx-ort-stubs/libonnxruntime_providers_shared.so
+        touch /tmp/blue-onyx-ort-stubs/libonnxruntime_providers_cuda.so
+    - name: Check CUDA feature
+      env:
+        BLUE_ONYX_ORT_LIB_DIR: /tmp/blue-onyx-ort-stubs
+      run: cargo check --locked --all-targets --features cuda
+
   clippy:
     runs-on: ubuntu-latest
     steps:

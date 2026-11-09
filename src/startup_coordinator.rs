@@ -76,7 +76,13 @@ fn startup_worker_thread(
                 {
                     ExecutionProvider::CoreML
                 }
-                #[cfg(all(target_os = "linux", feature = "openvino"))]
+                #[cfg(all(target_os = "linux", feature = "cuda"))]
+                {
+                    ExecutionProvider::CUDA(
+                        detector_config.object_detection_onnx_config.gpu_index as usize,
+                    )
+                }
+                #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
                 {
                     ExecutionProvider::OpenVINO(
                         detector_config.object_detection_onnx_config.gpu_index as usize,
@@ -85,6 +91,7 @@ fn startup_worker_thread(
                 #[cfg(not(any(
                     windows,
                     target_os = "macos",
+                    all(target_os = "linux", feature = "cuda"),
                     all(target_os = "linux", feature = "openvino")
                 )))]
                 {
