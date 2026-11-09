@@ -57,6 +57,9 @@ fn main() {
     };
 
     println!("cargo:rerun-if-env-changed=BLUE_ONYX_ORT_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=BLUE_ONYX_CUDA_ARCHITECTURES");
+    println!("cargo:rerun-if-env-changed=CUDA_HOME");
+    println!("cargo:rerun-if-env-changed=CUDNN_HOME");
     if let Ok(prebuilt_dir) = env::var("BLUE_ONYX_ORT_LIB_DIR") {
         let prebuilt_dir = Path::new(&prebuilt_dir);
         let library = prebuilt_dir.join(shared_lib_name);
@@ -64,7 +67,11 @@ fn main() {
             build_error!("Prebuilt ONNX Runtime library not found: {:?}", library);
             panic!("Prebuilt ONNX Runtime setup incomplete");
         }
-        if cfg!(all(target_os = "linux", feature = "openvino")) {
+        if cfg!(all(
+            target_os = "linux",
+            feature = "openvino",
+            not(feature = "cuda")
+        )) {
             for name in [
                 "libonnxruntime_providers_shared.so",
                 "libonnxruntime_providers_openvino.so",
@@ -72,6 +79,17 @@ fn main() {
                 if !prebuilt_dir.join(name).is_file() {
                     build_error!("Prebuilt ONNX Runtime provider library not found: {name}");
                     panic!("Prebuilt ONNX Runtime OpenVINO setup incomplete");
+                }
+            }
+        }
+        if cfg!(all(target_os = "linux", feature = "cuda")) {
+            for name in [
+                "libonnxruntime_providers_shared.so",
+                "libonnxruntime_providers_cuda.so",
+            ] {
+                if !prebuilt_dir.join(name).is_file() {
+                    build_error!("Prebuilt ONNX Runtime provider library not found: {name}");
+                    panic!("Prebuilt ONNX Runtime CUDA setup incomplete");
                 }
             }
         }
@@ -454,7 +472,11 @@ fn build_onnx(out_dir: &Path) {
         panic!("ONNX Runtime build script missing");
     }
 
-    if cfg!(all(target_os = "linux", feature = "openvino")) {
+    if cfg!(all(
+        target_os = "linux",
+        feature = "openvino",
+        not(feature = "cuda")
+    )) {
         patch_openvino_1_29_headers(&onnx_dir);
     }
 
@@ -469,12 +491,17 @@ fn build_onnx(out_dir: &Path) {
         "--skip_tests".to_string(),
         "--no_telemetry".to_string(),
         "--enable_lto".to_string(),
-        "--disable_contrib_ops".to_string(),
         "--cmake_extra_defines".to_string(),
         "onnxruntime_BUILD_UNIT_TESTS=OFF".to_string(),
         "CMAKE_POLICY_VERSION_MINIMUM=3.5".to_string(),
         "FETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER".to_string(),
     ];
+
+    // ONNX Runtime 1.29's CUDA LLM attention sources use definitions from
+    // contrib ops even in an inference-only build.
+    if !cfg!(all(target_os = "linux", feature = "cuda")) {
+        build_commands.push("--disable_contrib_ops".to_string());
+    }
 
     if cfg!(windows) {
         if let Ok(cmake_generator) = env::var("ONNX_CMAKE_GENERATOR")
@@ -493,6 +520,21 @@ fn build_onnx(out_dir: &Path) {
     } else if cfg!(target_os = "macos") {
         // Enable Core ML on macOS
         build_commands.push("--use_coreml".to_string());
+    } else if cfg!(all(target_os = "linux", feature = "cuda")) {
+        let cuda_home = env::var("CUDA_HOME").unwrap_or_else(|_| "/usr/local/cuda".to_string());
+        let cudnn_home = env::var("CUDNN_HOME").unwrap_or_else(|_| "/usr".to_string());
+        build_commands.extend([
+            "--use_cuda".to_string(),
+            "--cuda_home".to_string(),
+            cuda_home,
+            "--cudnn_home".to_string(),
+            cudnn_home,
+        ]);
+        if let Ok(architectures) = env::var("BLUE_ONYX_CUDA_ARCHITECTURES")
+            && !architectures.is_empty()
+        {
+            build_commands.push(format!("CMAKE_CUDA_ARCHITECTURES={architectures}"));
+        }
     } else if cfg!(all(target_os = "linux", feature = "openvino")) {
         build_commands.extend(["--use_openvino".to_string(), "GPU".to_string()]);
     }

@@ -913,7 +913,9 @@ impl Metrics {
             ExecutionProvider::DirectML(index) => format!("DirectML(GPU {index})"),
             #[cfg(target_os = "macos")]
             ExecutionProvider::CoreML => "CoreML".to_string(),
-            #[cfg(all(target_os = "linux", feature = "openvino"))]
+            #[cfg(all(target_os = "linux", feature = "cuda"))]
+            ExecutionProvider::CUDA(index) => format!("CUDA(GPU {index})"),
+            #[cfg(all(target_os = "linux", feature = "openvino", not(feature = "cuda")))]
             ExecutionProvider::OpenVINO(index) => format!("OpenVINO(GPU {index})"),
         };
     }

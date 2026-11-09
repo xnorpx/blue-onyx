@@ -9,6 +9,7 @@ homepage = "https://github.com/blue-onyx/blue-onyx"
 
 [features]
 default = []
+cuda = ["ort/cuda"]
 openvino = ["ort/openvino"]
 
 [dependencies]

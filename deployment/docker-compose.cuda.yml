@@ -1,0 +1,32 @@
+services:
+  blue-onyx:
+    build:
+      context: ..
+      dockerfile: Dockerfile.cuda
+    image: blue-onyx-cuda:0.8.0
+    container_name: blue-onyx-cuda
+    ports:
+      - "32168:32168"
+    volumes:
+      - ../config:/app/config
+      - ../logs:/app/logs
+    environment:
+      RUST_LOG: info
+    gpus:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+    command:
+      - --port
+      - "32168"
+      - --log-level
+      - info
+      - --log-path
+      - /app/logs
+      - --save-stats-path
+      - /app/logs
+      - --request-timeout
+      - "30"
+    restart: unless-stopped
+    healthcheck:
+      disable: true

@@ -167,23 +167,21 @@ docker run -p 32168:32168 \
 
 ## Advanced Configuration
 
-### GPU Support (Experimental)
+### NVIDIA GPU support with CUDA
 
-GPU support in Docker requires additional setup:
+The default image is CPU-only. Build the CUDA image after installing and
+configuring the NVIDIA Container Toolkit:
 
 ```bash
-# Install nvidia-docker2 (NVIDIA GPUs only)
-curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-sudo apt-get update && sudo apt-get install -y nvidia-docker2
-sudo systemctl restart docker
-
-# Run with GPU support
-docker run --gpus all -p 32168:32168 \
-  ghcr.io/xnorpx/blue_onyx:latest \
-  --gpu_index 0
+docker pull ghcr.io/xnorpx/blue_onyx:latest-cuda
+docker run --rm --gpus all -p 32168:32168 \
+  ghcr.io/xnorpx/blue_onyx:latest-cuda
 ```
+
+Open `http://localhost:32168/stats` and confirm that the execution provider is
+`CUDA(GPU 0)`. Use `--gpu-index N` to select a different GPU. See `CUDA.md` in
+the repository for native-build, Compose, compatibility, and troubleshooting
+details.
 
 ### Reverse Proxy with SSL
 
